@@ -53,6 +53,23 @@ config :tailwind,
     cd: Path.expand("../assets", __DIR__)
   ]
 
+# Add at the end of config/config.exs
+config :ueberauth, Ueberauth,
+  providers: [
+    google:
+      {Ueberauth.Strategy.Google,
+       [
+         default_scope:
+           "email profile https://www.googleapis.com/auth/gmail.modify https://www.googleapis.com/auth/calendar",
+         access_type: "offline",
+         prompt: "consent"
+       ]}
+  ]
+
+config :ueberauth, Ueberauth.Strategy.Google.OAuth,
+  client_id: System.get_env("GOOGLE_CLIENT_ID") || "placeholder",
+  client_secret: System.get_env("GOOGLE_CLIENT_SECRET") || "placeholder"
+
 # Configures Elixir's Logger
 config :logger, :console,
   format: "$time $metadata[$level] $message\n",
