@@ -1,15 +1,19 @@
 import Config
 
 if config_env() == :prod do
-  if database_url = System.get_env("DATABASE_URL") do
-    config :advisor_ai, AdvisorAi.Repo,
-      url: database_url,
-      pool_size: String.to_integer(System.get_env("POOL_SIZE") || "10"),
-      ssl: true,
-      ssl_opts: [verify: :verify_none],
-      socket_options: [:inet6],
-      extensions: [{Postgrex.Extensions.VectorType, []}]
-  end
+  database_url =
+    System.get_env("DATABASE_URL") ||
+      raise """
+      environment variable DATABASE_URL is missing.
+      For example: ecto://USER:PASS@HOST/DATABASE
+      """
+
+  config :advisor_ai, AdvisorAi.Repo,
+    ssl: true,
+    ssl_opts: [verify: :verify_none],
+    url: database_url,
+    pool_size: String.to_integer(System.get_env("POOL_SIZE") || "10"),
+    socket_options: if(System.get_env("ECTO_IPV6") in ~w(true 1), do: [:inet6], else: [])
 
   secret_key_base =
     System.get_env("SECRET_KEY_BASE") ||
