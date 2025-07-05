@@ -80,7 +80,8 @@ defmodule AdvisorAi.MixProject do
       # Dev/test tools
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
       {:sobelow, "~> 0.13", only: [:dev, :test], runtime: false},
-      {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false}
+      {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false},
+      {:dotenvy, "~> 0.8", only: [:dev, :test]}
     ]
   end
 
