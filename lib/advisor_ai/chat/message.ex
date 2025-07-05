@@ -6,7 +6,7 @@ defmodule AdvisorAi.Chat.Message do
   @foreign_key_type :binary_id
 
   schema "messages" do
-    field :role, :string
+    field :role, :string  # "user", "assistant", "system"
     field :content, :string
     field :tool_calls, :map
     field :metadata, :map, default: %{}
