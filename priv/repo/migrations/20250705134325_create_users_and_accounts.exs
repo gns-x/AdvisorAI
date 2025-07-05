@@ -41,7 +41,8 @@ defmodule AdvisorAi.Repo.Migrations.CreateUsersAndAccounts do
     create table(:vector_embeddings, primary_key: false) do
       add :id, :binary_id, primary_key: true
       add :user_id, references(:users, type: :binary_id, on_delete: :delete_all), null: false
-      add :source_type, :string, null: false # "email", "hubspot_contact", "hubspot_note"
+      # "email", "hubspot_contact", "hubspot_note"
+      add :source_type, :string, null: false
       add :source_id, :string, null: false
       add :content, :text, null: false
       add :embedding, :vector, size: 1536
@@ -52,6 +53,7 @@ defmodule AdvisorAi.Repo.Migrations.CreateUsersAndAccounts do
 
     create index(:vector_embeddings, [:user_id])
     create index(:vector_embeddings, [:source_type, :source_id])
+
     execute "CREATE INDEX vector_embeddings_embedding_idx ON vector_embeddings USING ivfflat (embedding vector_cosine_ops) WITH (lists = 100)",
             "DROP INDEX vector_embeddings_embedding_idx"
 
@@ -69,8 +71,12 @@ defmodule AdvisorAi.Repo.Migrations.CreateUsersAndAccounts do
 
     create table(:messages, primary_key: false) do
       add :id, :binary_id, primary_key: true
-      add :conversation_id, references(:conversations, type: :binary_id, on_delete: :delete_all), null: false
-      add :role, :string, null: false # "user", "assistant", "system"
+
+      add :conversation_id, references(:conversations, type: :binary_id, on_delete: :delete_all),
+        null: false
+
+      # "user", "assistant", "system"
+      add :role, :string, null: false
       add :content, :text, null: false
       add :tool_calls, :map
       add :metadata, :map, default: %{}
@@ -105,7 +111,8 @@ defmodule AdvisorAi.Repo.Migrations.CreateUsersAndAccounts do
       add :user_id, references(:users, type: :binary_id, on_delete: :delete_all), null: false
       add :instruction, :text, null: false
       add :is_active, :boolean, default: true
-      add :trigger_type, :string # "email_received", "calendar_event", "hubspot_update", etc.
+      # "email_received", "calendar_event", "hubspot_update", etc.
+      add :trigger_type, :string
       add :conditions, :map, default: %{}
 
       timestamps()

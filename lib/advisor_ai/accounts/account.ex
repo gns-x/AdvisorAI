@@ -21,8 +21,16 @@ defmodule AdvisorAi.Accounts.Account do
 
   def changeset(account, attrs) do
     account
-    |> cast(attrs, [:provider, :provider_id, :access_token, :refresh_token,
-                    :token_expires_at, :scopes, :raw_data, :user_id])
+    |> cast(attrs, [
+      :provider,
+      :provider_id,
+      :access_token,
+      :refresh_token,
+      :token_expires_at,
+      :scopes,
+      :raw_data,
+      :user_id
+    ])
     |> validate_required([:provider, :provider_id, :user_id])
     |> unique_constraint([:provider, :provider_id])
   end

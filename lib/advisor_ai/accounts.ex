@@ -5,6 +5,29 @@ defmodule AdvisorAi.Accounts do
   import Ecto.Query
   alias AdvisorAi.Repo
   alias AdvisorAi.Accounts.{User, Account}
+  alias AdvisorAi.Accounts.UserToken
+
+  @session_validity_in_days 60
+
+  def generate_user_session_token(user) do
+    {token, user_token} = UserToken.build_session_token(user)
+    Repo.insert!(user_token)
+    token
+  end
+
+  def get_user_by_session_token(token) do
+    with {:ok, query} <- UserToken.verify_session_token_query(token),
+         %UserToken{} = user_token <- Repo.one(query) do
+      user_token.user
+    else
+      _ -> nil
+    end
+  end
+
+  def delete_user_session_token(token) do
+    Repo.delete_all(UserToken.token_query(token))
+    :ok
+  end
 
   def get_user!(id), do: Repo.get!(User, id)
 
