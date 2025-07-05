@@ -1,6 +1,8 @@
 defmodule AdvisorAiWeb.Router do
   use AdvisorAiWeb, :router
 
+  import AdvisorAiWeb.UserAuth
+
   pipeline :browser do
     plug :accepts, ["html"]
     plug :fetch_session
@@ -8,30 +10,53 @@ defmodule AdvisorAiWeb.Router do
     plug :put_root_layout, html: {AdvisorAiWeb.Layouts, :root}
     plug :protect_from_forgery
     plug :put_secure_browser_headers
+    plug :fetch_current_user
   end
 
   pipeline :api do
     plug :accepts, ["json"]
   end
 
+  # Public routes
   scope "/", AdvisorAiWeb do
-    pipe_through :browser
+    pipe_through [:browser, :redirect_if_user_is_authenticated]
 
     get "/", PageController, :home
   end
 
-  # Other scopes may use custom stacks.
-  # scope "/api", AdvisorAiWeb do
-  #   pipe_through :api
-  # end
+  # Authentication routes
+  scope "/auth", AdvisorAiWeb do
+    pipe_through [:browser, :redirect_if_user_is_authenticated]
 
-  # Enable LiveDashboard and Swoosh mailbox preview in development
+    get "/:provider", AuthController, :request
+    get "/:provider/callback", AuthController, :callback
+  end
+
+  # Protected routes
+  scope "/", AdvisorAiWeb do
+    pipe_through [:browser, :require_authenticated_user]
+
+    live "/chat", ChatLive.Index, :index
+    live "/chat/:id", ChatLive.Show, :show
+
+    delete "/auth/logout", AuthController, :delete
+
+    # Settings routes
+    live "/settings", SettingsLive.Index, :index
+    live "/settings/integrations", SettingsLive.Integrations, :index
+  end
+
+  # API routes (for webhooks and integrations)
+  scope "/api", AdvisorAiWeb do
+    pipe_through :api
+
+    post "/webhooks/gmail", WebhookController, :gmail
+    post "/webhooks/calendar", WebhookController, :calendar
+    post "/webhooks/hubspot", WebhookController, :hubspot
+  end
+
+  # Enable LiveDashboard in development
   if Application.compile_env(:advisor_ai, :dev_routes) do
-    # If you want to use the LiveDashboard in production, you should put
-    # it behind authentication and allow only admins to access it.
-    # If your application does not have an admins-only section yet,
-    # you can use Plug.BasicAuth to set up some basic authentication
-    # as long as you are also using SSL (which you should anyway).
     import Phoenix.LiveDashboard.Router
 
     scope "/dev" do
