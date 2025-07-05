@@ -44,7 +44,7 @@ defmodule AdvisorAi.MixProject do
       {:phoenix_live_dashboard, "~> 0.8.4"},
       {:esbuild, "~> 0.8", runtime: Mix.env() == :dev},
       {:tailwind, "~> 0.2", runtime: Mix.env() == :dev},
-      {:heroicons, "~> 0.5"},
+      # {:heroicons, "~> 0.5"},
       {:swoosh, "~> 1.16"},
       {:finch, "~> 0.18"},
       {:telemetry_metrics, "~> 1.0"},
@@ -81,7 +81,7 @@ defmodule AdvisorAi.MixProject do
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
       {:sobelow, "~> 0.13", only: [:dev, :test], runtime: false},
       {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false},
-      {:dotenvy, "~> 0.8", only: [:dev, :test]}
+      {:dotenvy, "~> 0.9.0"}
     ]
   end
 

@@ -1,5 +1,37 @@
 import Config
 
+# Development environment - load .env file
+if config_env() == :dev && File.exists?(".env") do
+  File.read!(".env")
+  |> String.split("\n")
+  |> Enum.reject(&(&1 == "" || String.starts_with?(&1, "#")))
+  |> Enum.each(fn line ->
+    case String.split(line, "=", parts: 2) do
+      [key, value] -> System.put_env(String.trim(key), String.trim(value))
+      _ -> nil
+    end
+  end)
+end
+
+# Configure OAuth for both dev and prod
+if config_env() in [:dev, :prod] do
+  config :ueberauth, Ueberauth.Strategy.Google.OAuth,
+    client_id: System.get_env("GOOGLE_CLIENT_ID"),
+    client_secret: System.get_env("GOOGLE_CLIENT_SECRET")
+
+  # OpenAI Config
+  config :advisor_ai, :openai,
+    api_key: System.get_env("OPENAI_API_KEY"),
+    model: System.get_env("OPENAI_MODEL") || "gpt-4-turbo-preview"
+
+  # HubSpot Config
+  config :advisor_ai, :hubspot,
+    client_id: System.get_env("HUBSPOT_CLIENT_ID"),
+    client_secret: System.get_env("HUBSPOT_CLIENT_SECRET"),
+    redirect_uri: System.get_env("HUBSPOT_REDIRECT_URI")
+end
+
+# Production specific config
 if config_env() == :prod do
   database_url =
     System.get_env("DATABASE_URL") ||
@@ -29,20 +61,4 @@ if config_env() == :prod do
       port: String.to_integer(System.get_env("PORT") || "4000")
     ],
     secret_key_base: secret_key_base
-
-  # Google OAuth Config
-  config :ueberauth, Ueberauth.Strategy.Google.OAuth,
-    client_id: System.get_env("GOOGLE_CLIENT_ID"),
-    client_secret: System.get_env("GOOGLE_CLIENT_SECRET")
-
-  # OpenAI Config
-  config :advisor_ai, :openai,
-    api_key: System.get_env("OPENAI_API_KEY"),
-    model: System.get_env("OPENAI_MODEL") || "gpt-4-turbo-preview"
-
-  # HubSpot Config
-  config :advisor_ai, :hubspot,
-    client_id: System.get_env("HUBSPOT_CLIENT_ID"),
-    client_secret: System.get_env("HUBSPOT_CLIENT_SECRET"),
-    redirect_uri: System.get_env("HUBSPOT_REDIRECT_URI")
 end
