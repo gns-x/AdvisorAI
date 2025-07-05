@@ -1,19 +1,14 @@
 import Config
 
 # Configure your database
-if File.exists?(".env") do
-  Dotenvy.load!([".env"])
-end
-# Configure your database
 config :advisor_ai, AdvisorAi.Repo,
-  url: System.get_env("DATABASE_URL"),
-  pool_size: 10,
-  ssl: true,
-  ssl_opts: [
-    verify: :verify_none
-  ],
-  socket_options: [:inet6],
+  username: "postgres",
+  password: "postgres",
+  hostname: "localhost",
+  database: "advisor_ai_dev",
+  stacktrace: true,
   show_sensitive_data_on_connection_error: true,
+  pool_size: 10,
   extensions: [{Postgrex.Extensions.VectorType, []}]
 
 # For development, we disable any cache and enable
