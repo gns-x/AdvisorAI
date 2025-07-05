@@ -1,5 +1,9 @@
 import Config
 
+# Load environment variables from .env file in development
+if File.exists?(".env") do
+  Dotenvy.source!([".env"])
+end
 # Configure your database
 config :advisor_ai, AdvisorAi.Repo,
   username: "postgres",
