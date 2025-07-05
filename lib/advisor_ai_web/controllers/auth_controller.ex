@@ -18,7 +18,8 @@ defmodule AdvisorAiWeb.AuthController do
       provider_id: auth.uid,
       access_token: auth.credentials.token,
       refresh_token: auth.credentials.refresh_token,
-      token_expires_at: auth.credentials.expires_at && DateTime.from_unix!(auth.credentials.expires_at),
+      token_expires_at:
+        auth.credentials.expires_at && DateTime.from_unix!(auth.credentials.expires_at),
       scopes: auth.credentials.scopes || [],
       raw_data: auth.extra.raw_info
     }
