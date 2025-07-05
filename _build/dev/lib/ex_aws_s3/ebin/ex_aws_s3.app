@@ -1,0 +1,13 @@
+{application,ex_aws_s3,
+             [{modules,['Elixir.ExAws.Operation.ExAws.Operation.S3DeleteAllObjects',
+                        'Elixir.ExAws.Operation.ExAws.S3.Download',
+                        'Elixir.ExAws.Operation.ExAws.S3.Upload',
+                        'Elixir.ExAws.Operation.S3DeleteAllObjects',
+                        'Elixir.ExAws.S3','Elixir.ExAws.S3.Download',
+                        'Elixir.ExAws.S3.Lazy','Elixir.ExAws.S3.Parsers',
+                        'Elixir.ExAws.S3.Upload','Elixir.ExAws.S3.Utils']},
+              {optional_applications,[sweet_xml]},
+              {applications,[kernel,stdlib,elixir,logger,sweet_xml,ex_aws]},
+              {description,"ex_aws_s3"},
+              {registered,[]},
+              {vsn,"2.5.7"}]}.
