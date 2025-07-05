@@ -1,9 +1,15 @@
 import Config
 
-# Load environment variables from .env file in development
 if File.exists?(".env") do
-  Dotenvy.source!([".env"])
+  File.read!(".env")
+  |> String.split("\n")
+  |> Enum.reject(&(&1 == "" || String.starts_with?(&1, "#")))
+  |> Enum.each(fn line ->
+    [key, value] = String.split(line, "=", parts: 2)
+    System.put_env(String.trim(key), String.trim(value))
+  end)
 end
+
 # Configure your database
 config :advisor_ai, AdvisorAi.Repo,
   username: "postgres",

@@ -18,10 +18,13 @@ defmodule AdvisorAiWeb.AuthController do
       provider_id: auth.uid,
       access_token: auth.credentials.token,
       refresh_token: auth.credentials.refresh_token,
-      token_expires_at:
-        auth.credentials.expires_at && DateTime.from_unix!(auth.credentials.expires_at),
-      scopes: auth.credentials.scopes || [],
-      raw_data: auth.extra.raw_info
+      token_expires_at: auth.credentials.expires_at && DateTime.from_unix!(auth.credentials.expires_at),
+      scopes: Map.get(auth.credentials.other, :scope, "") |> String.split(" ", trim: true),
+      raw_data: %{
+        "info" => Map.from_struct(auth.info),
+        "uid" => auth.uid,
+        "provider" => to_string(auth.provider)
+      }
     }
 
     case Accounts.get_or_create_user(user_params) do
@@ -31,7 +34,7 @@ defmodule AdvisorAiWeb.AuthController do
         conn
         |> UserAuth.log_in_user(user)
         |> put_flash(:info, "Welcome #{user.name}!")
-        |> redirect(to: ~p"/")
+        |> redirect(to: ~p"/chat")
 
       {:error, _changeset} ->
         conn

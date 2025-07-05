@@ -55,6 +55,8 @@ defmodule AdvisorAiWeb do
       use Phoenix.LiveView,
         layout: {AdvisorAiWeb.Layouts, :app}
 
+      on_mount AdvisorAiWeb.UserLiveAuth
+
       unquote(html_helpers())
     end
   end
