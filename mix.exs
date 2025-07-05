@@ -33,31 +33,54 @@ defmodule AdvisorAi.MixProject do
   defp deps do
     [
       {:phoenix, "~> 1.7.21"},
-      {:phoenix_ecto, "~> 4.5"},
-      {:ecto_sql, "~> 3.10"},
-      {:postgrex, ">= 0.0.0"},
+      {:phoenix_ecto, "~> 4.6.5"},
+      {:ecto_sql, "~> 3.11"},
+      {:postgrex, "~> 0.18"},
       {:phoenix_html, "~> 4.1"},
-      {:phoenix_live_reload, "~> 1.2", only: :dev},
+      # keep your existing version
+      {:phoenix_live_reload, "~> 1.5", only: :dev},
       {:phoenix_live_view, "~> 1.0"},
-      {:floki, ">= 0.30.0", only: :test},
-      {:phoenix_live_dashboard, "~> 0.8.3"},
+      {:floki, ">= 0.36.0", only: :test},
+      {:phoenix_live_dashboard, "~> 0.8.4"},
       {:esbuild, "~> 0.8", runtime: Mix.env() == :dev},
-      {:tailwind, "~> 0.2.0", runtime: Mix.env() == :dev},
-      {:heroicons,
-       github: "tailwindlabs/heroicons",
-       tag: "v2.1.1",
-       sparse: "optimized",
-       app: false,
-       compile: false,
-       depth: 1},
-      {:swoosh, "~> 1.5"},
-      {:finch, "~> 0.13"},
+      {:tailwind, "~> 0.2", runtime: Mix.env() == :dev},
+      {:heroicons, "~> 0.5"},
+      {:swoosh, "~> 1.16"},
+      {:finch, "~> 0.18"},
       {:telemetry_metrics, "~> 1.0"},
-      {:telemetry_poller, "~> 1.0"},
-      {:gettext, "~> 0.26"},
-      {:jason, "~> 1.2"},
-      {:dns_cluster, "~> 0.1.1"},
-      {:bandit, "~> 1.5"}
+      {:telemetry_poller, "~> 1.1"},
+      {:gettext, "~> 0.24"},
+      {:jason, "~> 1.4"},
+      {:dns_cluster, "~> 0.1.3"},
+      {:bandit, "~> 1.5"},
+
+      # Authentication / API
+      {:ueberauth, "~> 0.10"},
+      {:ueberauth_google, "~> 0.12"},
+      {:tesla, "~> 1.9"},
+      {:hackney, "~> 1.20"},
+
+      # Background jobs & AWS
+      {:oban, "~> 2.17"},
+      {:ex_aws, "~> 2.5"},
+      {:ex_aws_s3, "~> 2.5"},
+
+      # Vectors & Requests
+      {:pgvector, "~> 0.2.1"},
+      {:req, "~> 0.5"},
+      {:cors_plug, "~> 3.0"},
+
+      # Testing/misc
+      {:ex_machina, "~> 2.8", only: :test},
+      {:uuid, "~> 1.1"},
+      {:timex, "~> 3.7"},
+      {:decorator, "~> 1.4"},
+      {:prom_ex, "~> 1.9"},
+
+      # Dev/test tools
+      {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
+      {:sobelow, "~> 0.13", only: [:dev, :test], runtime: false},
+      {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false}
     ]
   end
 
