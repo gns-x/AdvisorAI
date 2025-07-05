@@ -6,7 +6,6 @@ defmodule AdvisorAi.Accounts.UserToken do
   @primary_key {:id, :binary_id, autogenerate: true}
   @foreign_key_type :binary_id
 
-  @hash_algorithm :sha256
   @rand_size 32
 
   # It is very important to keep the session validity period very short

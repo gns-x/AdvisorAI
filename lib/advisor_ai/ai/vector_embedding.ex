@@ -6,7 +6,7 @@ defmodule AdvisorAi.AI.VectorEmbedding do
   @foreign_key_type :binary_id
 
   schema "vector_embeddings" do
-    field :source_type, :string
+    field :source_type, :string  # "email", "hubspot_contact", "hubspot_note"
     field :source_id, :string
     field :content, :string
     field :embedding, Pgvector.Ecto.Vector
@@ -17,15 +17,9 @@ defmodule AdvisorAi.AI.VectorEmbedding do
     timestamps()
   end
 
-  def changeset(embedding, attrs) do
-    embedding
+  def changeset(vector_embedding, attrs) do
+    vector_embedding
     |> cast(attrs, [:source_type, :source_id, :content, :embedding, :metadata, :user_id])
     |> validate_required([:source_type, :source_id, :content, :user_id])
-    |> validate_inclusion(:source_type, [
-      "email",
-      "hubspot_contact",
-      "hubspot_note",
-      "calendar_event"
-    ])
   end
 end

@@ -20,9 +20,17 @@ if config_env() in [:dev, :prod] do
     client_secret: System.get_env("GOOGLE_CLIENT_SECRET")
 
   # OpenAI Config
-  config :advisor_ai, :openai,
+  config :openai,
     api_key: System.get_env("OPENAI_API_KEY"),
-    model: System.get_env("OPENAI_MODEL") || "gpt-4-turbo-preview"
+    organization_key: System.get_env("OPENAI_ORG_KEY"),
+    http_options: [
+      timeout: 60_000,
+      recv_timeout: 60_000
+    ]
+
+  # Default model configuration
+  config :advisor_ai, :openai,
+    default_model: System.get_env("OPENAI_MODEL") || "gpt-3.5-turbo"
 
   # HubSpot Config
   config :advisor_ai, :hubspot,

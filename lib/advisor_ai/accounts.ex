@@ -2,12 +2,9 @@ defmodule AdvisorAi.Accounts do
   @moduledoc """
   The Accounts context.
   """
-  import Ecto.Query
   alias AdvisorAi.Repo
   alias AdvisorAi.Accounts.{User, Account}
   alias AdvisorAi.Accounts.UserToken
-
-  @session_validity_in_days 60
 
   def generate_user_session_token(user) do
     {token, user_token} = UserToken.build_session_token(user)
