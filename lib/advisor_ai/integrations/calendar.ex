@@ -247,10 +247,10 @@ defmodule AdvisorAi.Integrations.Calendar do
     end
   end
 
-  def delete_event(user, event_id) do
+  def delete_event(user, event_id, calendar_id \\ "primary") do
     case get_access_token(user) do
       {:ok, access_token} ->
-        url = "#{@calendar_api_url}/calendars/primary/events/#{event_id}"
+        url = "#{@calendar_api_url}/calendars/#{calendar_id}/events/#{event_id}"
 
         case HTTPoison.delete(url, [
                {"Authorization", "Bearer #{access_token}"}
@@ -263,6 +263,138 @@ defmodule AdvisorAi.Integrations.Calendar do
             })
 
             {:ok, "Event deleted successfully"}
+
+          {:ok, %{status_code: status_code}} ->
+            {:error, "Calendar API error: #{status_code}"}
+
+          {:error, reason} ->
+            {:error, "HTTP error: #{reason}"}
+        end
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+  @doc """
+  List calendar events with flexible parameters.
+  """
+  def list_events(user, opts \\ []) do
+    calendar_id = Keyword.get(opts, :calendar_id, "primary")
+    time_min = Keyword.get(opts, :time_min)
+    time_max = Keyword.get(opts, :time_max)
+    max_results = Keyword.get(opts, :max_results, 10)
+    q = Keyword.get(opts, :q)
+
+    case get_access_token(user) do
+      {:ok, access_token} ->
+        url = "#{@calendar_api_url}/calendars/#{calendar_id}/events"
+
+        params = %{
+          maxResults: max_results,
+          singleEvents: true,
+          orderBy: "startTime"
+        }
+
+        params = if time_min, do: Map.put(params, :timeMin, time_min), else: params
+        params = if time_max, do: Map.put(params, :timeMax, time_max), else: params
+        params = if q, do: Map.put(params, :q, q), else: params
+
+        case HTTPoison.get(url, [
+          {"Authorization", "Bearer #{access_token}"},
+          {"Content-Type", "application/json"}
+        ], params: params) do
+          {:ok, %{status_code: 200, body: body}} ->
+            case Jason.decode(body) do
+              {:ok, %{"items" => events}} ->
+                {:ok, events}
+              {:ok, _} ->
+                {:ok, []}
+              {:error, reason} ->
+                {:error, "Failed to parse events: #{reason}"}
+            end
+
+          {:ok, %{status_code: status_code}} ->
+            {:error, "Calendar API error: #{status_code}"}
+
+          {:error, reason} ->
+            {:error, "HTTP error: #{reason}"}
+        end
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+  @doc """
+  Update a calendar event with full event data.
+  """
+  def update_event(user, event_id, event_data, calendar_id \\ "primary") do
+    case get_access_token(user) do
+      {:ok, access_token} ->
+        url = "#{@calendar_api_url}/calendars/#{calendar_id}/events/#{event_id}"
+
+        event = %{
+          summary: event_data["summary"],
+          description: event_data["description"],
+          start: %{
+            dateTime: event_data["start_time"],
+            timeZone: "UTC"
+          },
+          end: %{
+            dateTime: event_data["end_time"],
+            timeZone: "UTC"
+          },
+          attendees: Enum.map(event_data["attendees"] || [], fn email ->
+            %{email: email}
+          end)
+        }
+
+        case HTTPoison.put(url, Jason.encode!(event), [
+          {"Authorization", "Bearer #{access_token}"},
+          {"Content-Type", "application/json"}
+        ]) do
+          {:ok, %{status_code: 200, body: body}} ->
+            case Jason.decode(body) do
+              {:ok, updated_event} ->
+                {:ok, updated_event}
+              {:error, reason} ->
+                {:error, "Failed to parse updated event: #{reason}"}
+            end
+
+          {:ok, %{status_code: status_code}} ->
+            {:error, "Calendar API error: #{status_code}"}
+
+          {:error, reason} ->
+            {:error, "HTTP error: #{reason}"}
+        end
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+  @doc """
+  List available calendars.
+  """
+  def list_calendars(user) do
+    case get_access_token(user) do
+      {:ok, access_token} ->
+        url = "#{@calendar_api_url}/users/me/calendarList"
+
+        case HTTPoison.get(url, [
+          {"Authorization", "Bearer #{access_token}"},
+          {"Content-Type", "application/json"}
+        ]) do
+          {:ok, %{status_code: 200, body: body}} ->
+            case Jason.decode(body) do
+              {:ok, %{"items" => calendars}} ->
+                {:ok, calendars}
+              {:ok, _} ->
+                {:ok, []}
+              {:error, reason} ->
+                {:error, "Failed to parse calendars: #{reason}"}
+            end
 
           {:ok, %{status_code: status_code}} ->
             {:error, "Calendar API error: #{status_code}"}

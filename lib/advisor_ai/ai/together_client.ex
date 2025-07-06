@@ -11,6 +11,8 @@ defmodule AdvisorAi.AI.TogetherClient do
   def chat_completion(opts) do
     model = Keyword.get(opts, :model, "meta-llama/Llama-3.3-70B-Instruct-Turbo-Free")
     messages = Keyword.get(opts, :messages, [])
+    functions = Keyword.get(opts, :functions, [])
+    function_call = Keyword.get(opts, :function_call, nil)
     tools = Keyword.get(opts, :tools, [])
     temperature = Keyword.get(opts, :temperature, 0.7)
     max_tokens = Keyword.get(opts, :max_tokens, 1000)
@@ -30,7 +32,16 @@ defmodule AdvisorAi.AI.TogetherClient do
         stream: false
       }
 
-      # Add tools if provided
+      # Add functions if provided (OpenAI function calling)
+      request_body = if length(functions) > 0 do
+        request_body
+        |> Map.put(:functions, functions)
+        |> Map.put(:function_call, function_call || "auto")
+      else
+        request_body
+      end
+
+      # Add tools if provided (OpenAI tool calling)
       request_body = if length(tools) > 0 do
         Map.put(request_body, :tools, tools)
       else

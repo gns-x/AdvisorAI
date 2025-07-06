@@ -105,6 +105,135 @@ defmodule AdvisorAi.Integrations.Gmail do
     end
   end
 
+  @doc """
+  Delete a Gmail message (moves to trash).
+  """
+  def delete_message(user, message_id) do
+    case get_access_token(user) do
+      {:ok, access_token} ->
+        url = "#{@gmail_api_url}/messages/#{message_id}/trash"
+
+        case HTTPoison.post(url, "", [
+          {"Authorization", "Bearer #{access_token}"},
+          {"Content-Type", "application/json"}
+        ]) do
+          {:ok, %{status_code: 200}} ->
+            {:ok, "Message moved to trash"}
+
+          {:ok, %{status_code: status_code}} ->
+            {:error, "Gmail API error: #{status_code}"}
+
+          {:error, reason} ->
+            {:error, "HTTP error: #{reason}"}
+        end
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+  @doc """
+  Modify Gmail message labels (mark as read/unread, add/remove labels).
+  """
+  def modify_message(user, message_id, add_label_ids \\ [], remove_label_ids \\ []) do
+    case get_access_token(user) do
+      {:ok, access_token} ->
+        url = "#{@gmail_api_url}/messages/#{message_id}/modify"
+
+        request_body = %{
+          addLabelIds: add_label_ids,
+          removeLabelIds: remove_label_ids
+        }
+
+        case HTTPoison.post(url, Jason.encode!(request_body), [
+          {"Authorization", "Bearer #{access_token}"},
+          {"Content-Type", "application/json"}
+        ]) do
+          {:ok, %{status_code: 200}} ->
+            {:ok, "Message labels updated"}
+
+          {:ok, %{status_code: status_code}} ->
+            {:error, "Gmail API error: #{status_code}"}
+
+          {:error, reason} ->
+            {:error, "HTTP error: #{reason}"}
+        end
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+  @doc """
+  Create a draft email.
+  """
+  def create_draft(user, to, subject, body) do
+    case get_access_token(user) do
+      {:ok, access_token} ->
+        # Create email message
+        email_content = create_email_message(user.email, to, subject, body)
+        encoded_email = Base.encode64(email_content)
+
+        url = "#{@gmail_api_url}/drafts"
+
+        request_body = %{
+          message: %{
+            raw: encoded_email
+          }
+        }
+
+        case HTTPoison.post(url, Jason.encode!(request_body), [
+          {"Authorization", "Bearer #{access_token}"},
+          {"Content-Type", "application/json"}
+        ]) do
+          {:ok, %{status_code: 200}} ->
+            {:ok, "Draft created successfully"}
+
+          {:ok, %{status_code: status_code}} ->
+            {:error, "Gmail API error: #{status_code}"}
+
+          {:error, reason} ->
+            {:error, "HTTP error: #{reason}"}
+        end
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+  @doc """
+  Get Gmail profile information.
+  """
+  def get_profile(user) do
+    case get_access_token(user) do
+      {:ok, access_token} ->
+        url = "#{@gmail_api_url}/profile"
+
+        case HTTPoison.get(url, [
+          {"Authorization", "Bearer #{access_token}"},
+          {"Content-Type", "application/json"}
+        ]) do
+          {:ok, %{status_code: 200, body: body}} ->
+            case Jason.decode(body) do
+              {:ok, profile} ->
+                {:ok, profile}
+
+              {:error, reason} ->
+                {:error, "Failed to parse profile: #{reason}"}
+            end
+
+          {:ok, %{status_code: status_code}} ->
+            {:error, "Gmail API error: #{status_code}"}
+
+          {:error, reason} ->
+            {:error, "HTTP error: #{reason}"}
+        end
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
   def send_email(user, to, subject, body) do
     case get_access_token(user) do
       {:ok, access_token} ->
