@@ -1,7 +1,7 @@
 defmodule AdvisorAi.Integrations.GoogleAuth do
   @moduledoc """
   Google OAuth authentication and token management.
-  Handles access tokens for all Google services including Gmail, Calendar, Contacts, Drive, etc.
+  Handles access tokens for Google services including Gmail and Calendar.
   """
 
   alias AdvisorAi.Accounts
@@ -85,21 +85,17 @@ defmodule AdvisorAi.Integrations.GoogleAuth do
   end
 
   @doc """
-  Get comprehensive user information from all connected Google services.
+  Get comprehensive user information from connected Google services.
   """
   def get_comprehensive_user_info(user) do
     case get_access_token(user) do
       {:ok, access_token} ->
         with {:ok, profile} <- do_get_user_profile(access_token),
-             {:ok, contacts_count} <- get_contacts_count(access_token),
              {:ok, calendar_count} <- get_calendar_count(access_token),
-             {:ok, drive_info} <- get_drive_info(access_token),
              {:ok, gmail_info} <- get_gmail_info(access_token) do
           {:ok, %{
             profile: profile,
-            contacts_count: contacts_count,
             calendar_count: calendar_count,
-            drive_info: drive_info,
             gmail_info: gmail_info
           }}
         end
@@ -207,8 +203,6 @@ defmodule AdvisorAi.Integrations.GoogleAuth do
     case service do
       "gmail" -> check_gmail_access(access_token)
       "calendar" -> check_calendar_access(access_token)
-      "contacts" -> check_contacts_access(access_token)
-      "drive" -> check_drive_access(access_token)
       _ -> {:error, "Unknown service: #{service}"}
     end
   end
@@ -255,68 +249,9 @@ defmodule AdvisorAi.Integrations.GoogleAuth do
     end
   end
 
-  defp check_contacts_access(access_token) do
-    url = "https://people.googleapis.com/v1/people/me/connections?pageSize=1"
 
-    case HTTPoison.get(url, [
-           {"Authorization", "Bearer #{access_token}"},
-           {"Content-Type", "application/json"}
-         ]) do
-      {:ok, %{status_code: 200}} ->
-        {:ok, "Contacts access confirmed"}
 
-      {:ok, %{status_code: 401}} ->
-        {:error, "Contacts access denied"}
 
-      {:ok, %{status_code: status_code}} ->
-        {:error, "Contacts API error: #{status_code}"}
-
-      {:error, reason} ->
-        {:error, "HTTP error checking Contacts: #{inspect(reason)}"}
-    end
-  end
-
-  defp check_drive_access(access_token) do
-    url = "https://www.googleapis.com/drive/v3/files?pageSize=1"
-
-    case HTTPoison.get(url, [
-           {"Authorization", "Bearer #{access_token}"},
-           {"Content-Type", "application/json"}
-         ]) do
-      {:ok, %{status_code: 200}} ->
-        {:ok, "Drive access confirmed"}
-
-      {:ok, %{status_code: 401}} ->
-        {:error, "Drive access denied"}
-
-      {:ok, %{status_code: status_code}} ->
-        {:error, "Drive API error: #{status_code}"}
-
-      {:error, reason} ->
-        {:error, "HTTP error checking Drive: #{inspect(reason)}"}
-    end
-  end
-
-  defp get_contacts_count(access_token) do
-    url = "https://people.googleapis.com/v1/people/me/connections?pageSize=1"
-
-    case HTTPoison.get(url, [
-           {"Authorization", "Bearer #{access_token}"},
-           {"Content-Type", "application/json"}
-         ]) do
-      {:ok, %{status_code: 200, body: body}} ->
-        case Jason.decode(body) do
-          {:ok, %{"totalItems" => total_items}} ->
-            {:ok, total_items}
-
-          _ ->
-            {:ok, "Unknown"}
-        end
-
-      _ ->
-        {:ok, "Unable to retrieve"}
-    end
-  end
 
   defp get_calendar_count(access_token) do
     url = "https://www.googleapis.com/calendar/v3/users/me/calendarList?maxResults=1"
@@ -339,30 +274,7 @@ defmodule AdvisorAi.Integrations.GoogleAuth do
     end
   end
 
-  defp get_drive_info(access_token) do
-    url = "https://www.googleapis.com/drive/v3/about?fields=storageQuota"
 
-    case HTTPoison.get(url, [
-           {"Authorization", "Bearer #{access_token}"},
-           {"Content-Type", "application/json"}
-         ]) do
-      {:ok, %{status_code: 200, body: body}} ->
-        case Jason.decode(body) do
-          {:ok, %{"storageQuota" => quota}} ->
-            {:ok, %{
-              total: quota["limit"],
-              used: quota["usage"],
-              available: quota["limit"] - quota["usage"]
-            }}
-
-          _ ->
-            {:ok, "Unable to retrieve storage info"}
-        end
-
-      _ ->
-        {:ok, "Unable to retrieve"}
-    end
-  end
 
   defp get_gmail_info(access_token) do
     url = "https://gmail.googleapis.com/gmail/v1/users/me/profile"
