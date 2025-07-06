@@ -350,155 +350,55 @@ defmodule AdvisorAi.Integrations.Gmail do
   end
 
   def find_contact_by_name(user, name) do
-    # Try Google Contacts first (most comprehensive)
-    case AdvisorAi.Integrations.GoogleContacts.search_contacts(user, name) do
-      {:ok, [contact | _]} ->
-        # Extract the most relevant information
-        display_name = get_display_name(contact)
-        primary_email = get_primary_email(contact)
-
+    # Try HubSpot first
+    case AdvisorAi.Integrations.HubSpot.search_contacts(user, name) do
+      {:ok, [hubspot_contact | _]} ->
         {:ok, %{
-          name: display_name,
-          email: primary_email,
-          phone: get_primary_phone(contact),
-          company: get_primary_company(contact),
-          title: get_primary_title(contact),
-          full_contact: contact
+          name: "#{hubspot_contact["properties"]["firstname"]} #{hubspot_contact["properties"]["lastname"]}",
+          email: hubspot_contact["properties"]["email"],
+          phone: hubspot_contact["properties"]["phone"],
+          company: hubspot_contact["properties"]["company"],
+          title: hubspot_contact["properties"]["jobtitle"],
+          source: "hubspot"
         }}
 
       {:ok, []} ->
-        # Fallback to HubSpot
-        case AdvisorAi.Integrations.HubSpot.search_contacts(user, name) do
-          {:ok, [hubspot_contact | _]} ->
+        # Fallback to Gmail search
+        case search_emails_by_contact_name(user, name) do
+          {:ok, email_data} ->
             {:ok, %{
-              name: "#{hubspot_contact["properties"]["firstname"]} #{hubspot_contact["properties"]["lastname"]}",
-              email: hubspot_contact["properties"]["email"],
-              phone: hubspot_contact["properties"]["phone"],
-              company: hubspot_contact["properties"]["company"],
-              title: hubspot_contact["properties"]["jobtitle"],
-              source: "hubspot"
+              name: name,
+              email: extract_email_from_gmail_data(email_data),
+              phone: nil,
+              company: nil,
+              title: nil,
+              source: "gmail_search"
             }}
 
-          {:ok, []} ->
-            # Final fallback to Gmail search
-            case search_emails_by_contact_name(user, name) do
-              {:ok, email_data} ->
-                {:ok, %{
-                  name: name,
-                  email: extract_email_from_gmail_data(email_data),
-                  phone: nil,
-                  company: nil,
-                  title: nil,
-                  source: "gmail_search"
-                }}
-
-              {:error, _reason} ->
-                {:error, "Contact '#{name}' not found in Google Contacts, HubSpot, or Gmail"}
-            end
-
-          {:error, hubspot_reason} ->
-            # If HubSpot fails, try Gmail
-            case search_emails_by_contact_name(user, name) do
-              {:ok, email_data} ->
-                {:ok, %{
-                  name: name,
-                  email: extract_email_from_gmail_data(email_data),
-                  phone: nil,
-                  company: nil,
-                  title: nil,
-                  source: "gmail_search"
-                }}
-
-              {:error, gmail_reason} ->
-                {:error, "Could not find contact '#{name}'. Google Contacts: no results, HubSpot error: #{hubspot_reason}, Gmail error: #{gmail_reason}"}
-            end
+          {:error, _reason} ->
+            {:error, "Contact '#{name}' not found in HubSpot or Gmail"}
         end
 
-      {:error, google_reason} ->
-        # If Google Contacts fails, try HubSpot
-        case AdvisorAi.Integrations.HubSpot.search_contacts(user, name) do
-          {:ok, [hubspot_contact | _]} ->
+      {:error, hubspot_reason} ->
+        # If HubSpot fails, try Gmail
+        case search_emails_by_contact_name(user, name) do
+          {:ok, email_data} ->
             {:ok, %{
-              name: "#{hubspot_contact["properties"]["firstname"]} #{hubspot_contact["properties"]["lastname"]}",
-              email: hubspot_contact["properties"]["email"],
-              phone: hubspot_contact["properties"]["phone"],
-              company: hubspot_contact["properties"]["company"],
-              title: hubspot_contact["properties"]["jobtitle"],
-              source: "hubspot"
+              name: name,
+              email: extract_email_from_gmail_data(email_data),
+              phone: nil,
+              company: nil,
+              title: nil,
+              source: "gmail_search"
             }}
 
-          {:ok, []} ->
-            # Try Gmail search
-            case search_emails_by_contact_name(user, name) do
-              {:ok, email_data} ->
-                {:ok, %{
-                  name: name,
-                  email: extract_email_from_gmail_data(email_data),
-                  phone: nil,
-                  company: nil,
-                  title: nil,
-                  source: "gmail_search"
-                }}
-
-              {:error, gmail_reason} ->
-                {:error, "Could not find contact '#{name}'. Google Contacts error: #{google_reason}, HubSpot: no results, Gmail error: #{gmail_reason}"}
-            end
-
-          {:error, hubspot_reason} ->
-            # Try Gmail as last resort
-            case search_emails_by_contact_name(user, name) do
-              {:ok, email_data} ->
-                {:ok, %{
-                  name: name,
-                  email: extract_email_from_gmail_data(email_data),
-                  phone: nil,
-                  company: nil,
-                  title: nil,
-                  source: "gmail_search"
-                }}
-
-              {:error, gmail_reason} ->
-                {:error, "Could not find contact '#{name}'. Google Contacts error: #{google_reason}, HubSpot error: #{hubspot_reason}, Gmail error: #{gmail_reason}"}
-            end
+          {:error, gmail_reason} ->
+            {:error, "Could not find contact '#{name}'. HubSpot error: #{hubspot_reason}, Gmail error: #{gmail_reason}"}
         end
     end
   end
 
-  # Helper functions to extract contact information
-  defp get_display_name(contact) do
-    case contact.names do
-      [name | _] -> name.display_name
-      _ -> "Unknown"
-    end
-  end
 
-  defp get_primary_email(contact) do
-    case contact.email_addresses do
-      [email | _] -> email.value
-      _ -> nil
-    end
-  end
-
-  defp get_primary_phone(contact) do
-    case contact.phone_numbers do
-      [phone | _] -> phone.value
-      _ -> nil
-    end
-  end
-
-  defp get_primary_company(contact) do
-    case contact.organizations do
-      [org | _] -> org.name
-      _ -> nil
-    end
-  end
-
-  defp get_primary_title(contact) do
-    case contact.organizations do
-      [org | _] -> org.title
-      _ -> nil
-    end
-  end
 
   defp search_emails_by_contact_name(user, name) do
     case get_access_token(user) do
