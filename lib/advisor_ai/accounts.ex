@@ -65,17 +65,31 @@ defmodule AdvisorAi.Accounts do
   end
 
   def create_or_update_account(user, attrs) do
-    case get_account(attrs.provider, attrs.provider_id) do
-      nil ->
-        %Account{user_id: user.id}
-        |> Account.changeset(attrs)
-        |> Repo.insert()
+    result =
+      case get_account(attrs.provider, attrs.provider_id) do
+        nil ->
+          %Account{user_id: user.id}
+          |> Account.changeset(attrs)
+          |> Repo.insert()
 
-      account ->
-        account
-        |> Account.changeset(attrs)
-        |> Repo.update()
+        account ->
+          account
+          |> Account.changeset(attrs)
+          |> Repo.update()
+      end
+
+    # If this is a Google account, update the user's token fields as well
+    if attrs.provider == "google" do
+      user_token_attrs = %{
+        google_access_token: attrs.access_token,
+        google_refresh_token: attrs.refresh_token,
+        google_token_expires_at: attrs.token_expires_at,
+        google_scopes: attrs.scopes || []
+      }
+      update_user(user, user_token_attrs)
     end
+
+    result
   end
 
   def get_user_google_account(user_id) do

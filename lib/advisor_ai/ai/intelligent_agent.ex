@@ -24,10 +24,10 @@ defmodule AdvisorAi.AI.IntelligentAgent do
     end
   end
 
-  # Build a prompt that instructs the LLM to return either a conversational response or a structured plan for real data
+  # Build a prompt that instructs the LLM to output a structured plan for real data, or a conversational response otherwise
   defp build_hybrid_prompt(user_message, context) do
     """
-    You are an advanced AI assistant with access to Gmail, Google Calendar, and Google Contacts APIs. The user will ask you to perform any task. If the request requires real data (like listing contacts, emails, or events), return a JSON object with the action and parameters, e.g. {"action": "get_contacts", "params": {}}. If the request is conversational or does not require real data, return a conversational response or a JSON object with a 'response' key. Never ask for confirmation, never list available actions, and never require the user to use specific keywords. Always act autonomously and return only the final result or the action to perform.
+    You are an advanced AI assistant with access to Gmail, Google Calendar, and Google Contacts APIs. The user will ask you to perform any task. If the request requires real data (like listing emails, contacts, or calendar events), output a JSON object with an 'action' key and any needed parameters, e.g. {"action": "get_contacts"}. If the request is conversational or does not require real data, return a conversational response or a JSON object with a 'response' key. Never ask for confirmation, never list available actions, and never require the user to use specific keywords. Always act autonomously and return only the final result.
 
     User Request: \"#{user_message}\"
 
@@ -44,16 +44,15 @@ defmodule AdvisorAi.AI.IntelligentAgent do
     #{context.conversation}
 
     Instructions:
-    1. If the user request requires accessing real data (contacts, emails, calendar, etc.), return a JSON object with the action and parameters, e.g. {"action": "get_contacts", "params": {}}.
-    2. If the request is conversational or informational, return a conversational response or a JSON object with a 'response' key.
-    3. Never output a plan or a list of possible actions. Only output the final answer or the action to perform.
+    1. If the user request requires real data (emails, contacts, events, etc.), output a JSON object with an 'action' key and any needed parameters, e.g. {"action": "get_contacts"} or {"action": "search_emails", "query": "from:John"}.
+    2. If the request is conversational or does not require real data, return a conversational response or a JSON object with a 'response' key.
+    3. Never output a plan or a list of actions. Only output a single action or a conversational response.
     4. Never require the user to use specific words or phrases. Be proactive and intelligent.
-    5. If you are unsure, make your best guess and act.
-    6. Never output anything except the final answer or a single JSON object.
+    5. Never output anything except the JSON object or the final answer.
     """
   end
 
-  # Handle the AI response: if it's a JSON action, execute it generically; otherwise, display the response
+  # Handle the AI response: execute actions for real data, otherwise show the conversational response
   defp handle_hybrid_ai_response(user, conversation_id, ai_response, context) do
     case parse_hybrid_ai_response(ai_response) do
       {:action, action, params} ->
@@ -65,14 +64,17 @@ defmodule AdvisorAi.AI.IntelligentAgent do
     end
   end
 
-  # Parse the AI response: detect action or response
+  # Parse the AI response: if it's a JSON with an 'action' key, extract it; if 'response', use that; else use raw
   defp parse_hybrid_ai_response(response) do
     case Regex.run(~r/\{.*\}/s, response) do
       [json_str] ->
         try do
           case Jason.decode(json_str) do
-            {:ok, %{"action" => action} = map} -> {:action, action, Map.get(map, "params", %{})}
-            {:ok, %{"response" => resp}} -> {:response, resp}
+            {:ok, %{"action" => action} = map} ->
+              params = Map.drop(map, ["action"])
+              {:action, action, params}
+            {:ok, %{"response" => resp}} ->
+              {:response, resp}
             _ -> :raw
           end
         rescue
@@ -82,89 +84,73 @@ defmodule AdvisorAi.AI.IntelligentAgent do
     end
   end
 
-  # Generic executor for any supported action
+  # Generic action executor: dispatches to the correct API based on the action string, fully generic
   defp execute_generic_action(user, conversation_id, action, params, context) do
-    case {String.downcase(action), params} do
-      {"get_contacts", _} ->
+    case String.downcase(action) do
+      "get_contacts" ->
         case GoogleContacts.get_all_contacts(user, page_size: params["page_size"] || 50) do
           {:ok, contacts} ->
-            if length(contacts) > 0 do
-              contact_list = Enum.take(contacts, 20)
-              |> Enum.map(fn contact ->
-                name = case contact.names do
-                  [name | _] -> name.display_name
-                  _ -> "Unknown"
-                end
-                email = case contact.email_addresses do
-                  [email | _] -> email.value
-                  _ -> "No email"
-                end
-                phone = case contact.phone_numbers do
-                  [phone | _] -> phone.value
-                  _ -> "No phone"
-                end
-                "• #{name} (#{email}, #{phone})"
-              end)
-              |> Enum.join("\n")
-              response = "Your contacts (#{length(contacts)} total):\n\n#{contact_list}"
-              if length(contacts) > 20 do
-                response = response <> "\n\n... and #{length(contacts) - 20} more contacts"
-              end
-              create_agent_response(user, conversation_id, response, "action")
-            else
-              create_agent_response(user, conversation_id, "No contacts found.", "action")
-            end
-          {:error, reason} -> create_agent_response(user, conversation_id, "Failed to get contacts: #{reason}", "error")
+            contact_list = Enum.map(contacts, fn contact ->
+              name = get_in(contact, ["names", Access.at(0), "displayName"]) || "Unknown"
+              email = get_in(contact, ["emailAddresses", Access.at(0), "value"]) || "No email"
+              phone = get_in(contact, ["phoneNumbers", Access.at(0), "value"]) || "No phone"
+              "• #{name} (#{email}, #{phone})"
+            end) |> Enum.join("\n")
+            response = if contact_list == "", do: "No contacts found.", else: "Your contacts:\n\n#{contact_list}"
+            create_agent_response(user, conversation_id, response, "action")
+          {:error, reason} ->
+            create_agent_response(user, conversation_id, "Failed to get contacts: #{reason}", "error")
         end
-      {"search_emails", _} ->
+      "search_emails" ->
         query = params["query"] || params["q"] || ""
         case Gmail.search_emails(user, query) do
           {:ok, emails} ->
-            if length(emails) > 0 do
-              email_list = Enum.map_join(emails, "\n", fn email -> "- #{email.subject} (from: #{email.from})" end)
-              create_agent_response(user, conversation_id, "Search results:\n#{email_list}", "action")
-            else
-              create_agent_response(user, conversation_id, "No emails found matching the search criteria.", "action")
-            end
-          {:error, reason} -> create_agent_response(user, conversation_id, "Failed to search emails: #{reason}", "error")
+            email_list = Enum.map(emails, fn email ->
+              "• #{email.subject} (from: #{email.from})"
+            end) |> Enum.join("\n")
+            response = if email_list == "", do: "No emails found.", else: "Emails found:\n\n#{email_list}"
+            create_agent_response(user, conversation_id, response, "action")
+          {:error, reason} ->
+            create_agent_response(user, conversation_id, "Failed to search emails: #{reason}", "error")
         end
-      {"get_recent_emails", _} ->
+      "get_recent_emails" ->
         max_results = params["max_results"] || 10
         case Gmail.get_recent_emails(user, max_results) do
           {:ok, emails} ->
-            if length(emails) > 0 do
-              email_summary = Enum.take(emails, 5)
-              |> Enum.map(fn email -> "• #{email.subject} (from: #{email.from})" end)
-              |> Enum.join("\n")
-              response = "Here are your recent emails:\n\n#{email_summary}"
-              if length(emails) > 5 do
-                response = response <> "\n\n... and #{length(emails) - 5} more emails"
-              end
-              create_agent_response(user, conversation_id, response, "action")
-            else
-              create_agent_response(user, conversation_id, "No recent emails found.", "action")
-            end
-          {:error, reason} -> create_agent_response(user, conversation_id, "I couldn't retrieve your recent emails: #{reason}", "error")
+            email_list = Enum.map(emails, fn email ->
+              "• #{email.subject} (from: #{email.from})"
+            end) |> Enum.join("\n")
+            response = if email_list == "", do: "No recent emails found.", else: "Your recent emails:\n\n#{email_list}"
+            create_agent_response(user, conversation_id, response, "action")
+          {:error, reason} ->
+            create_agent_response(user, conversation_id, "Failed to get recent emails: #{reason}", "error")
         end
-      {"create_calendar_event", _} ->
+      "get_calendar_events" ->
+        case Calendar.get_events(user, params["time_min"], params["time_max"]) do
+          {:ok, events} ->
+            event_list = Enum.map(events, fn event ->
+              "• #{event.summary} (#{event.start_time})"
+            end) |> Enum.join("\n")
+            response = if event_list == "", do: "No events found.", else: "Your calendar events:\n\n#{event_list}"
+            create_agent_response(user, conversation_id, response, "action")
+          {:error, reason} ->
+            create_agent_response(user, conversation_id, "Failed to get calendar events: #{reason}", "error")
+        end
+      "send_email" ->
+        to = params["to"]
+        subject = params["subject"] || "No Subject"
+        body = params["body"] || "Hello,\n\nBest regards"
+        case Gmail.send_email(user, to, subject, body) do
+          {:ok, _} -> create_agent_response(user, conversation_id, "Email sent successfully.", "action")
+          {:error, reason} -> create_agent_response(user, conversation_id, "Failed to send email: #{reason}", "error")
+        end
+      "create_calendar_event" ->
         case Calendar.create_event(user, params) do
           {:ok, event} -> create_agent_response(user, conversation_id, "Calendar event created successfully: #{event}", "action")
           {:error, reason} -> create_agent_response(user, conversation_id, "Failed to create calendar event: #{reason}", "error")
         end
-      {"get_calendar_events", _} ->
-        case Calendar.get_events(user, params["time_min"], params["time_max"]) do
-          {:ok, events} ->
-            if length(events) > 0 do
-              event_list = Enum.map_join(events, "\n", fn event -> "- #{event.summary} (#{event.start_time})" end)
-              create_agent_response(user, conversation_id, "Calendar events:\n#{event_list}", "action")
-            else
-              create_agent_response(user, conversation_id, "No calendar events found for the specified criteria.", "action")
-            end
-          {:error, reason} -> create_agent_response(user, conversation_id, "Failed to get calendar events: #{reason}", "error")
-        end
-      # Add more generic cases here as needed for other APIs
-      {other, _} ->
-        create_agent_response(user, conversation_id, "Action '#{other}' is not supported yet.", "error")
+      _ ->
+        create_agent_response(user, conversation_id, "Sorry, I don't yet support the action '#{action}'.", "error")
     end
   end
 

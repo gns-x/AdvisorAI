@@ -1061,4 +1061,55 @@ defmodule AdvisorAi.Integrations.Gmail do
     Best regards,
     """
   end
+
+  def compose_draft(user, to, subject, body) do
+    case get_access_token(user) do
+      {:ok, access_token} ->
+        # Create email message
+        email_content = create_email_message(user.email, to, subject, body)
+        encoded_email = Base.encode64(email_content)
+
+        url = "#{@gmail_api_url}/drafts"
+
+        case HTTPoison.post(
+               url,
+               Jason.encode!(%{
+                 message: %{
+                   raw: encoded_email
+                 }
+               }),
+               [
+                 {"Authorization", "Bearer #{access_token}"},
+                 {"Content-Type", "application/json"}
+               ]
+             ) do
+          {:ok, %{status_code: 200, body: body}} ->
+            case Jason.decode(body) do
+              {:ok, draft_data} ->
+                {:ok, "Draft created successfully with ID: #{get_in(draft_data, ["id"])}"}
+              {:error, _} ->
+                {:ok, "Draft created successfully"}
+            end
+
+          {:ok, %{status_code: 403, body: body}} ->
+            case Jason.decode(body) do
+              {:ok, %{"error" => %{"message" => message}}} ->
+                {:error, "Gmail permission denied: #{message}. Please check your Gmail API permissions and ensure you have 'gmail.compose' scope."}
+              _ ->
+                {:error, "Gmail permission denied (403). Please check your Gmail API permissions."}
+            end
+
+          {:ok, %{status_code: status_code, body: body}} ->
+            require Logger
+            Logger.error("Gmail API error #{status_code}: #{body}")
+            {:error, "Failed to create draft: #{status_code} - #{body}"}
+
+          {:error, reason} ->
+            {:error, "HTTP error: #{reason}"}
+        end
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
 end
