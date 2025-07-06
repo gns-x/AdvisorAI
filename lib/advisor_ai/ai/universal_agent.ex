@@ -41,7 +41,7 @@ defmodule AdvisorAi.AI.UniversalAgent do
   end
 
   # Build comprehensive context for AI
-  defp build_ai_context(user, conversation, user_context) do
+  defp build_ai_context(user, conversation, _user_context) do
     %{
       user: %{
         name: user.name || "User",
@@ -58,373 +58,88 @@ defmodule AdvisorAi.AI.UniversalAgent do
 
   # Get all available Gmail/Calendar tools as a schema
   defp get_available_tools(user) do
-    base_tools = [
-      # Gmail Tools
+    [
+      # Universal Action Tool - Handles ANY request dynamically
       %{
-        name: "gmail_list_messages",
-        description: "List or search emails in Gmail. Use for: showing recent emails, finding emails from someone, searching by subject, etc.",
+        name: "universal_action",
+        description: "Execute any action related to Gmail, Calendar, Contacts, or OAuth. This is a flexible tool that can handle any request by interpreting the action name and parameters. Examples: search emails, send email, list events, create event, search contacts, check permissions, etc.",
         parameters: %{
           type: "object",
           properties: %{
+            action: %{
+              type: "string",
+              description: "The action to perform (e.g., 'search_emails', 'send_email', 'list_events', 'create_event', 'search_contacts', 'check_permissions', 'delete_email', 'update_event', etc.)"
+            },
             query: %{
               type: "string",
-              description: "Gmail search query (e.g., 'from:alice', 'subject:meeting', 'in:sent', 'is:unread')"
+              description: "Search query for emails or contacts"
             },
-            max_results: %{
-              type: "integer",
-              description: "Maximum number of emails to return (default: 10)"
-            },
-            label_ids: %{
-              type: "array",
-              items: %{type: "string"},
-              description: "Gmail label IDs to filter by"
-            }
-          },
-          required: []
-        }
-      },
-      %{
-        name: "gmail_get_message",
-        description: "Get detailed information about a specific email message",
-        parameters: %{
-          type: "object",
-          properties: %{
-            message_id: %{
-              type: "string",
-              description: "Gmail message ID"
-            }
-          },
-          required: ["message_id"]
-        }
-      },
-      %{
-        name: "gmail_send_message",
-        description: "Send an email through Gmail",
-        parameters: %{
-          type: "object",
-          properties: %{
             to: %{
               type: "string",
               description: "Recipient email address"
             },
             subject: %{
               type: "string",
-              description: "Email subject"
+              description: "Email subject line"
             },
             body: %{
               type: "string",
               description: "Email body content"
-            },
-            cc: %{
-              type: "string",
-              description: "CC recipients (comma-separated)"
-            },
-            bcc: %{
-              type: "string",
-              description: "BCC recipients (comma-separated)"
-            }
-          },
-          required: ["to", "subject", "body"]
-        }
-      },
-      %{
-        name: "gmail_delete_message",
-        description: "Delete an email message (moves to trash)",
-        parameters: %{
-          type: "object",
-          properties: %{
-            message_id: %{
-              type: "string",
-              description: "Gmail message ID to delete"
-            }
-          },
-          required: ["message_id"]
-        }
-      },
-      %{
-        name: "gmail_modify_message",
-        description: "Modify email labels (mark as read/unread, add/remove labels)",
-        parameters: %{
-          type: "object",
-          properties: %{
-            message_id: %{
-              type: "string",
-              description: "Gmail message ID"
-            },
-            add_label_ids: %{
-              type: "array",
-              items: %{type: "string"},
-              description: "Label IDs to add"
-            },
-            remove_label_ids: %{
-              type: "array",
-              items: %{type: "string"},
-              description: "Label IDs to remove"
-            }
-          },
-          required: ["message_id"]
-        }
-      },
-      %{
-        name: "gmail_create_draft",
-        description: "Create a draft email (doesn't send immediately)",
-        parameters: %{
-          type: "object",
-          properties: %{
-            to: %{
-              type: "string",
-              description: "Recipient email address"
-            },
-            subject: %{
-              type: "string",
-              description: "Email subject"
-            },
-            body: %{
-              type: "string",
-              description: "Email body content"
-            }
-          },
-          required: ["to", "subject", "body"]
-        }
-      },
-      %{
-        name: "gmail_get_profile",
-        description: "Get Gmail profile information (email address, etc.)",
-        parameters: %{
-          type: "object",
-          properties: %{},
-          required: []
-        }
-      },
-      # Calendar Tools
-      %{
-        name: "calendar_list_events",
-        description: "List calendar events. Use for: showing upcoming events, finding events on a date, etc.",
-        parameters: %{
-          type: "object",
-          properties: %{
-            calendar_id: %{
-              type: "string",
-              description: "Calendar ID (default: 'primary')"
-            },
-            time_min: %{
-              type: "string",
-              description: "Start time for search (ISO 8601 format)"
-            },
-            time_max: %{
-              type: "string",
-              description: "End time for search (ISO 8601 format)"
             },
             max_results: %{
               type: "integer",
-              description: "Maximum number of events to return"
-            },
-            q: %{
-              type: "string",
-              description: "Search query for events"
-            }
-          },
-          required: []
-        }
-      },
-      %{
-        name: "calendar_get_event",
-        description: "Get detailed information about a specific calendar event",
-        parameters: %{
-          type: "object",
-          properties: %{
-            calendar_id: %{
-              type: "string",
-              description: "Calendar ID (default: 'primary')"
-            },
-            event_id: %{
-              type: "string",
-              description: "Event ID"
-            }
-          },
-          required: ["event_id"]
-        }
-      },
-      %{
-        name: "calendar_create_event",
-        description: "Create a new calendar event",
-        parameters: %{
-          type: "object",
-          properties: %{
-            calendar_id: %{
-              type: "string",
-              description: "Calendar ID (default: 'primary')"
+              description: "Maximum number of results to return",
+              default: 10
             },
             summary: %{
               type: "string",
               description: "Event title/summary"
             },
-            description: %{
-              type: "string",
-              description: "Event description"
-            },
             start_time: %{
               type: "string",
-              description: "Start time (ISO 8601 format)"
+              description: "Event start time (ISO 8601 format)"
             },
             end_time: %{
               type: "string",
-              description: "End time (ISO 8601 format)"
+              description: "Event end time (ISO 8601 format)"
             },
             attendees: %{
               type: "array",
               items: %{type: "string"},
               description: "List of attendee email addresses"
             },
-            location: %{
+            message_id: %{
               type: "string",
-              description: "Event location"
-            }
-          },
-          required: ["summary", "start_time", "end_time"]
-        }
-      },
-      %{
-        name: "calendar_update_event",
-        description: "Update an existing calendar event",
-        parameters: %{
-          type: "object",
-          properties: %{
-            calendar_id: %{
-              type: "string",
-              description: "Calendar ID (default: 'primary')"
+              description: "Gmail message ID for operations on specific emails"
             },
             event_id: %{
               type: "string",
-              description: "Event ID"
-            },
-            summary: %{
-              type: "string",
-              description: "Event title/summary"
-            },
-            description: %{
-              type: "string",
-              description: "Event description"
-            },
-            start_time: %{
-              type: "string",
-              description: "Start time (ISO 8601 format)"
-            },
-            end_time: %{
-              type: "string",
-              description: "End time (ISO 8601 format)"
-            },
-            attendees: %{
-              type: "array",
-              items: %{type: "string"},
-              description: "List of attendee email addresses"
-            },
-            location: %{
-              type: "string",
-              description: "Event location"
+              description: "Calendar event ID for operations on specific events"
             }
           },
-          required: ["event_id"]
+          required: ["action"]
         }
-      },
-      %{
-        name: "calendar_delete_event",
-        description: "Delete a calendar event",
-        parameters: %{
-          type: "object",
-          properties: %{
-            calendar_id: %{
-              type: "string",
-              description: "Calendar ID (default: 'primary')"
-            },
-            event_id: %{
-              type: "string",
-              description: "Event ID to delete"
-            }
-          },
-          required: ["event_id"]
-        }
-      },
-      %{
-        name: "calendar_get_calendars",
-        description: "List available calendars",
-        parameters: %{
-          type: "object",
-          properties: %{},
-          required: []
-        }
-      },
-      # Contact Tools
-      %{
-        name: "contacts_search",
-        description: "Search for contacts by name or email",
-        parameters: %{
-          type: "object",
-          properties: %{
-            query: %{
-              type: "string",
-              description: "Search query (name or email)"
-            }
-          },
-          required: ["query"]
-        }
-      },
-      %{
-        name: "contacts_create",
-        description: "Create a new contact",
-        parameters: %{
-          type: "object",
-          properties: %{
-            name: %{
-              type: "string",
-              description: "Contact name"
-            },
-            email: %{
-              type: "string",
-              description: "Contact email"
-            },
-            phone: %{
-              type: "string",
-              description: "Contact phone number"
-            },
-            company: %{
-              type: "string",
-              description: "Contact company"
-            }
-          },
-          required: ["name", "email"]
-        }
-      },
-      %{
-        type: "function",
-        function: %{
-          name: "gmail_search",
-          description: "Search for emails in Gmail using various criteria like sender, subject, date, etc.",
+      }
+    ]
+
+    # For universal action, we don't need to filter - it handles all services
+    # Just check if user has any Google access
+    if has_valid_google_tokens?(user) do
+      [
+        %{
+          name: "universal_action",
+          description: "Execute any action related to Gmail, Calendar, Contacts, or OAuth. This is a flexible tool that can handle any request by interpreting the action name and parameters. Examples: search emails, send email, list events, create event, search contacts, check permissions, etc.",
           parameters: %{
             type: "object",
             properties: %{
+              action: %{
+                type: "string",
+                description: "The action to perform (e.g., 'search_emails', 'send_email', 'list_events', 'create_event', 'search_contacts', 'check_permissions', 'delete_email', 'update_event', etc.)"
+              },
               query: %{
                 type: "string",
-                description: "Search query (e.g., 'from:john@example.com', 'subject:meeting', 'after:2024/01/01')"
+                description: "Search query for emails or contacts"
               },
-              max_results: %{
-                type: "integer",
-                description: "Maximum number of results to return (default: 10)",
-                default: 10
-              }
-            },
-            required: ["query"]
-          }
-        }
-      },
-      %{
-        type: "function",
-        function: %{
-          name: "gmail_send",
-          description: "Send an email through Gmail",
-          parameters: %{
-            type: "object",
-            properties: %{
               to: %{
                 type: "string",
                 description: "Recipient email address"
@@ -437,134 +152,44 @@ defmodule AdvisorAi.AI.UniversalAgent do
                 type: "string",
                 description: "Email body content"
               },
-              cc: %{
-                type: "string",
-                description: "CC recipient email address (optional)"
-              },
-              bcc: %{
-                type: "string",
-                description: "BCC recipient email address (optional)"
-              }
-            },
-            required: ["to", "subject", "body"]
-          }
-        }
-      },
-      %{
-        type: "function",
-        function: %{
-          name: "calendar_list",
-          description: "List upcoming calendar events",
-          parameters: %{
-            type: "object",
-            properties: %{
               max_results: %{
                 type: "integer",
-                description: "Maximum number of events to return (default: 10)",
+                description: "Maximum number of results to return",
                 default: 10
               },
-              time_min: %{
-                type: "string",
-                description: "Start time for events (ISO 8601 format, e.g., '2024-01-01T00:00:00Z')"
-              },
-              time_max: %{
-                type: "string",
-                description: "End time for events (ISO 8601 format, e.g., '2024-01-31T23:59:59Z')"
-              }
-            }
-          }
-        }
-      },
-      %{
-        type: "function",
-        function: %{
-          name: "calendar_create",
-          description: "Create a new calendar event",
-          parameters: %{
-            type: "object",
-            properties: %{
               summary: %{
                 type: "string",
                 description: "Event title/summary"
               },
-              description: %{
-                type: "string",
-                description: "Event description"
-              },
               start_time: %{
                 type: "string",
-                description: "Event start time (ISO 8601 format, e.g., '2024-01-01T10:00:00Z')"
+                description: "Event start time (ISO 8601 format)"
               },
               end_time: %{
                 type: "string",
-                description: "Event end time (ISO 8601 format, e.g., '2024-01-01T11:00:00Z')"
+                description: "Event end time (ISO 8601 format)"
               },
               attendees: %{
                 type: "array",
-                items: %{
-                  type: "string"
-                },
+                items: %{type: "string"},
                 description: "List of attendee email addresses"
               },
-              location: %{
+              message_id: %{
                 type: "string",
-                description: "Event location"
+                description: "Gmail message ID for operations on specific emails"
+              },
+              event_id: %{
+                type: "string",
+                description: "Calendar event ID for operations on specific events"
               }
             },
-            required: ["summary", "start_time", "end_time"]
+            required: ["action"]
           }
         }
-      },
-      %{
-        type: "function",
-        function: %{
-          name: "contacts_search",
-          description: "Search for contacts by name, email, or phone number",
-          parameters: %{
-            type: "object",
-            properties: %{
-              query: %{
-                type: "string",
-                description: "Search query (name, email, or phone number)"
-              }
-            },
-            required: ["query"]
-          }
-        }
-      },
-      %{
-        type: "function",
-        function: %{
-          name: "check_oauth_scopes",
-          description: "Check what OAuth scopes/permissions the user currently has granted",
-          parameters: %{
-            type: "object",
-            properties: %{},
-            required: []
-          }
-        }
-      }
-    ]
-
-    # Filter tools based on user's available services
-    Enum.filter(base_tools, fn tool ->
-      tool_name = case tool do
-        %{function: %{name: name}} -> name
-        %{name: name} -> name
-        _ -> nil
-      end
-
-      if tool_name do
-        cond do
-          String.starts_with?(tool_name, "gmail_") -> has_gmail_access?(user)
-          String.starts_with?(tool_name, "calendar_") -> has_calendar_access?(user)
-          String.starts_with?(tool_name, "contacts_") -> has_valid_google_tokens?(user)
-          true -> true
-        end
-      else
-        true
-      end
-    end)
+      ]
+    else
+      []
+    end
   end
 
   # Build AI prompt for universal action understanding
@@ -804,35 +429,320 @@ defmodule AdvisorAi.AI.UniversalAgent do
 
     IO.puts("DEBUG: Executing tool: #{function_name} with args: #{inspect(arguments)}")
 
+    # Universal dynamic execution - no hardcoded cases needed
     case function_name do
-      # Gmail Tools
-      "gmail_list_messages" -> execute_gmail_list_messages(user, arguments)
-      "gmail_get_message" -> execute_gmail_get_message(user, arguments)
-      "gmail_send_message" -> execute_gmail_send_message(user, arguments)
-      "gmail_delete_message" -> execute_gmail_delete_message(user, arguments)
-      "gmail_modify_message" -> execute_gmail_modify_message(user, arguments)
-      "gmail_create_draft" -> execute_gmail_create_draft(user, arguments)
-      "gmail_get_profile" -> execute_gmail_get_profile(user, arguments)
+      "universal_action" -> execute_universal_action(user, arguments)
+      _ -> execute_universal_action(user, function_name, arguments)
+    end
+  end
 
-      # Calendar Tools
-      "calendar_list_events" -> execute_calendar_list_events(user, arguments)
-      "calendar_get_event" -> execute_calendar_get_event(user, arguments)
-      "calendar_create_event" -> execute_calendar_create_event(user, arguments)
-      "calendar_update_event" -> execute_calendar_update_event(user, arguments)
-      "calendar_delete_event" -> execute_calendar_delete_event(user, arguments)
-      "calendar_get_calendars" -> execute_calendar_get_calendars(user, arguments)
+    # Universal Action Execution - Handles ANY request dynamically
+  defp execute_universal_action(user, args) do
+    # Extract action from args
+    action = Map.get(args, "action", "")
+    action_lower = String.downcase(action)
 
-      # Contact Tools
-      "contacts_search" -> execute_contacts_search(user, arguments)
-      "contacts_create" -> execute_contacts_create(user, arguments)
-      "check_oauth_scopes" -> execute_check_oauth_scopes(user, arguments)
+    cond do
+      # Gmail actions
+      String.contains?(action_lower, "search") and (String.contains?(action_lower, "email") or String.contains?(action_lower, "mail")) ->
+        query = Map.get(args, "query", "")
+        max_results = Map.get(args, "max_results", 10)
+        execute_gmail_action(user, "search", %{query: query, max_results: max_results})
 
-      _ ->
-        {:error, "Unknown tool: #{function_name}"}
+      String.contains?(action_lower, "send") and (String.contains?(action_lower, "email") or String.contains?(action_lower, "mail")) ->
+        execute_gmail_action(user, "send", args)
+
+      String.contains?(action_lower, "list") and (String.contains?(action_lower, "email") or String.contains?(action_lower, "mail")) ->
+        execute_gmail_action(user, "list", args)
+
+      String.contains?(action_lower, "delete") and (String.contains?(action_lower, "email") or String.contains?(action_lower, "mail")) ->
+        execute_gmail_action(user, "delete", args)
+
+      # Calendar actions
+      String.contains?(action_lower, "list") and (String.contains?(action_lower, "event") or String.contains?(action_lower, "calendar")) ->
+        execute_calendar_action(user, "list", args)
+
+      String.contains?(action_lower, "create") and (String.contains?(action_lower, "event") or String.contains?(action_lower, "calendar")) ->
+        execute_calendar_action(user, "create", args)
+
+      String.contains?(action_lower, "update") and (String.contains?(action_lower, "event") or String.contains?(action_lower, "calendar")) ->
+        execute_calendar_action(user, "update", args)
+
+      String.contains?(action_lower, "delete") and (String.contains?(action_lower, "event") or String.contains?(action_lower, "calendar")) ->
+        execute_calendar_action(user, "delete", args)
+
+      # Contact actions
+      String.contains?(action_lower, "search") and String.contains?(action_lower, "contact") ->
+        execute_contact_action(user, "search", args)
+
+      String.contains?(action_lower, "create") and String.contains?(action_lower, "contact") ->
+        execute_contact_action(user, "create", args)
+
+      # OAuth actions
+      String.contains?(action_lower, "check") and (String.contains?(action_lower, "permission") or String.contains?(action_lower, "scope") or String.contains?(action_lower, "oauth")) ->
+        execute_oauth_action(user, args)
+
+      # Default - try to infer from action name
+      true ->
+        execute_inferred_action(user, action, args)
+    end
+  end
+
+  # Legacy support for old function names
+  defp execute_universal_action(user, action, args) do
+    # Parse the action to determine what to do
+    action_lower = String.downcase(action)
+
+    cond do
+      # Gmail actions
+      String.contains?(action_lower, "gmail") and String.contains?(action_lower, "search") ->
+        query = Map.get(args, "query", "")
+        max_results = Map.get(args, "max_results", 10)
+        execute_gmail_action(user, "search", %{query: query, max_results: max_results})
+
+      String.contains?(action_lower, "gmail") and String.contains?(action_lower, "send") ->
+        execute_gmail_action(user, "send", args)
+
+      String.contains?(action_lower, "gmail") and String.contains?(action_lower, "list") ->
+        execute_gmail_action(user, "list", args)
+
+      # Calendar actions
+      String.contains?(action_lower, "calendar") and String.contains?(action_lower, "list") ->
+        execute_calendar_action(user, "list", args)
+
+      String.contains?(action_lower, "calendar") and String.contains?(action_lower, "create") ->
+        execute_calendar_action(user, "create", args)
+
+      # Contact actions
+      String.contains?(action_lower, "contact") and String.contains?(action_lower, "search") ->
+        execute_contact_action(user, "search", args)
+
+      String.contains?(action_lower, "contact") and String.contains?(action_lower, "create") ->
+        execute_contact_action(user, "create", args)
+
+      # OAuth actions
+      String.contains?(action_lower, "oauth") or String.contains?(action_lower, "scope") ->
+        execute_oauth_action(user, args)
+
+      # Default - try to infer from action name
+      true ->
+        execute_inferred_action(user, action, args)
+    end
+  end
+
+  # Generic action executors
+  defp execute_gmail_action(user, operation, args) do
+    case operation do
+      "search" ->
+        # Handle both string and atom keys
+        query = Map.get(args, "query") || Map.get(args, :query) || ""
+        max_results = Map.get(args, "max_results") || Map.get(args, :max_results) || 10
+
+        case Gmail.search_emails(user, query) do
+          {:ok, emails} ->
+            emails_to_show = Enum.take(emails, max_results)
+            email_list = Enum.map(emails_to_show, fn email ->
+              "• #{email.subject} (from: #{email.from})"
+            end) |> Enum.join("\n")
+
+            {:ok, "Found #{length(emails)} emails:\n\n#{email_list}"}
+          {:error, reason} ->
+            {:error, "Failed to search emails: #{reason}"}
+        end
+
+      "send" ->
+        to = Map.get(args, "to") || Map.get(args, :to)
+        subject = Map.get(args, "subject") || Map.get(args, :subject)
+        body = Map.get(args, "body") || Map.get(args, :body)
+
+        case Gmail.send_email(user, to, subject, body) do
+          {:ok, _} -> {:ok, "Email sent successfully to #{to}"}
+          {:error, reason} -> {:error, "Failed to send email: #{reason}"}
+        end
+
+      "list" ->
+        query = Map.get(args, "query") || Map.get(args, :query) || ""
+        max_results = Map.get(args, "max_results") || Map.get(args, :max_results) || 10
+
+        case Gmail.search_emails(user, query) do
+          {:ok, emails} ->
+            emails_to_show = Enum.take(emails, max_results)
+            email_list = Enum.map(emails_to_show, fn email ->
+              "• #{email.subject} (from: #{email.from})"
+            end) |> Enum.join("\n")
+
+            {:ok, "Found #{length(emails)} emails:\n\n#{email_list}"}
+          {:error, reason} ->
+            {:error, "Failed to list emails: #{reason}"}
+        end
+
+      "delete" ->
+        message_id = Map.get(args, "message_id") || Map.get(args, :message_id)
+
+        case Gmail.delete_message(user, message_id) do
+          {:ok, _} -> {:ok, "Email deleted successfully"}
+          {:error, reason} -> {:error, "Failed to delete email: #{reason}"}
+        end
+    end
+  end
+
+  defp execute_calendar_action(user, operation, args) do
+    case operation do
+      "list" ->
+        max_results = Map.get(args, "max_results") || Map.get(args, :max_results) || 10
+        time_min = Map.get(args, "time_min") || Map.get(args, :time_min)
+        time_max = Map.get(args, "time_max") || Map.get(args, :time_max)
+
+        opts = [max_results: max_results]
+        opts = if time_min, do: Keyword.put(opts, :time_min, time_min), else: opts
+        opts = if time_max, do: Keyword.put(opts, :time_max, time_max), else: opts
+
+        case Calendar.list_events(user, opts) do
+          {:ok, events} ->
+            if length(events) > 0 do
+              event_list = Enum.map(events, fn event ->
+                start_time = get_in(event, ["start", "dateTime"]) || get_in(event, ["start", "date"])
+                "• #{event["summary"]} (#{start_time})"
+              end) |> Enum.join("\n")
+
+              {:ok, "Found #{length(events)} events:\n\n#{event_list}"}
+            else
+              {:ok, "No events found"}
+            end
+          {:error, reason} ->
+            {:error, "Failed to list events: #{reason}"}
+        end
+
+      "create" ->
+        event_data = %{
+          "title" => Map.get(args, "summary") || Map.get(args, :summary),
+          "description" => Map.get(args, "description") || Map.get(args, :description) || "",
+          "start_time" => Map.get(args, "start_time") || Map.get(args, :start_time),
+          "end_time" => Map.get(args, "end_time") || Map.get(args, :end_time),
+          "attendees" => Map.get(args, "attendees") || Map.get(args, :attendees) || []
+        }
+
+        case Calendar.create_event(user, event_data) do
+          {:ok, result} -> {:ok, result}
+          {:error, reason} -> {:error, "Failed to create event: #{reason}"}
+        end
+
+      "update" ->
+        event_id = Map.get(args, "event_id") || Map.get(args, :event_id)
+        event_data = %{
+          "summary" => Map.get(args, "summary") || Map.get(args, :summary),
+          "description" => Map.get(args, "description") || Map.get(args, :description) || "",
+          "start_time" => Map.get(args, "start_time") || Map.get(args, :start_time),
+          "end_time" => Map.get(args, "end_time") || Map.get(args, :end_time),
+          "attendees" => Map.get(args, "attendees") || Map.get(args, :attendees) || []
+        }
+
+        case Calendar.update_event(user, event_id, event_data) do
+          {:ok, result} -> {:ok, result}
+          {:error, reason} -> {:error, "Failed to update event: #{reason}"}
+        end
+
+      "delete" ->
+        event_id = Map.get(args, "event_id") || Map.get(args, :event_id)
+
+        case Calendar.delete_event(user, event_id) do
+          {:ok, _} -> {:ok, "Event deleted successfully"}
+          {:error, reason} -> {:error, "Failed to delete event: #{reason}"}
+        end
+    end
+  end
+
+  defp execute_contact_action(user, operation, args) do
+    case operation do
+      "search" ->
+        query = Map.get(args, "query") || Map.get(args, :query) || ""
+
+        case GoogleContacts.search_contacts(user, query) do
+          {:ok, contacts} ->
+            contact_list = Enum.map(contacts, fn contact ->
+              name = get_contact_display_name(contact)
+              email = get_contact_primary_email(contact)
+              phone = get_contact_primary_phone(contact)
+
+              contact_info = "• #{name}"
+              contact_info = if email, do: contact_info <> " (#{email})", else: contact_info
+              contact_info = if phone, do: contact_info <> " - #{phone}", else: contact_info
+
+              contact_info
+            end) |> Enum.join("\n")
+
+            {:ok, "Found #{length(contacts)} contacts:\n\n#{contact_list}"}
+          {:error, reason} ->
+            {:error, "Failed to search contacts: #{reason}"}
+        end
+
+      "create" ->
+        {:ok, "Contact creation not yet implemented"}
+    end
+  end
+
+  defp execute_oauth_action(user, _args) do
+    case Accounts.get_user_google_account(user.id) do
+      nil ->
+        {:ok, "No Google account connected. Please connect your Google account first."}
+      account ->
+        scopes = account.scopes || []
+        if Enum.empty?(scopes) do
+          {:ok, "No OAuth scopes found. You need to reconnect your Google account to grant permissions."}
+        else
+          scope_descriptions = scopes
+          |> Enum.map(fn scope ->
+            case scope do
+              "https://www.googleapis.com/auth/gmail.modify" -> "Gmail (read & send emails)"
+              "https://www.googleapis.com/auth/calendar" -> "Calendar (full access)"
+              "https://www.googleapis.com/auth/contacts" -> "Contacts (full access)"
+              _ -> scope
+            end
+          end)
+
+          {:ok, "Current OAuth scopes:\n" <> Enum.join(scope_descriptions, "\n")}
+        end
+    end
+  end
+
+  defp execute_inferred_action(user, action, args) do
+    # Try to infer what the user wants based on the action name
+    action_lower = String.downcase(action)
+
+    cond do
+      String.contains?(action_lower, "email") or String.contains?(action_lower, "mail") ->
+        execute_gmail_action(user, "search", args)
+
+      String.contains?(action_lower, "event") or String.contains?(action_lower, "meeting") ->
+        execute_calendar_action(user, "list", args)
+
+      String.contains?(action_lower, "contact") or String.contains?(action_lower, "person") ->
+        execute_contact_action(user, "search", args)
+
+      true ->
+        {:error, "Could not determine how to execute action: #{action}"}
     end
   end
 
   # Gmail Tool Executions
+  defp execute_gmail_search(user, args) do
+    query = Map.get(args, "query", "")
+    max_results = Map.get(args, "max_results", 10)
+
+    case Gmail.search_emails(user, query) do
+      {:ok, emails} ->
+        emails_to_show = Enum.take(emails, max_results)
+        email_list = Enum.map(emails_to_show, fn email ->
+          "• #{email.subject} (from: #{email.from})"
+        end) |> Enum.join("\n")
+
+        {:ok, "Found #{length(emails)} emails:\n\n#{email_list}"}
+
+      {:error, reason} ->
+        {:error, "Failed to search emails: #{reason}"}
+    end
+  end
+
   defp execute_gmail_list_messages(user, args) do
     query = Map.get(args, "query", "")
     max_results = Map.get(args, "max_results", 10)
@@ -915,7 +825,63 @@ defmodule AdvisorAi.AI.UniversalAgent do
     end
   end
 
+  defp execute_gmail_send(user, args) do
+    to = args["to"]
+    subject = args["subject"]
+    body = args["body"]
+
+    case Gmail.send_email(user, to, subject, body) do
+      {:ok, _} ->
+        {:ok, "Email sent successfully to #{to}"}
+
+      {:error, reason} ->
+        {:error, "Failed to send email: #{reason}"}
+    end
+  end
+
   # Calendar Tool Executions
+  defp execute_calendar_list(user, args) do
+    max_results = Map.get(args, "max_results", 10)
+    time_min = Map.get(args, "time_min")
+    time_max = Map.get(args, "time_max")
+
+    opts = [max_results: max_results]
+    opts = if time_min, do: Keyword.put(opts, :time_min, time_min), else: opts
+    opts = if time_max, do: Keyword.put(opts, :time_max, time_max), else: opts
+
+    case Calendar.list_events(user, opts) do
+      {:ok, events} ->
+        if length(events) > 0 do
+          event_list = Enum.map(events, fn event ->
+            start_time = get_in(event, ["start", "dateTime"]) || get_in(event, ["start", "date"])
+            "• #{event["summary"]} (#{start_time})"
+          end) |> Enum.join("\n")
+
+          {:ok, "Found #{length(events)} events:\n\n#{event_list}"}
+        else
+          {:ok, "No events found"}
+        end
+
+      {:error, reason} ->
+        {:error, "Failed to list events: #{reason}"}
+    end
+  end
+
+  defp execute_calendar_create(user, args) do
+    event_data = %{
+      "title" => args["summary"],
+      "description" => Map.get(args, "description", ""),
+      "start_time" => args["start_time"],
+      "end_time" => args["end_time"],
+      "attendees" => Map.get(args, "attendees", [])
+    }
+
+    case Calendar.create_event(user, event_data) do
+      {:ok, result} -> {:ok, result}
+      {:error, reason} -> {:error, "Failed to create event: #{reason}"}
+    end
+  end
+
   defp execute_calendar_list_events(user, args) do
     calendar_id = Map.get(args, "calendar_id", "primary")
     time_min = Map.get(args, "time_min")
@@ -951,7 +917,7 @@ defmodule AdvisorAi.AI.UniversalAgent do
 
   defp execute_calendar_get_event(user, args) do
     event_id = args["event_id"]
-    calendar_id = Map.get(args, "calendar_id", "primary")
+    _calendar_id = Map.get(args, "calendar_id", "primary")
 
     case Calendar.get_event(user, event_id) do
       {:ok, event} ->
@@ -1051,7 +1017,7 @@ defmodule AdvisorAi.AI.UniversalAgent do
     end
   end
 
-  defp execute_contacts_create(user, args) do
+  defp execute_contacts_create(_user, _args) do
     # Note: This would need to be implemented in the GoogleContacts module
     {:ok, "Contact created"}
   end
@@ -1095,7 +1061,7 @@ defmodule AdvisorAi.AI.UniversalAgent do
   end
 
   # Generate response from tool execution results
-  defp generate_response_from_results(user_message, results) do
+  defp generate_response_from_results(_user_message, results) do
     successful_results = Enum.filter(results, fn
       {:ok, _} -> true
       {:error, _} -> false
@@ -1196,7 +1162,7 @@ defmodule AdvisorAi.AI.UniversalAgent do
     end
   end
 
-  defp create_agent_response(user, conversation_id, content, response_type) do
+  defp create_agent_response(_user, conversation_id, content, response_type) do
     Chat.create_message(conversation_id, %{
       role: "assistant",
       content: content,
@@ -1255,7 +1221,7 @@ defmodule AdvisorAi.AI.UniversalAgent do
   end
 
     # Force execution based on user message when AI fails to generate tool calls
-  defp force_execute_based_on_message(user, user_message, context) do
+  defp force_execute_based_on_message(user, user_message, _context) do
     message_lower = String.downcase(user_message)
 
     cond do
@@ -1359,7 +1325,7 @@ defmodule AdvisorAi.AI.UniversalAgent do
   end
 
   # Extract calendar information from message
-  defp extract_calendar_info_from_message(message) do
+  defp extract_calendar_info_from_message(_message) do
     # Simple extraction for now
     {:ok, %{
       "summary" => "Meeting",
@@ -1370,7 +1336,7 @@ defmodule AdvisorAi.AI.UniversalAgent do
   end
 
   # Determine which tool to use based on parameters
-  defp determine_tool_from_params(params, context) do
+  defp determine_tool_from_params(params, _context) do
     cond do
       # Gmail tools
       Map.has_key?(params, "query") and (String.contains?(Map.get(params, "query", ""), "sent") or String.contains?(Map.get(params, "query", ""), "from:") or String.contains?(Map.get(params, "query", ""), "subject:")) ->
