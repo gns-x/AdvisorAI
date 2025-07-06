@@ -74,4 +74,15 @@ defmodule AdvisorAiWeb.Router do
       forward "/mailbox", Plug.Swoosh.MailboxPreview
     end
   end
+
+  scope "/hubspot/oauth", AdvisorAiWeb do
+    pipe_through [:browser, :require_authenticated_user]
+
+    get "/connect", HubspotOauthController, :connect
+    get "/callback", HubspotOauthController, :callback
+    get "/debug", HubspotOauthController, :debug
+    get "/test", HubspotOauthController, :test_app
+    get "/test-api-key", HubspotOauthController, :test_api_key
+    get "/help", HubspotOauthController, :help
+  end
 end
