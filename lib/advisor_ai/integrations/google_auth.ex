@@ -11,14 +11,26 @@ defmodule AdvisorAi.Integrations.GoogleAuth do
   Handles token refresh if needed.
   """
   def get_access_token(user) do
-    case user.google_access_token do
+    case Accounts.get_user_google_account(user.id) do
       nil ->
         {:error, "No Google access token found. Please reconnect your Google account."}
 
-      token ->
-        # For now, return the stored token
-        # In a production app, you'd want to check if it's expired and refresh it
-        {:ok, token}
+      account ->
+        case account.access_token do
+          nil ->
+            {:error, "No Google access token found. Please reconnect your Google account."}
+
+          token ->
+            # Check if token is expired and refresh if needed
+            if is_token_expired?(account) do
+              case refresh_access_token(user) do
+                {:ok, new_token} -> {:ok, new_token}
+                {:error, reason} -> {:error, "Token refresh failed: #{reason}"}
+              end
+            else
+              {:ok, token}
+            end
+        end
     end
   end
 
@@ -26,12 +38,18 @@ defmodule AdvisorAi.Integrations.GoogleAuth do
   Refresh an expired access token using the refresh token.
   """
   def refresh_access_token(user) do
-    case user.google_refresh_token do
+    case Accounts.get_user_google_account(user.id) do
       nil ->
         {:error, "No refresh token available. Please reconnect your Google account."}
 
-      refresh_token ->
-        do_refresh_token(refresh_token)
+      account ->
+        case account.refresh_token do
+          nil ->
+            {:error, "No refresh token available. Please reconnect your Google account."}
+
+          refresh_token ->
+            do_refresh_token(refresh_token)
+        end
     end
   end
 
@@ -93,6 +111,13 @@ defmodule AdvisorAi.Integrations.GoogleAuth do
 
   # Private functions
 
+  defp is_token_expired?(account) do
+    case account.token_expires_at do
+      nil -> false
+      expires_at -> DateTime.compare(DateTime.utc_now(), expires_at) == :gt
+    end
+  end
+
   defp do_refresh_token(refresh_token) do
     client_id = System.get_env("GOOGLE_CLIENT_ID")
     client_secret = System.get_env("GOOGLE_CLIENT_SECRET")
@@ -111,7 +136,20 @@ defmodule AdvisorAi.Integrations.GoogleAuth do
          ]) do
       {:ok, %{status_code: 200, body: response_body}} ->
         case Jason.decode(response_body) do
+          {:ok, %{"access_token" => access_token, "expires_in" => expires_in}} ->
+            expires_at = DateTime.add(DateTime.utc_now(), expires_in)
+            # Update account in DB
+            case Accounts.get_user_google_account_by_refresh_token(refresh_token) do
+              nil -> {:error, "Account not found for refresh token"}
+              account ->
+                case Accounts.update_account_tokens(account, access_token, expires_at) do
+                  {:ok, _} -> {:ok, access_token}
+                  {:error, _} -> {:error, "Failed to update account tokens"}
+                end
+            end
+
           {:ok, %{"access_token" => access_token}} ->
+            # Fallback for responses without expires_in
             {:ok, access_token}
 
           {:ok, %{"error" => error}} ->

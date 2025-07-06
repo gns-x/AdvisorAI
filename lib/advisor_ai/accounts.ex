@@ -82,6 +82,10 @@ defmodule AdvisorAi.Accounts do
     Repo.get_by(Account, user_id: user_id, provider: "google")
   end
 
+  def get_user_google_account_by_refresh_token(refresh_token) do
+    Repo.get_by(Account, refresh_token: refresh_token, provider: "google")
+  end
+
   def get_user_hubspot_account(user_id) do
     Repo.get_by(Account, user_id: user_id, provider: "hubspot")
   end

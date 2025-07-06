@@ -394,16 +394,175 @@ defmodule AdvisorAi.AI.UniversalAgent do
           },
           required: ["name", "email"]
         }
+      },
+      %{
+        type: "function",
+        function: %{
+          name: "gmail_search",
+          description: "Search for emails in Gmail using various criteria like sender, subject, date, etc.",
+          parameters: %{
+            type: "object",
+            properties: %{
+              query: %{
+                type: "string",
+                description: "Search query (e.g., 'from:john@example.com', 'subject:meeting', 'after:2024/01/01')"
+              },
+              max_results: %{
+                type: "integer",
+                description: "Maximum number of results to return (default: 10)",
+                default: 10
+              }
+            },
+            required: ["query"]
+          }
+        }
+      },
+      %{
+        type: "function",
+        function: %{
+          name: "gmail_send",
+          description: "Send an email through Gmail",
+          parameters: %{
+            type: "object",
+            properties: %{
+              to: %{
+                type: "string",
+                description: "Recipient email address"
+              },
+              subject: %{
+                type: "string",
+                description: "Email subject line"
+              },
+              body: %{
+                type: "string",
+                description: "Email body content"
+              },
+              cc: %{
+                type: "string",
+                description: "CC recipient email address (optional)"
+              },
+              bcc: %{
+                type: "string",
+                description: "BCC recipient email address (optional)"
+              }
+            },
+            required: ["to", "subject", "body"]
+          }
+        }
+      },
+      %{
+        type: "function",
+        function: %{
+          name: "calendar_list",
+          description: "List upcoming calendar events",
+          parameters: %{
+            type: "object",
+            properties: %{
+              max_results: %{
+                type: "integer",
+                description: "Maximum number of events to return (default: 10)",
+                default: 10
+              },
+              time_min: %{
+                type: "string",
+                description: "Start time for events (ISO 8601 format, e.g., '2024-01-01T00:00:00Z')"
+              },
+              time_max: %{
+                type: "string",
+                description: "End time for events (ISO 8601 format, e.g., '2024-01-31T23:59:59Z')"
+              }
+            }
+          }
+        }
+      },
+      %{
+        type: "function",
+        function: %{
+          name: "calendar_create",
+          description: "Create a new calendar event",
+          parameters: %{
+            type: "object",
+            properties: %{
+              summary: %{
+                type: "string",
+                description: "Event title/summary"
+              },
+              description: %{
+                type: "string",
+                description: "Event description"
+              },
+              start_time: %{
+                type: "string",
+                description: "Event start time (ISO 8601 format, e.g., '2024-01-01T10:00:00Z')"
+              },
+              end_time: %{
+                type: "string",
+                description: "Event end time (ISO 8601 format, e.g., '2024-01-01T11:00:00Z')"
+              },
+              attendees: %{
+                type: "array",
+                items: %{
+                  type: "string"
+                },
+                description: "List of attendee email addresses"
+              },
+              location: %{
+                type: "string",
+                description: "Event location"
+              }
+            },
+            required: ["summary", "start_time", "end_time"]
+          }
+        }
+      },
+      %{
+        type: "function",
+        function: %{
+          name: "contacts_search",
+          description: "Search for contacts by name, email, or phone number",
+          parameters: %{
+            type: "object",
+            properties: %{
+              query: %{
+                type: "string",
+                description: "Search query (name, email, or phone number)"
+              }
+            },
+            required: ["query"]
+          }
+        }
+      },
+      %{
+        type: "function",
+        function: %{
+          name: "check_oauth_scopes",
+          description: "Check what OAuth scopes/permissions the user currently has granted",
+          parameters: %{
+            type: "object",
+            properties: %{},
+            required: []
+          }
+        }
       }
     ]
 
     # Filter tools based on user's available services
     Enum.filter(base_tools, fn tool ->
-      cond do
-        String.starts_with?(tool.name, "gmail_") -> has_gmail_access?(user)
-        String.starts_with?(tool.name, "calendar_") -> has_calendar_access?(user)
-        String.starts_with?(tool.name, "contacts_") -> has_valid_google_tokens?(user)
-        true -> true
+      tool_name = case tool do
+        %{function: %{name: name}} -> name
+        %{name: name} -> name
+        _ -> nil
+      end
+
+      if tool_name do
+        cond do
+          String.starts_with?(tool_name, "gmail_") -> has_gmail_access?(user)
+          String.starts_with?(tool_name, "calendar_") -> has_calendar_access?(user)
+          String.starts_with?(tool_name, "contacts_") -> has_valid_google_tokens?(user)
+          true -> true
+        end
+      else
+        true
       end
     end)
   end
@@ -411,9 +570,15 @@ defmodule AdvisorAi.AI.UniversalAgent do
   # Build AI prompt for universal action understanding
   defp build_universal_prompt(user_message, context, tools) do
     tools_description = Enum.map_join(tools, "\n", fn tool ->
+      {name, description, parameters} = case tool do
+        %{function: %{name: n, description: d, parameters: p}} -> {n, d, p}
+        %{name: n, description: d, parameters: p} -> {n, d, p}
+        _ -> {"unknown", "No description", %{}}
+      end
+
       """
-      - #{tool.name}: #{tool.description}
-        Parameters: #{Jason.encode!(tool.parameters)}
+      - #{name}: #{description}
+        Parameters: #{Jason.encode!(parameters)}
       """
     end)
 
@@ -462,12 +627,18 @@ defmodule AdvisorAi.AI.UniversalAgent do
   defp get_ai_response_with_tools(prompt, tools) do
     # Convert tools to OpenRouter tool calling format (newer format)
     tools_format = Enum.map(tools, fn tool ->
+      {name, description, parameters} = case tool do
+        %{function: %{name: n, description: d, parameters: p}} -> {n, d, p}
+        %{name: n, description: d, parameters: p} -> {n, d, p}
+        _ -> {"unknown", "No description", %{}}
+      end
+
       %{
         type: "function",
         function: %{
-          name: tool.name,
-          description: tool.description,
-          parameters: tool.parameters
+          name: name,
+          description: description,
+          parameters: parameters
         }
       }
     end)
@@ -654,6 +825,7 @@ defmodule AdvisorAi.AI.UniversalAgent do
       # Contact Tools
       "contacts_search" -> execute_contacts_search(user, arguments)
       "contacts_create" -> execute_contacts_create(user, arguments)
+      "check_oauth_scopes" -> execute_check_oauth_scopes(user, arguments)
 
       _ ->
         {:error, "Unknown tool: #{function_name}"}
@@ -861,7 +1033,15 @@ defmodule AdvisorAi.AI.UniversalAgent do
     case GoogleContacts.search_contacts(user, query) do
       {:ok, contacts} ->
         contact_list = Enum.map(contacts, fn contact ->
-          "• #{contact.name} (#{contact.email})"
+          name = get_contact_display_name(contact)
+          email = get_contact_primary_email(contact)
+          phone = get_contact_primary_phone(contact)
+
+          contact_info = "• #{name}"
+          contact_info = if email, do: contact_info <> " (#{email})", else: contact_info
+          contact_info = if phone, do: contact_info <> " - #{phone}", else: contact_info
+
+          contact_info
         end) |> Enum.join("\n")
 
         {:ok, "Found #{length(contacts)} contacts:\n\n#{contact_list}"}
@@ -874,6 +1054,44 @@ defmodule AdvisorAi.AI.UniversalAgent do
   defp execute_contacts_create(user, args) do
     # Note: This would need to be implemented in the GoogleContacts module
     {:ok, "Contact created"}
+  end
+
+  defp execute_check_oauth_scopes(user, _args) do
+    case Accounts.get_user_google_account(user.id) do
+      nil ->
+        {:ok, "No Google account connected. Please connect your Google account first."}
+
+      account ->
+        scopes = account.scopes || []
+
+        if Enum.empty?(scopes) do
+          {:ok, "No OAuth scopes found. You need to reconnect your Google account to grant permissions."}
+        else
+          scope_descriptions = scopes
+          |> Enum.map(fn scope ->
+            case scope do
+              "https://www.googleapis.com/auth/gmail.modify" -> "Gmail (read & send emails)"
+              "https://www.googleapis.com/auth/calendar" -> "Calendar (full access)"
+              "https://www.googleapis.com/auth/calendar.events" -> "Calendar events"
+              "https://www.googleapis.com/auth/contacts" -> "Contacts (full access)"
+              "https://www.googleapis.com/auth/contacts.readonly" -> "Contacts (read only)"
+              "https://www.googleapis.com/auth/drive" -> "Google Drive"
+              "https://www.googleapis.com/auth/drive.file" -> "Google Drive files"
+              "https://www.googleapis.com/auth/user.emails.read" -> "User emails"
+              "https://www.googleapis.com/auth/user.addresses.read" -> "User addresses"
+              "https://www.googleapis.com/auth/user.birthday.read" -> "User birthday"
+              "https://www.googleapis.com/auth/user.phonenumbers.read" -> "User phone numbers"
+              "https://www.googleapis.com/auth/user.organization.read" -> "User organization"
+              "https://www.googleapis.com/auth/user.gender.read" -> "User gender"
+              "https://www.googleapis.com/auth/userinfo.profile" -> "User profile"
+              "https://www.googleapis.com/auth/userinfo.email" -> "User email"
+              _ -> scope
+            end
+          end)
+
+          {:ok, "Current OAuth scopes:\n" <> Enum.join(scope_descriptions, "\n")}
+        end
+    end
   end
 
   # Generate response from tool execution results
@@ -986,6 +1204,28 @@ defmodule AdvisorAi.AI.UniversalAgent do
     })
   end
 
+  # Helper functions to extract contact information
+  defp get_contact_display_name(contact) do
+    case contact.names do
+      [name | _] -> name.display_name
+      _ -> "Unknown"
+    end
+  end
+
+  defp get_contact_primary_email(contact) do
+    case contact.email_addresses do
+      [email | _] -> email.value
+      _ -> nil
+    end
+  end
+
+  defp get_contact_primary_phone(contact) do
+    case contact.phone_numbers do
+      [phone | _] -> phone.value
+      _ -> nil
+    end
+  end
+
   # Extract JSON from text and execute it as a tool call
   defp extract_and_execute_json_from_text(user, text, context) do
     # Look for JSON blocks in the text
@@ -1014,7 +1254,7 @@ defmodule AdvisorAi.AI.UniversalAgent do
     end
   end
 
-  # Force execution based on user message when AI fails to generate tool calls
+    # Force execution based on user message when AI fails to generate tool calls
   defp force_execute_based_on_message(user, user_message, context) do
     message_lower = String.downcase(user_message)
 
@@ -1047,9 +1287,33 @@ defmodule AdvisorAi.AI.UniversalAgent do
             {:error, "Could not extract calendar information from message"}
         end
 
+      # Check scopes
+      String.contains?(message_lower, "check scopes") or String.contains?(message_lower, "what scopes") ->
+        case check_user_scopes(user) do
+          {:ok, scopes} ->
+            {:ok, "Your current Google scopes:\n\n#{Enum.join(scopes, "\n")}"}
+          {:error, reason} ->
+            {:error, "Could not check scopes: #{reason}"}
+        end
+
       # Default to recent emails
       true ->
         execute_tool_call(user, %{"name" => "gmail_list_messages", "arguments" => %{"query" => "", "max_results" => 5}})
+    end
+  end
+
+  # Check user's current Google scopes
+  defp check_user_scopes(user) do
+    case Accounts.get_user_google_account(user.id) do
+      nil ->
+        {:error, "No Google account connected"}
+      account ->
+        scopes = account.scopes || []
+        if length(scopes) > 0 do
+          {:ok, scopes}
+        else
+          {:ok, ["No scopes found - please reconnect your Google account"]}
+        end
     end
   end
 

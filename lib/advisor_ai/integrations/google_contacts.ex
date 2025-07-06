@@ -108,7 +108,6 @@ defmodule AdvisorAi.Integrations.GoogleContacts do
     url = "#{@people_api_url}/people/me/connections"
 
     params = %{
-      query: query,
       pageSize: page_size,
       personFields: "names,emailAddresses,phoneNumbers,addresses,organizations,birthdays,photos,urls,userDefined,biographies,coverPhotos,interests,locales,memberships,metadata,relations,skills,ageRanges,ageRange,clientData,externalIds,fileAses,imClients,interests,locales,memberships,metadata,names,nicknames,occupations,organizations,phoneNumbers,photos,relations,residences,skills,sipAddresses,urls,userDefined"
     }
@@ -120,7 +119,14 @@ defmodule AdvisorAi.Integrations.GoogleContacts do
       {:ok, %{status_code: 200, body: body}} ->
         case Jason.decode(body) do
           {:ok, %{"connections" => connections}} ->
-            {:ok, Enum.map(connections, &format_contact/1)}
+            # Filter contacts by the search query
+            filtered_contacts = connections
+            |> Enum.filter(fn contact ->
+              matches_search_query?(contact, query)
+            end)
+            |> Enum.map(&format_contact/1)
+
+            {:ok, filtered_contacts}
 
           {:ok, %{"error" => error}} ->
             {:error, "People API error: #{inspect(error)}"}
@@ -337,6 +343,58 @@ defmodule AdvisorAi.Integrations.GoogleContacts do
       metadata: contact["metadata"],
       client_data: contact["clientData"]
     }
+  end
+
+  # Helper function to check if a contact matches the search query
+  defp matches_search_query?(contact, query) do
+    query_lower = String.downcase(query)
+
+    # Check names
+    names_match = case contact["names"] do
+      names when is_list(names) ->
+        Enum.any?(names, fn name ->
+          display_name = String.downcase(name["displayName"] || "")
+          given_name = String.downcase(name["givenName"] || "")
+          family_name = String.downcase(name["familyName"] || "")
+
+          String.contains?(display_name, query_lower) or
+          String.contains?(given_name, query_lower) or
+          String.contains?(family_name, query_lower)
+        end)
+      _ -> false
+    end
+
+    # Check email addresses
+    emails_match = case contact["emailAddresses"] do
+      emails when is_list(emails) ->
+        Enum.any?(emails, fn email ->
+          email_value = String.downcase(email["value"] || "")
+          String.contains?(email_value, query_lower)
+        end)
+      _ -> false
+    end
+
+    # Check phone numbers
+    phones_match = case contact["phoneNumbers"] do
+      phones when is_list(phones) ->
+        Enum.any?(phones, fn phone ->
+          phone_value = String.downcase(phone["value"] || "")
+          String.contains?(phone_value, query_lower)
+        end)
+      _ -> false
+    end
+
+    # Check organizations
+    orgs_match = case contact["organizations"] do
+      orgs when is_list(orgs) ->
+        Enum.any?(orgs, fn org ->
+          org_name = String.downcase(org["name"] || "")
+          String.contains?(org_name, query_lower)
+        end)
+      _ -> false
+    end
+
+    names_match or emails_match or phones_match or orgs_match
   end
 
   # Helper functions to extract and format contact data
