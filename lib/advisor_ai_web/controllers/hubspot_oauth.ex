@@ -30,6 +30,7 @@ defmodule AdvisorAiWeb.HubspotOauthController do
   end
 
   def test_oauth(conn, _params) do
+    user = conn.assigns.current_user
     case AdvisorAi.Integrations.HubSpot.test_oauth_connection(user) do
       {:ok, message} ->
         conn

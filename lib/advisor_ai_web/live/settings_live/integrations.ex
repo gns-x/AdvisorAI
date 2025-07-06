@@ -63,15 +63,16 @@ defmodule AdvisorAiWeb.SettingsLive.Integrations do
     {:noreply, socket}
   end
 
-      def handle_event("test_hubspot_oauth", _params, socket) do
-            case AdvisorAi.Integrations.HubSpot.test_oauth_connection(user) do
-      {:ok, _message} ->
-                  {:noreply, assign(socket, hubspot_oauth_status: "working")}
+    def handle_event("test_hubspot_oauth", _params, socket) do
+      user = socket.assigns.user
+      case AdvisorAi.Integrations.HubSpot.test_oauth_connection(user) do
+        {:ok, _message} ->
+          {:noreply, assign(socket, hubspot_oauth_status: "working")}
 
-              {:error, _reason} ->
+        {:error, _reason} ->
           {:noreply, assign(socket, hubspot_oauth_status: "failed")}
+      end
     end
-  end
 
   defp has_valid_google_account?(account) do
     account != nil and account.access_token != nil and account.refresh_token != nil
