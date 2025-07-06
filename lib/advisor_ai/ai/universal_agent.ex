@@ -432,21 +432,21 @@ defmodule AdvisorAi.AI.UniversalAgent do
     Available Tools:
     #{tools_description}
 
+    CRITICAL: You MUST use function calling to execute actions. Do NOT just describe what you would do.
+
     Instructions:
     1. Analyze the user's request carefully
     2. Determine which tool(s) to use based on the user's intent
     3. Extract all necessary parameters from the user's message
-    4. Generate the appropriate tool calls
-    5. Provide a natural response explaining what you're doing
+    4. Generate the appropriate function calls using the available tools
+    5. DO NOT provide explanations or JSON in text - use actual function calls
 
     Examples:
-    - "Show me my last email" → Use gmail_list_messages with query="in:sent" and max_results=1
-    - "Find emails from Alice" → Use gmail_list_messages with query="from:alice"
-    - "Schedule a meeting tomorrow at 2pm" → Use calendar_create_event with appropriate times
-    - "Delete all emails from spam" → Use gmail_list_messages to find spam emails, then gmail_delete_message for each
+    - For "Show me my last email": Use gmail_list_messages with query="in:sent" and max_results=1
+    - For "Find emails from Alice": Use gmail_list_messages with query="from:alice"
+    - For "Schedule a meeting tomorrow at 2pm": Use calendar_create_event with appropriate times
 
-    Be intelligent and contextual. If the user asks for something that requires multiple steps, use multiple tools.
-    Always provide a natural, conversational response explaining what you're doing.
+    IMPORTANT: Use function calling, not text descriptions. The user wants the actual result, not a plan.
     """
   end
 
@@ -513,14 +513,29 @@ defmodule AdvisorAi.AI.UniversalAgent do
         create_agent_response(user, conversation_id, response_text, "action")
 
       {:ok, []} ->
-        # No tool calls, use the AI's text response
+        # No tool calls found, try to extract JSON from the AI's text response
         response_text = extract_text_response(ai_response)
-        create_agent_response(user, conversation_id, response_text, "conversation")
+
+        case extract_and_execute_json_from_text(user, response_text, context) do
+          {:ok, result} ->
+            create_agent_response(user, conversation_id, result, "action")
+
+          {:error, _} ->
+            # If no JSON found, show a simple response
+            create_agent_response(user, conversation_id, "I understand your request but need to use the available tools to help you. Let me try a different approach.", "conversation")
+        end
 
       {:error, reason} ->
         IO.puts("Failed to parse tool calls: #{reason}")
-        response_text = extract_text_response(ai_response) || "I understand your request but couldn't execute the necessary actions. Please try rephrasing."
-        create_agent_response(user, conversation_id, response_text, "error")
+        response_text = extract_text_response(ai_response)
+
+        case extract_and_execute_json_from_text(user, response_text, context) do
+          {:ok, result} ->
+            create_agent_response(user, conversation_id, result, "action")
+
+          {:error, _} ->
+            create_agent_response(user, conversation_id, "I understand your request but couldn't execute the necessary actions. Please try rephrasing.", "error")
+        end
     end
   end
 
@@ -927,5 +942,62 @@ defmodule AdvisorAi.AI.UniversalAgent do
       content: content,
       metadata: %{response_type: response_type}
     })
+  end
+
+  # Extract JSON from text and execute it as a tool call
+  defp extract_and_execute_json_from_text(user, text, context) do
+    # Look for JSON blocks in the text
+    case Regex.run(~r/```json\s*(\{.*?\})\s*```/s, text) do
+      [_, json_str] ->
+        case Jason.decode(json_str) do
+          {:ok, params} ->
+            # Try to determine which tool to use based on the parameters
+            tool_name = determine_tool_from_params(params, context)
+
+            if tool_name do
+              case execute_tool_call(user, %{"name" => tool_name, "arguments" => params}) do
+                {:ok, result} -> {:ok, result}
+                {:error, reason} -> {:error, reason}
+              end
+            else
+              {:error, "Could not determine tool from parameters"}
+            end
+
+          {:error, _} ->
+            {:error, "Invalid JSON"}
+        end
+
+      _ ->
+        {:error, "No JSON found in text"}
+    end
+  end
+
+  # Determine which tool to use based on parameters
+  defp determine_tool_from_params(params, context) do
+    cond do
+      # Gmail tools
+      Map.has_key?(params, "query") and (String.contains?(Map.get(params, "query", ""), "sent") or String.contains?(Map.get(params, "query", ""), "from:") or String.contains?(Map.get(params, "query", ""), "subject:")) ->
+        "gmail_list_messages"
+
+      Map.has_key?(params, "message_id") ->
+        "gmail_get_message"
+
+      Map.has_key?(params, "to") and Map.has_key?(params, "subject") ->
+        "gmail_send_message"
+
+      # Calendar tools
+      Map.has_key?(params, "summary") and Map.has_key?(params, "start_time") ->
+        "calendar_create_event"
+
+      Map.has_key?(params, "event_id") ->
+        "calendar_get_event"
+
+      # Default to gmail_list_messages for general queries
+      Map.has_key?(params, "query") ->
+        "gmail_list_messages"
+
+      true ->
+        nil
+    end
   end
 end
