@@ -6,13 +6,14 @@ cmds = [
   "mix local.hex --force",
   "mix local.rebar --force",
   "mix deps.get",
-  "npm install --prefix assets",
-  "pip install -r requirements.txt",
-  "mix assets.deploy"
+  "npm install --prefix assets"
 ]
 
 [phases.build]
-cmds = ["mix compile"]
+cmds = [
+  "cd assets && npm run build || true",
+  "mix compile"
+]
 
 [start]
-cmd = "python embedding_server.py & mix phx.server" 
+cmd = "pip install -r requirements.txt && python embedding_server.py & mix phx.server" 
