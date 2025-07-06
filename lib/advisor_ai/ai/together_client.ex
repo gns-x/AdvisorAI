@@ -14,6 +14,7 @@ defmodule AdvisorAi.AI.TogetherClient do
     functions = Keyword.get(opts, :functions, [])
     function_call = Keyword.get(opts, :function_call, nil)
     tools = Keyword.get(opts, :tools, [])
+    tool_choice = Keyword.get(opts, :tool_choice, nil)
     temperature = Keyword.get(opts, :temperature, 0.7)
     max_tokens = Keyword.get(opts, :max_tokens, 1000)
 
@@ -43,7 +44,9 @@ defmodule AdvisorAi.AI.TogetherClient do
 
       # Add tools if provided (OpenAI tool calling)
       request_body = if length(tools) > 0 do
-        Map.put(request_body, :tools, tools)
+        request_body
+        |> Map.put(:tools, tools)
+        |> Map.put(:tool_choice, tool_choice || "auto")
       else
         request_body
       end
