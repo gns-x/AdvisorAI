@@ -31,9 +31,14 @@ erl_crash.dump
 /_build/*/lib/advisor_ai/.mix/
 /.dialyzer*
 
-# Env files
+# Environment files
 .env
 .env.*
+.envrc
+.env.local
+.env.development
+.env.test
+.env.production
 
 # Uploads
 /uploads
@@ -42,6 +47,7 @@ erl_crash.dump
 # Logs
 *.log
 logs/
+log/
 
 # Runtime data
 pids/
@@ -75,9 +81,6 @@ jspm_packages/
 # Yarn Integrity file
 .yarn-integrity
 
-# dotenv environment variables file
-.env.test
-
 # parcel-bundler cache (https://parceljs.org/)
 .cache
 .parcel-cache
@@ -109,11 +112,19 @@ jspm_packages/
 # Temporary folders
 tmp/
 temp/
+/tmp
+/temp
 
 # OS generated files
 Thumbs.db
 ehthumbs.db
 Desktop.ini
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
 
 # Editor directories and files
 .vscode/
@@ -121,10 +132,13 @@ Desktop.ini
 *.swp
 *.swo
 *~
+*.sublime-project
+*.sublime-workspace
 
 # Local configuration files
 config/local.exs
 config/*.secret.exs
+config/secrets.exs
 
 # Database
 *.db
@@ -164,3 +178,289 @@ docker-compose.override.yml
 # Local development
 .local/
 local/
+
+# AI/ML specific
+*.model
+*.pkl
+*.joblib
+*.h5
+*.onnx
+*.tflite
+embeddings/
+models/
+vector_cache/
+*.vec
+*.bin
+
+# Python specific (for embedding server)
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual environments
+venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# pyenv
+.python-version
+
+# pipenv
+Pipfile.lock
+
+# Poetry
+poetry.lock
+
+# Celery
+celerybeat-schedule
+celerybeat.pid
+
+# SageMath parsed files
+*.sage.py
+
+# Spyder project settings
+.spyderproject
+.spyproject
+
+# Rope project settings
+.ropeproject
+
+# mkdocs documentation
+/site
+
+# mypy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Pyre type checker
+.pyre/
+
+# Deployment specific
+fly.toml
+Dockerfile
+.dockerignore
+docker-compose.yml
+docker-compose.override.yml
+
+# Testing and debugging scripts
+test_*.exs
+debug_*.exs
+*_test.sh
+*_diagnostic.exs
+check_*.exs
+fix_*.exs
+force_*.exs
+switch_*.exs
+
+# Documentation
+DEPLOYMENT.md
+EMBEDDING_SETUP.md
+OAUTH_SETUP.md
+
+# API keys and secrets
+*.key
+*.secret
+secrets/
+keys/
+
+# Monitoring and logging
+*.pid
+*.log
+logs/
+monitoring/
+
+# Cache directories
+.cache/
+cache/
+*.cache
+
+# Build artifacts
+build/
+dist/
+out/
+
+# IDE specific
+.vscode/settings.json
+.vscode/launch.json
+.vscode/tasks.json
+.idea/workspace.xml
+.idea/tasks.xml
+
+# OS specific
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.temp
+*~
+.#*
+\#*#
+
+# Backup files
+*.bak
+*.backup
+*.old
+*.orig
+
+# Archive files
+*.zip
+*.tar.gz
+*.rar
+*.7z
+
+# Database dumps
+*.dump
+*.sql
+*.db
+
+# SSL certificates
+*.pem
+*.key
+*.crt
+*.csr
+*.p12
+*.pfx
+
+# Configuration overrides
+config/local.exs
+config/*.secret.exs
+config/secrets.exs
+config/dev.secret.exs
+config/prod.secret.exs
+
+# Local development files
+.local/
+local/
+dev/
+development/
+
+# Test artifacts
+test-results/
+coverage/
+.nyc_output/
+*.lcov
+
+# Performance profiling
+*.prof
+*.profraw
+*.profdata
+
+# Memory dumps
+*.dump
+*.core
+core.*
+
+# Lock files (keep mix.lock but ignore others)
+package-lock.json
+yarn.lock
+poetry.lock
+Pipfile.lock
+composer.lock
+
+# Node modules
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Runtime files
+*.pid
+*.seed
+*.pid.lock
+
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+
+# Coverage directory used by tools like istanbul
+coverage/
+*.lcov
+
+# Dependency directories
+node_modules/
+jspm_packages/
+
+# Optional npm cache directory
+.npm
+
+# Optional eslint cache
+.eslintcache
+
+# Microbundle cache
+.rpt2_cache/
+.rts2_cache_cjs/
+.rts2_cache_es/
+.rts2_cache_umd/
+
+# Optional REPL history
+.node_repl_history
+
+# Output of 'npm pack'
+*.tgz
+
+# Yarn Integrity file
+.yarn-integrity
+
+# parcel-bundler cache (https://parceljs.org/)
+.cache
+.parcel-cache
+
+# Next.js build output
+.next
+
+# Nuxt.js build / generate output
+.nuxt
+dist
+
+# Gatsby files
+.cache/
+public
+
+# Storybook build outputs
+.out
+.storybook-out
+
+# Temporary folders
+tmp/
+temp/
+
+# Yarn v2
+.yarn/cache
+.yarn/unplugged
+.yarn/build-state.yml
+.yarn/install-state.gz
+.pnp.*
