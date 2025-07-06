@@ -594,7 +594,7 @@ defmodule AdvisorAi.Integrations.Gmail do
     end
   end
 
-  defp get_email_details(user, message_id) do
+  def get_email_details(user, message_id) do
     case get_access_token(user) do
       {:ok, access_token} ->
         url = "#{@gmail_api_url}/messages/#{message_id}"
