@@ -849,7 +849,7 @@ defmodule AdvisorAi.AI.UniversalAgent do
 
   # Helper functions (reuse from existing modules)
   defp get_conversation_with_context(conversation_id, user_id) do
-    Chat.get_conversation_with_context(conversation_id, user_id)
+    Chat.get_conversation_with_messages!(conversation_id, user_id)
   end
 
   defp get_comprehensive_user_context(user) do
