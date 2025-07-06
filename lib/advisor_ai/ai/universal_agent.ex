@@ -41,7 +41,7 @@ defmodule AdvisorAi.AI.UniversalAgent do
   end
 
   # Build comprehensive context for AI
-  defp build_ai_context(user, conversation, _user_context) do
+  def build_ai_context(user, conversation, _user_context) do
     %{
       user: %{
         name: user.name || "User",
@@ -57,7 +57,7 @@ defmodule AdvisorAi.AI.UniversalAgent do
   end
 
   # Get all available Gmail/Calendar tools as a schema
-  defp get_available_tools(user) do
+  def get_available_tools(user) do
     [
       # Universal Action Tool - Handles ANY request dynamically
       %{
@@ -1162,12 +1162,16 @@ defmodule AdvisorAi.AI.UniversalAgent do
     end
   end
 
-  defp create_agent_response(_user, conversation_id, content, response_type) do
+  def create_agent_response(_user, conversation_id, content, response_type) do
     Chat.create_message(conversation_id, %{
       role: "assistant",
       content: content,
       metadata: %{response_type: response_type}
     })
+  end
+
+  def handle_unknown_action(user, conversation_id, action) do
+    create_agent_response(user, conversation_id, "Could not determine how to execute action: #{action}", "error")
   end
 
   # Helper functions to extract contact information
