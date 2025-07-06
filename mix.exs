@@ -63,6 +63,7 @@ defmodule AdvisorAi.MixProject do
 
       # HTTP client for API calls
       {:httpoison, "~> 2.0"},
+      {:oauth2, "~> 2.0"},
 
       # OpenAI integration
       {:openai, "~> 0.5"},
