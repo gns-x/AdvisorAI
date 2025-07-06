@@ -18,8 +18,7 @@ defmodule AdvisorAiWeb.SettingsLive.Integrations do
         hubspot_connected: has_valid_hubspot_tokens?(user),
         google_account: google_account,
         hubspot_account: hubspot_account,
-        hubspot_api_key: System.get_env("HUBSPOT_PRIVATE_APP_TOKEN", System.get_env("HUBSPOT_API_KEY", "")),
-        hubspot_api_key_status: "unknown"
+        hubspot_oauth_status: "unknown"
       )
 
     {:ok, socket}
@@ -64,13 +63,13 @@ defmodule AdvisorAiWeb.SettingsLive.Integrations do
     {:noreply, socket}
   end
 
-  def handle_event("test_hubspot_api_key", _params, socket) do
-    case AdvisorAi.Integrations.HubSpot.test_api_key_connection() do
+      def handle_event("test_hubspot_oauth", _params, socket) do
+            case AdvisorAi.Integrations.HubSpot.test_oauth_connection(user) do
       {:ok, _message} ->
-        {:noreply, assign(socket, hubspot_api_key_status: "working")}
+                  {:noreply, assign(socket, hubspot_oauth_status: "working")}
 
-      {:error, _reason} ->
-        {:noreply, assign(socket, hubspot_api_key_status: "failed")}
+              {:error, _reason} ->
+          {:noreply, assign(socket, hubspot_oauth_status: "failed")}
     end
   end
 

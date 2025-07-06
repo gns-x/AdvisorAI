@@ -29,8 +29,8 @@ defmodule AdvisorAiWeb.HubspotOauthController do
     |> send_resp(200, Jason.encode!(config))
   end
 
-  def test_api_key(conn, _params) do
-    case AdvisorAi.Integrations.HubSpot.test_api_key_connection() do
+  def test_oauth(conn, _params) do
+    case AdvisorAi.Integrations.HubSpot.test_oauth_connection(user) do
       {:ok, message} ->
         conn
         |> put_resp_content_type("application/json")

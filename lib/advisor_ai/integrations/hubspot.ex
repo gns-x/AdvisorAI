@@ -356,40 +356,22 @@ defmodule AdvisorAi.Integrations.HubSpot do
     end
   end
 
-  # Try OAuth first, then fall back to API key
+  # Only use OAuth tokens - no API key fallback
   defp get_access_token(user) do
-    # First try OAuth token
-    case get_oauth_token(user) do
-      {:ok, token} ->
-        {:ok, token}
-
-      {:error, _} ->
-        # Fall back to API key
-        get_api_key()
-    end
-  end
-
-  # Force API key usage (bypass OAuth completely)
-  defp get_access_token_api_key_only(_user) do
-    get_api_key()
+    get_oauth_token(user)
   end
 
   defp get_oauth_token(user) do
-    if user.hubspot_access_token do
-      if is_user_token_expired?(user) do
-        refresh_user_access_token(user)
-      else
-        {:ok, user.hubspot_access_token}
-      end
-    else
-      {:error, "No HubSpot tokens found. Please connect your HubSpot account via OAuth."}
-    end
-  end
+    cond do
+      is_nil(user.hubspot_access_token) ->
+        {:error, "No HubSpot access token found. Please connect your HubSpot account via OAuth in the settings."}
 
-  defp get_api_key() do
-    # For developer accounts, only OAuth is available
-    # Private Apps are only for paid accounts
-    {:error, "Private App Tokens are only available for paid HubSpot accounts. Please use OAuth 2.0 instead."}
+      is_user_token_expired?(user) ->
+        refresh_user_access_token(user)
+
+      true ->
+        {:ok, user.hubspot_access_token}
+    end
   end
 
   defp is_token_expired?(account) do
@@ -422,14 +404,13 @@ defmodule AdvisorAi.Integrations.HubSpot do
     end
   end
 
-  # Test API key connection
-  def test_api_key_connection() do
-    # For developer accounts, only OAuth is available
-    {:error, "Private App Tokens are only available for paid HubSpot accounts. Please use OAuth 2.0 by clicking 'Connect with OAuth' in the settings."}
-  end
-
-  # Force API key usage (bypass OAuth)
-  defp get_access_token_api_key_only(_user) do
-    get_api_key()
+  # Test OAuth connection
+  def test_oauth_connection(user) do
+    case get_access_token(user) do
+      {:ok, _token} ->
+        {:ok, "OAuth connection successful"}
+      {:error, reason} ->
+        {:error, reason}
+    end
   end
 end
