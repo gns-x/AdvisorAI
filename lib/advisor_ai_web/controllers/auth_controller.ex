@@ -88,8 +88,11 @@ defmodule AdvisorAiWeb.AuthController do
 
         case Accounts.create_or_update_account(user, account_params) do
           {:ok, _account} ->
+            # Reload user to get updated token fields
+            updated_user = Accounts.get_user!(user.id)
             conn
             |> put_flash(:info, "Google connected successfully!")
+            |> assign(:current_user, updated_user)
             |> redirect(to: ~p"/settings/integrations")
 
           {:error, changeset} ->

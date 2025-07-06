@@ -101,6 +101,22 @@ defmodule AdvisorAi.Integrations.GoogleContacts do
     end
   end
 
+  @doc """
+  Find a contact by email or name. Returns the first match or nil if not found.
+  """
+  def find_contact(user, params) do
+    query = params["email"] || params["name"] || params[:email] || params[:name]
+    if is_nil(query) or query == "" do
+      {:error, "No email or name provided for contact search."}
+    else
+      case search_contacts(user, query, page_size: 10) do
+        {:ok, [contact | _]} -> {:ok, contact}
+        {:ok, []} -> {:ok, nil}
+        {:error, reason} -> {:error, reason}
+      end
+    end
+  end
+
   # Private functions
 
   defp do_search_contacts(access_token, query, opts) do

@@ -116,10 +116,11 @@ defmodule AdvisorAi.AI.Agent do
 
   # Execute automation rule based on instruction
   defp execute_automation_rule(user, instruction, trigger_type, trigger_data) do
-    IO.puts("DEBUG: Executing automation rule: #{instruction}")
+    instruction_text = if is_map(instruction), do: instruction.instruction, else: instruction
+    IO.puts("DEBUG: Executing automation rule: #{instruction_text}")
 
     # Parse the instruction to extract action details
-    case parse_automation_instruction(instruction) do
+    case parse_automation_instruction(instruction_text) do
       {:ok, action_type, params} ->
         # Execute the action
         case execute_automation_action(user, action_type, params, trigger_data) do
@@ -260,7 +261,7 @@ defmodule AdvisorAi.AI.Agent do
         extracted_data = extract_data_from_request(message_content)
 
         # Execute the workflow
-                case WorkflowGenerator.execute_workflow(user, workflow, extracted_data) do
+        case WorkflowGenerator.execute_workflow(user, workflow, extracted_data) do
           {:ok, results} ->
             # Generate response based on workflow results
             response = generate_workflow_response(message_content, workflow, results)
@@ -302,7 +303,7 @@ defmodule AdvisorAi.AI.Agent do
     If everything worked, confirm what was accomplished.
     """
 
-        case OpenRouterClient.chat_completion(messages: [
+    case OpenRouterClient.chat_completion(messages: [
       %{role: "system", content: system_prompt},
       %{role: "user", content: user_message}
     ]) do

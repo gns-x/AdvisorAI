@@ -113,17 +113,30 @@ defmodule AdvisorAi.AI.OllamaClient do
   defp convert_messages_to_ollama_format(messages) do
     messages
     |> Enum.map(fn
-      %{role: "system", content: content} ->
+      # Accept both string and atom keys for role/content
+      %{role: role, content: content} when role in ["system", :system] ->
         %{role: "system", content: content}
-
-      %{role: "user", content: content} ->
+      %{role: role, content: content} when role in ["user", :user] ->
         %{role: "user", content: content}
-
-      %{role: "assistant", content: content} ->
+      %{role: role, content: content} when role in ["assistant", :assistant] ->
         %{role: "assistant", content: content}
-
-      %{role: "tool", content: content, tool_call_id: tool_call_id} ->
+      %{role: role, content: content, tool_call_id: tool_call_id} when role in ["tool", :tool] ->
         %{role: "user", content: "Tool Result (#{tool_call_id}): #{content}"}
+      # Fallback for string-keyed maps
+      %{"role" => role, "content" => content} when role in ["system", :system] ->
+        %{role: "system", content: content}
+      %{"role" => role, "content" => content} when role in ["user", :user] ->
+        %{role: "user", content: content}
+      %{"role" => role, "content" => content} when role in ["assistant", :assistant] ->
+        %{role: "assistant", content: content}
+      %{"role" => role, "content" => content, "tool_call_id" => tool_call_id} when role in ["tool", :tool] ->
+        %{role: "user", content: "Tool Result (#{tool_call_id}): #{content}"}
+      # Fallback: stringify role/content if present
+      msg ->
+        %{
+          role: to_string(Map.get(msg, :role) || Map.get(msg, "role") || "user"),
+          content: Map.get(msg, :content) || Map.get(msg, "content") || ""
+        }
     end)
   end
 
