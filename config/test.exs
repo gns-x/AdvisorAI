@@ -48,5 +48,5 @@ config :advisor_ai, Oban,
 config :advisor_ai,
   gmail_module: AdvisorAi.Integrations.Gmail,
   calendar_module: AdvisorAi.Integrations.Calendar,
-  google_contacts_module: AdvisorAi.Integrations.GoogleContacts,
+
   accounts_module: AdvisorAi.Accounts
