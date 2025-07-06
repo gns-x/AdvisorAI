@@ -495,14 +495,21 @@ defmodule AdvisorAi.AI.UniversalAgent do
   # Execute AI tool calls
   defp execute_ai_tool_calls(user, conversation_id, ai_response, user_message, context) do
     case parse_tool_calls(ai_response) do
-      {:ok, tool_calls} when length(tool_calls) > 0 ->
+      {:ok, tool_calls} when tool_calls != [] ->
         # Execute each tool call
         results = Enum.map(tool_calls, fn tool_call ->
           execute_tool_call(user, tool_call)
         end)
 
-        # Generate response based on results
-        response_text = generate_response_from_results(user_message, results)
+        # Only show the actual result(s), not the plan or tool call JSON
+        response_text =
+          results
+          |> Enum.map(fn
+            {:ok, result} -> result
+            {:error, error} -> "Error: #{error}"
+          end)
+          |> Enum.join("\n\n")
+
         create_agent_response(user, conversation_id, response_text, "action")
 
       {:ok, []} ->
