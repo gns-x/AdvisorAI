@@ -13,30 +13,58 @@ defmodule AdvisorAi.AI.UniversalAgent do
   The AI decides what to do based on the prompt, not predefined function mappings.
   """
   def process_request(user, conversation_id, user_message) do
-    conversation = get_conversation_with_context(conversation_id, user.id)
-    user_context = get_comprehensive_user_context(user)
+    # Check for common greetings first
+    greeting_response = check_for_greeting(user_message)
+    if greeting_response do
+      create_agent_response(user, conversation_id, greeting_response, "conversation")
+    else
+      conversation = get_conversation_with_context(conversation_id, user.id)
+      user_context = get_comprehensive_user_context(user)
 
-    # Build context for AI
-    context = build_ai_context(user, conversation, user_context)
+      # Build context for AI
+      context = build_ai_context(user, conversation, user_context)
 
-    # Get available tools (Gmail/Calendar API capabilities)
-    tools = get_available_tools(user)
+      # Get available tools (Gmail/Calendar API capabilities)
+      tools = get_available_tools(user)
 
-    # Create AI prompt for universal action understanding
-    prompt = build_universal_prompt(user_message, context, tools)
+      # Create AI prompt for universal action understanding
+      prompt = build_universal_prompt(user_message, context, tools)
 
-    IO.puts("DEBUG: Universal Agent - Processing: #{user_message}")
-    IO.puts("DEBUG: Available tools: #{length(tools)}")
+      IO.puts("DEBUG: Universal Agent - Processing: #{user_message}")
+      IO.puts("DEBUG: Available tools: #{length(tools)}")
 
-    # Get AI response with tool calls
-    case get_ai_response_with_tools(prompt, tools) do
-      {:ok, ai_response} ->
-        IO.puts("DEBUG: AI Response: #{inspect(ai_response)}")
-        execute_ai_tool_calls(user, conversation_id, ai_response, user_message, context)
+      # Get AI response with tool calls
+      case get_ai_response_with_tools(prompt, tools) do
+        {:ok, ai_response} ->
+          IO.puts("DEBUG: AI Response: #{inspect(ai_response)}")
+          execute_ai_tool_calls(user, conversation_id, ai_response, user_message, context)
 
-      {:error, reason} ->
-        IO.puts("AI Error: #{reason}")
-        create_agent_response(user, conversation_id, "I'm having trouble understanding your request. Please try rephrasing it.", "error")
+        {:error, reason} ->
+          IO.puts("AI Error: #{reason}")
+          create_agent_response(user, conversation_id, "I'm having trouble understanding your request. Please try rephrasing it.", "error")
+      end
+    end
+  end
+
+  # Check for common greetings and return appropriate response
+  defp check_for_greeting(message) do
+    message_lower = String.downcase(String.trim(message))
+
+    cond do
+      message_lower in ["hello", "hi", "hey", "good morning", "good afternoon", "good evening", "greetings"] ->
+        "Hello! I'm your AI assistant. I can help you with emails, calendar management, and contact searches. What would you like to do today?"
+
+      message_lower in ["how are you", "how are you doing", "how's it going"] ->
+        "I'm doing well, thank you for asking! I'm ready to help you manage your emails, calendar, and contacts. What can I assist you with?"
+
+      message_lower in ["thanks", "thank you", "thx", "ty"] ->
+        "You're welcome! Is there anything else I can help you with?"
+
+      message_lower in ["bye", "goodbye", "see you", "see ya"] ->
+        "Goodbye! Feel free to reach out if you need any help later."
+
+      true ->
+        nil
     end
   end
 
@@ -208,7 +236,116 @@ defmodule AdvisorAi.AI.UniversalAgent do
     end)
 
     """
-    You are an intelligent AI assistant with full access to Gmail and Google Calendar APIs.
+    You are an expert AI assistant for financial advisors with 15 years of software engineering experience. You operate within a sophisticated application that integrates Gmail and Google Calendar.
+
+    ## Core Capabilities
+
+    ### 1. Information Retrieval (RAG-based)
+    - You have access to a vector database containing all emails from Gmail
+    - When asked questions, search semantically through this data to find relevant information
+    - Always cite sources (email dates, sender names) when providing information
+    - Handle ambiguous queries by asking clarifying questions
+
+    ### 2. Task Execution via Tool Calling
+    You have access to these tools:
+    - gmail_send_email(to, subject, body, cc=None, bcc=None)
+    - gmail_search_emails(query, max_results=10)
+    - gmail_get_email_thread(thread_id)
+    - calendar_create_event(title, start_time, end_time, attendees=[], description="")
+    - calendar_get_availability(start_date, end_date, duration_minutes)
+    - calendar_update_event(event_id, updates={})
+    - calendar_search_events(query, time_range=None)
+    - task_store(task_id, task_data, status)
+    - task_retrieve(task_id)
+    - memory_store(key, value, type="instruction")
+    - memory_retrieve(key=None, type=None)
+
+    ### 3. Complex Task Handling
+
+    #### Appointment Scheduling Pattern:
+    1. Search for contact in emails
+    2. Get calendar availability
+    3. Draft email with 3-5 time options
+    4. Store task with status "awaiting_response"
+    5. When response arrives:
+       - If time accepted: create calendar event, confirm via email
+       - If times rejected: propose new times
+       - If partial response: ask for clarification
+       - If no clear answer: follow up politely
+
+    #### Ongoing Instructions:
+    - Store instructions in memory with type="ongoing_instruction"
+    - On every webhook/event, check if any ongoing instructions apply
+    - Execute relevant instructions automatically
+    - Learn from patterns - if user corrects an action, update understanding
+
+    ### 4. Edge Case Handling
+
+    Always consider:
+    - Time zones (ask if unclear)
+    - Business hours preferences
+    - Email bounce backs
+    - Calendar conflicts
+    - Missing contact information
+    - Ambiguous names (multiple matches)
+    - Failed API calls (retry with exponential backoff)
+    - Rate limits (queue and batch operations)
+
+    ### 5. Proactive Behavior
+
+    When events occur (webhooks/polling):
+    1. Check if event matches any ongoing instructions
+    2. Analyze context to see if proactive action would be helpful
+    3. Consider recent conversations and patterns
+    4. Take action if confidence > 80%, otherwise ask user
+
+    Examples:
+    - Client emails asking about meeting → check calendar and respond
+    - New email from unknown sender → ask if user wants to add to contacts
+    - Calendar invite created → send prep email if pattern detected
+
+    ### 6. Communication Style
+
+    - Professional but friendly
+    - Concise responses
+    - Always confirm before taking irreversible actions
+    - Provide status updates for long-running tasks
+    - Admit uncertainty rather than guessing
+
+    ### 7. Error Recovery
+
+    - If email fails: retry, then notify user
+    - If contact not found: suggest alternatives or ask to create new
+    - If calendar full: suggest overflow times or rescheduling options
+    - If API down: queue action and notify user of delay
+
+    ### 8. Task Memory Structure
+
+    Store tasks as:
+    ```json
+    {
+      "id": "unique_id",
+      "type": "appointment_scheduling|follow_up|etc",
+      "status": "initiated|awaiting_response|completed|failed",
+      "context": {
+        "original_request": "",
+        "participants": [],
+        "current_state": {},
+        "next_actions": []
+      },
+      "history": []
+    }
+    ```
+
+    ### 9. Response Format
+
+    For questions: Direct answer with sources
+    For tasks: Acknowledge → Execute → Confirm
+    For errors: Explain → Suggest alternatives → Ask for guidance
+
+    Remember: You're replacing a human assistant. Be flexible, use context, and handle the unexpected gracefully. Every interaction should feel natural and helpful.
+
+    ---
     The user said: "#{user_message}"
 
     User Context:
@@ -221,30 +358,6 @@ defmodule AdvisorAi.AI.UniversalAgent do
 
     Available Tools:
     #{tools_description}
-
-    CRITICAL INSTRUCTIONS:
-    1. You MUST use function calling to execute actions
-    2. DO NOT provide any explanations, plans, or JSON in your text response
-    3. DO NOT describe what you will do - just execute the function calls
-    4. The user wants ONLY the final result, not your reasoning
-    5. If you cannot execute a function call, respond with a brief error message
-    6. NEVER show JSON examples in your response - use actual function calls
-    7. NEVER say "Let me execute..." or "I'll use..." - just execute
-
-    Examples of what NOT to do:
-    - "I'll search for your last sent email using gmail_list_messages..."
-    - "Let me execute the gmail_list_messages function..."
-    - "Here's what I'm doing: * Using gmail_list_messages..."
-    - "Here's the tool call: ```json {...}```"
-    - "Let me execute these tool calls and retrieve your email..."
-
-    Examples of what TO do:
-    - Just call the appropriate function with the right parameters
-    - Let the function execution provide the result
-    - Use actual function calling, not text descriptions
-
-    For "give me my last sent email": Call gmail_list_messages with query="in:sent" and max_results=1
-    For "send email to john@example.com": Call gmail_send_message with to="john@example.com", subject="Email", body="Hello"
     """
   end
 
@@ -269,7 +382,7 @@ defmodule AdvisorAi.AI.UniversalAgent do
     end)
 
     messages = [
-      %{"role" => "system", "content" => "You are a helpful AI assistant with access to Gmail and Calendar APIs. Use the available tools to help users. DO NOT provide explanations - just execute tools."},
+      %{"role" => "system", "content" => "You are an expert AI assistant for financial advisors. You have access to Gmail, Google Calendar, and memory/task tools. Follow the comprehensive instructions in your prompt. Deeply analyze the user's request, reason step by step, and only return the final result. Never output plans, JSON, or intermediate steps—only the final answer."},
       %{"role" => "user", "content" => prompt}
     ]
 
@@ -328,13 +441,8 @@ defmodule AdvisorAi.AI.UniversalAgent do
             create_agent_response(user, conversation_id, result, "action")
 
           {:error, _} ->
-            # If no JSON found, try to force execution based on user message
-            case force_execute_based_on_message(user, user_message, context) do
-              {:ok, result} ->
-                create_agent_response(user, conversation_id, result, "action")
-              {:error, _} ->
-                create_agent_response(user, conversation_id, "I understand your request but need to use the available tools to help you. Let me try a different approach.", "conversation")
-            end
+            # If no JSON found, just return the LLM's conversational response
+            create_agent_response(user, conversation_id, response_text || "I'm not sure how to help with that yet, but I'm learning!", "conversation")
         end
 
       {:error, reason} ->
@@ -346,13 +454,8 @@ defmodule AdvisorAi.AI.UniversalAgent do
             create_agent_response(user, conversation_id, result, "action")
 
           {:error, _} ->
-            # Try to force execution based on user message
-            case force_execute_based_on_message(user, user_message, context) do
-              {:ok, result} ->
-                create_agent_response(user, conversation_id, result, "action")
-              {:error, _} ->
-                create_agent_response(user, conversation_id, "I understand your request but couldn't execute the necessary actions. Please try rephrasing.", "error")
-            end
+            # If no JSON found, just return the LLM's conversational response
+            create_agent_response(user, conversation_id, response_text || "I'm not sure how to help with that yet, but I'm learning!", "conversation")
         end
     end
   end
@@ -586,69 +689,48 @@ defmodule AdvisorAi.AI.UniversalAgent do
     end
   end
 
-  defp execute_calendar_action(user, operation, args) do
-    case operation do
+  defp execute_calendar_action(user, action, args) do
+    case action do
+      "create" ->
+        # Fix: resolve attendees if it's a nested tool call
+        attendees = Map.get(args, "attendees", [])
+        resolved_attendees =
+          cond do
+            is_map(attendees) and Map.has_key?(attendees, "function_name") and Map.has_key?(attendees, "args") ->
+              # Execute the nested tool call to get contacts
+              tool_call = %{"name" => attendees["function_name"], "arguments" => Enum.at(attendees["args"], 0)}
+              case execute_tool_call(user, tool_call) do
+                {:ok, contacts_result} ->
+                  # contacts_result is a string like "Found 1 contacts:\n\n• Name (email) - phone"
+                  # Extract emails from the result
+                  Regex.scan(~r/\(([^)]+@[^)]+)\)/, contacts_result)
+                  |> Enum.map(fn [_, email] -> email end)
+                _ -> []
+              end
+            is_list(attendees) -> attendees
+            true -> []
+          end
+        event_data = Map.put(args, "attendees", resolved_attendees)
+        Calendar.create_event(user, event_data)
       "list" ->
-        max_results = Map.get(args, "max_results") || Map.get(args, :max_results) || 10
-        time_min = Map.get(args, "time_min") || Map.get(args, :time_min)
-        time_max = Map.get(args, "time_max") || Map.get(args, :time_max)
-
-        opts = [max_results: max_results]
-        opts = if time_min, do: Keyword.put(opts, :time_min, time_min), else: opts
-        opts = if time_max, do: Keyword.put(opts, :time_max, time_max), else: opts
-
-        case Calendar.list_events(user, opts) do
-          {:ok, events} ->
+        case Calendar.list_events(user) do
+          {:ok, events} when is_list(events) ->
             if length(events) > 0 do
               event_list = Enum.map(events, fn event ->
                 start_time = get_in(event, ["start", "dateTime"]) || get_in(event, ["start", "date"])
                 "• #{event["summary"]} (#{start_time})"
               end) |> Enum.join("\n")
-
               {:ok, "Found #{length(events)} events:\n\n#{event_list}"}
             else
               {:ok, "No events found"}
             end
+          {:ok, other} ->
+            {:ok, inspect(other)}
           {:error, reason} ->
             {:error, "Failed to list events: #{reason}"}
         end
-
-      "create" ->
-        event_data = %{
-          "title" => Map.get(args, "summary") || Map.get(args, :summary),
-          "description" => Map.get(args, "description") || Map.get(args, :description) || "",
-          "start_time" => Map.get(args, "start_time") || Map.get(args, :start_time),
-          "end_time" => Map.get(args, "end_time") || Map.get(args, :end_time),
-          "attendees" => Map.get(args, "attendees") || Map.get(args, :attendees) || []
-        }
-
-        case Calendar.create_event(user, event_data) do
-          {:ok, result} -> {:ok, result}
-          {:error, reason} -> {:error, "Failed to create event: #{reason}"}
-        end
-
-      "update" ->
-        event_id = Map.get(args, "event_id") || Map.get(args, :event_id)
-        event_data = %{
-          "summary" => Map.get(args, "summary") || Map.get(args, :summary),
-          "description" => Map.get(args, "description") || Map.get(args, :description) || "",
-          "start_time" => Map.get(args, "start_time") || Map.get(args, :start_time),
-          "end_time" => Map.get(args, "end_time") || Map.get(args, :end_time),
-          "attendees" => Map.get(args, "attendees") || Map.get(args, :attendees) || []
-        }
-
-        case Calendar.update_event(user, event_id, event_data) do
-          {:ok, result} -> {:ok, result}
-          {:error, reason} -> {:error, "Failed to update event: #{reason}"}
-        end
-
-      "delete" ->
-        event_id = Map.get(args, "event_id") || Map.get(args, :event_id)
-
-        case Calendar.delete_event(user, event_id) do
-          {:ok, _} -> {:ok, "Event deleted successfully"}
-          {:error, reason} -> {:error, "Failed to delete event: #{reason}"}
-        end
+      _ ->
+        {:error, "Unknown calendar action: #{action}"}
     end
   end
 
@@ -1222,121 +1304,6 @@ defmodule AdvisorAi.AI.UniversalAgent do
       _ ->
         {:error, "No JSON found in text"}
     end
-  end
-
-    # Force execution based on user message when AI fails to generate tool calls
-  defp force_execute_based_on_message(user, user_message, _context) do
-    message_lower = String.downcase(user_message)
-
-    cond do
-      # Last sent email
-      String.contains?(message_lower, "last sent email") or String.contains?(message_lower, "last email") ->
-        execute_tool_call(user, %{"name" => "gmail_list_messages", "arguments" => %{"query" => "in:sent", "max_results" => 1}})
-
-      # Send email
-      String.contains?(message_lower, "send email") or String.contains?(message_lower, "email to") ->
-        # Extract email and subject from message
-        case extract_email_info_from_message(user_message) do
-          {:ok, email_info} ->
-            execute_tool_call(user, %{"name" => "gmail_send_message", "arguments" => email_info})
-          {:error, _} ->
-            {:error, "Could not extract email information from message"}
-        end
-
-      # Search emails
-      String.contains?(message_lower, "find email") or String.contains?(message_lower, "search email") ->
-        query = extract_search_query_from_message(user_message)
-        execute_tool_call(user, %{"name" => "gmail_list_messages", "arguments" => %{"query" => query, "max_results" => 10}})
-
-      # Calendar events
-      String.contains?(message_lower, "schedule") or String.contains?(message_lower, "meeting") ->
-        case extract_calendar_info_from_message(user_message) do
-          {:ok, calendar_info} ->
-            execute_tool_call(user, %{"name" => "calendar_create_event", "arguments" => calendar_info})
-          {:error, _} ->
-            {:error, "Could not extract calendar information from message"}
-        end
-
-      # Check scopes
-      String.contains?(message_lower, "check scopes") or String.contains?(message_lower, "what scopes") ->
-        case check_user_scopes(user) do
-          {:ok, scopes} ->
-            {:ok, "Your current Google scopes:\n\n#{Enum.join(scopes, "\n")}"}
-          {:error, reason} ->
-            {:error, "Could not check scopes: #{reason}"}
-        end
-
-      # Default to recent emails
-      true ->
-        execute_tool_call(user, %{"name" => "gmail_list_messages", "arguments" => %{"query" => "", "max_results" => 5}})
-    end
-  end
-
-  # Check user's current Google scopes
-  defp check_user_scopes(user) do
-    case Accounts.get_user_google_account(user.id) do
-      nil ->
-        {:error, "No Google account connected"}
-      account ->
-        scopes = account.scopes || []
-        if length(scopes) > 0 do
-          {:ok, scopes}
-        else
-          {:ok, ["No scopes found - please reconnect your Google account"]}
-        end
-    end
-  end
-
-  # Extract email information from message
-  defp extract_email_info_from_message(message) do
-    # Simple extraction - look for email patterns and common phrases
-    email_regex = ~r/\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/
-
-    case Regex.run(email_regex, message) do
-      [email] ->
-        # Extract subject from message
-        subject = case Regex.run(~r/about\s+(.+?)(?:\s|$)/i, message) do
-          [_, subj] -> String.trim(subj)
-          _ -> "Meeting"
-        end
-
-        # Create body
-        body = "Hi,\n\nI wanted to touch base with you about #{subject}.\n\nBest regards"
-
-        {:ok, %{"to" => email, "subject" => subject, "body" => body}}
-
-      _ ->
-        {:error, "No email address found"}
-    end
-  end
-
-  # Extract search query from message
-  defp extract_search_query_from_message(message) do
-    # Remove common words and extract meaningful search terms
-    message_down = String.downcase(message)
-
-    # Remove common words
-    cleaned = message_down
-    |> String.replace(~r/\b(show|me|my|find|search|get|emails?|email)\b/, "")
-    |> String.replace(~r/\b(recent|last|sent|received)\b/, "")
-    |> String.trim()
-
-    if cleaned == "" do
-      ""  # Empty search for recent emails
-    else
-      cleaned
-    end
-  end
-
-  # Extract calendar information from message
-  defp extract_calendar_info_from_message(_message) do
-    # Simple extraction for now
-    {:ok, %{
-      "summary" => "Meeting",
-      "start_time" => DateTime.utc_now() |> DateTime.add(3600, :second) |> DateTime.to_iso8601(),
-      "end_time" => DateTime.utc_now() |> DateTime.add(7200, :second) |> DateTime.to_iso8601(),
-      "description" => "Meeting scheduled from message"
-    }}
   end
 
   # Determine which tool to use based on parameters
