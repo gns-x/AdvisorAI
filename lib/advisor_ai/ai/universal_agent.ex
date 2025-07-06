@@ -858,8 +858,7 @@ defmodule AdvisorAi.AI.UniversalAgent do
 
     %{
       google_connected: not is_nil(google_account),
-      gmail_scopes: if(google_account, do: google_account.gmail_scopes, else: []),
-      calendar_scopes: if(google_account, do: google_account.calendar_scopes, else: [])
+      scopes: if(google_account, do: google_account.scopes, else: [])
     }
   end
 
@@ -897,8 +896,8 @@ defmodule AdvisorAi.AI.UniversalAgent do
     case Accounts.get_user_google_account(user.id) do
       nil -> false
       account ->
-        gmail_scopes = account.gmail_scopes || []
-        Enum.any?(gmail_scopes, fn scope ->
+        scopes = account.scopes || []
+        Enum.any?(scopes, fn scope ->
           String.contains?(scope, "gmail") or String.contains?(scope, "mail")
         end)
     end
@@ -908,8 +907,8 @@ defmodule AdvisorAi.AI.UniversalAgent do
     case Accounts.get_user_google_account(user.id) do
       nil -> false
       account ->
-        calendar_scopes = account.calendar_scopes || []
-        Enum.any?(calendar_scopes, fn scope ->
+        scopes = account.scopes || []
+        Enum.any?(scopes, fn scope ->
           String.contains?(scope, "calendar")
         end)
     end
