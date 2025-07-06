@@ -1,0 +1,47 @@
+databases:
+  - name: advisor-ai-db
+    databaseName: advisor_ai_prod
+    user: advisor_ai_user
+    plan: free
+
+services:
+  - type: web
+    name: advisor-ai
+    env: elixir
+    plan: free
+    buildCommand: |
+      mix deps.get
+      mix assets.deploy
+      mix compile
+    startCommand: mix phx.server
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: advisor-ai-db
+          property: connectionString
+      - key: SECRET_KEY_BASE
+        generateValue: true
+      - key: PHX_HOST
+        value: advisor-ai.onrender.com
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: EMBEDDING_SERVER_URL
+        value: https://advisor-ai-embedding.onrender.com
+    healthCheckPath: /health
+
+  - type: web
+    name: advisor-ai-embedding
+    env: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: python embedding_server.py
+    envVars:
+      - key: EMBEDDING_SERVER_HOST
+        value: 0.0.0.0
+      - key: EMBEDDING_SERVER_PORT
+        value: 8001
+    healthCheckPath: /health 

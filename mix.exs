@@ -79,6 +79,7 @@ defmodule AdvisorAi.MixProject do
 
       # Testing/misc
       {:ex_machina, "~> 2.8", only: :test},
+      {:mox, "~> 1.1", only: :test},
       {:uuid, "~> 1.1"},
       {:timex, "~> 3.7"},
       {:decorator, "~> 1.4"},

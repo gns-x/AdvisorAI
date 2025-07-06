@@ -43,3 +43,10 @@ config :advisor_ai, Oban,
   repo: AdvisorAi.Repo,
   queues: [default: 10, mailers: 10, ai_processing: 5],
   plugins: false
+
+# Configure Mox for mocking
+config :advisor_ai,
+  gmail_module: AdvisorAi.Integrations.Gmail,
+  calendar_module: AdvisorAi.Integrations.Calendar,
+  google_contacts_module: AdvisorAi.Integrations.GoogleContacts,
+  accounts_module: AdvisorAi.Accounts
