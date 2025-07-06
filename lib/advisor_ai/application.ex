@@ -35,8 +35,6 @@ defmodule AdvisorAi.Application do
 
     case Supervisor.start_link(children, opts) do
       {:ok, pid} ->
-        # Schedule periodic email sync
-        schedule_email_sync()
         # Schedule token monitoring
         schedule_token_monitoring()
         {:ok, pid}
@@ -52,13 +50,6 @@ defmodule AdvisorAi.Application do
   def config_change(changed, _new, removed) do
     AdvisorAiWeb.Endpoint.config_change(changed, removed)
     :ok
-  end
-
-  defp schedule_email_sync do
-    # Only schedule in production to avoid conflicts during development
-    if Application.get_env(:advisor_ai, :env) == :prod do
-      AdvisorAi.Workers.EmailSyncWorker.schedule_periodic_sync()
-    end
   end
 
   defp schedule_token_monitoring do
