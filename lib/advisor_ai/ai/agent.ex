@@ -116,10 +116,10 @@ defmodule AdvisorAi.AI.Agent do
 
   # Execute automation rule based on instruction
   defp execute_automation_rule(user, instruction, trigger_type, trigger_data) do
-    IO.puts("DEBUG: Executing automation rule: #{instruction.instruction}")
+    IO.puts("DEBUG: Executing automation rule: #{instruction}")
 
     # Parse the instruction to extract action details
-    case parse_automation_instruction(instruction.instruction) do
+    case parse_automation_instruction(instruction) do
       {:ok, action_type, params} ->
         # Execute the action
         case execute_automation_action(user, action_type, params, trigger_data) do

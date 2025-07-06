@@ -432,59 +432,70 @@ defmodule AdvisorAi.AI.UniversalAgent do
     Available Tools:
     #{tools_description}
 
-    CRITICAL: You MUST use function calling to execute actions. Do NOT just describe what you would do.
+    CRITICAL INSTRUCTIONS:
+    1. You MUST use function calling to execute actions
+    2. DO NOT provide any explanations, plans, or JSON in your text response
+    3. DO NOT describe what you will do - just execute the function calls
+    4. The user wants ONLY the final result, not your reasoning
+    5. If you cannot execute a function call, respond with a brief error message
+    6. NEVER show JSON examples in your response - use actual function calls
+    7. NEVER say "Let me execute..." or "I'll use..." - just execute
 
-    Instructions:
-    1. Analyze the user's request carefully
-    2. Determine which tool(s) to use based on the user's intent
-    3. Extract all necessary parameters from the user's message
-    4. Generate the appropriate function calls using the available tools
-    5. DO NOT provide explanations or JSON in text - use actual function calls
+    Examples of what NOT to do:
+    - "I'll search for your last sent email using gmail_list_messages..."
+    - "Let me execute the gmail_list_messages function..."
+    - "Here's what I'm doing: * Using gmail_list_messages..."
+    - "Here's the tool call: ```json {...}```"
+    - "Let me execute these tool calls and retrieve your email..."
 
-    Examples:
-    - For "Show me my last email": Use gmail_list_messages with query="in:sent" and max_results=1
-    - For "Find emails from Alice": Use gmail_list_messages with query="from:alice"
-    - For "Schedule a meeting tomorrow at 2pm": Use calendar_create_event with appropriate times
+    Examples of what TO do:
+    - Just call the appropriate function with the right parameters
+    - Let the function execution provide the result
+    - Use actual function calling, not text descriptions
 
-    IMPORTANT: Use function calling, not text descriptions. The user wants the actual result, not a plan.
+    For "give me my last sent email": Call gmail_list_messages with query="in:sent" and max_results=1
+    For "send email to john@example.com": Call gmail_send_message with to="john@example.com", subject="Email", body="Hello"
     """
   end
 
   # Get AI response with tool calls using OpenRouter (supports function calling)
   defp get_ai_response_with_tools(prompt, tools) do
-    # Convert tools to OpenRouter function calling format
-    functions = Enum.map(tools, fn tool ->
+    # Convert tools to OpenRouter tool calling format (newer format)
+    tools_format = Enum.map(tools, fn tool ->
       %{
-        name: tool.name,
-        description: tool.description,
-        parameters: tool.parameters
+        type: "function",
+        function: %{
+          name: tool.name,
+          description: tool.description,
+          parameters: tool.parameters
+        }
       }
     end)
 
     messages = [
-      %{"role" => "system", "content" => "You are a helpful AI assistant with access to Gmail and Calendar APIs. Use the available functions to help users."},
+      %{"role" => "system", "content" => "You are a helpful AI assistant with access to Gmail and Calendar APIs. Use the available tools to help users. DO NOT provide explanations - just execute tools."},
       %{"role" => "user", "content" => prompt}
     ]
 
     case OpenRouterClient.chat_completion(
       messages: messages,
-      functions: functions,
-      function_call: "auto",
-      temperature: 0.3
+      tools: tools_format,
+      tool_choice: "auto",
+      temperature: 0.1
     ) do
       {:ok, response} -> {:ok, response}
       {:error, _} ->
         # Fallback to Together AI
         case TogetherClient.chat_completion(
           messages: messages,
-          functions: functions,
-          function_call: "auto",
-          temperature: 0.3
+          tools: tools_format,
+          tool_choice: "auto",
+          temperature: 0.1
         ) do
           {:ok, response} -> {:ok, response}
           {:error, _} ->
             # Final fallback to Ollama (basic response without function calling)
-            case OllamaClient.chat_completion(messages: messages, temperature: 0.3) do
+            case OllamaClient.chat_completion(messages: messages, temperature: 0.1) do
               {:ok, response} -> {:ok, response}
               {:error, reason} -> {:error, reason}
             end
@@ -521,8 +532,13 @@ defmodule AdvisorAi.AI.UniversalAgent do
             create_agent_response(user, conversation_id, result, "action")
 
           {:error, _} ->
-            # If no JSON found, show a simple response
-            create_agent_response(user, conversation_id, "I understand your request but need to use the available tools to help you. Let me try a different approach.", "conversation")
+            # If no JSON found, try to force execution based on user message
+            case force_execute_based_on_message(user, user_message, context) do
+              {:ok, result} ->
+                create_agent_response(user, conversation_id, result, "action")
+              {:error, _} ->
+                create_agent_response(user, conversation_id, "I understand your request but need to use the available tools to help you. Let me try a different approach.", "conversation")
+            end
         end
 
       {:error, reason} ->
@@ -534,7 +550,13 @@ defmodule AdvisorAi.AI.UniversalAgent do
             create_agent_response(user, conversation_id, result, "action")
 
           {:error, _} ->
-            create_agent_response(user, conversation_id, "I understand your request but couldn't execute the necessary actions. Please try rephrasing.", "error")
+            # Try to force execution based on user message
+            case force_execute_based_on_message(user, user_message, context) do
+              {:ok, result} ->
+                create_agent_response(user, conversation_id, result, "action")
+              {:error, _} ->
+                create_agent_response(user, conversation_id, "I understand your request but couldn't execute the necessary actions. Please try rephrasing.", "error")
+            end
         end
     end
   end
@@ -542,11 +564,18 @@ defmodule AdvisorAi.AI.UniversalAgent do
   # Parse tool calls from AI response
   defp parse_tool_calls(response) do
     case response do
+      %{"choices" => [%{"message" => %{"tool_calls" => tool_calls}} | _]} ->
+        # Convert tool calls to function call format for compatibility
+        function_calls = Enum.map(tool_calls, fn tool_call ->
+          %{
+            "name" => tool_call["function"]["name"],
+            "arguments" => tool_call["function"]["arguments"]
+          }
+        end)
+        {:ok, function_calls}
+
       %{"choices" => [%{"message" => %{"function_call" => function_call}} | _]} ->
         {:ok, [function_call]}
-
-      %{"choices" => [%{"message" => %{"tool_calls" => tool_calls}} | _]} ->
-        {:ok, tool_calls}
 
       %{"choices" => [%{"message" => %{"content" => content}} | _]} ->
         # Try to extract function calls from content (fallback)
@@ -587,7 +616,20 @@ defmodule AdvisorAi.AI.UniversalAgent do
   # Execute a single tool call
   defp execute_tool_call(user, tool_call) do
     function_name = tool_call["name"]
-    arguments = tool_call["arguments"] || %{}
+    raw_arguments = tool_call["arguments"] || %{}
+
+    # Parse arguments if they're a JSON string
+    arguments = case raw_arguments do
+      args when is_binary(args) ->
+        case Jason.decode(args) do
+          {:ok, parsed_args} -> parsed_args
+          {:error, _} -> %{}
+        end
+      args when is_map(args) ->
+        args
+      _ ->
+        %{}
+    end
 
     IO.puts("DEBUG: Executing tool: #{function_name} with args: #{inspect(arguments)}")
 
@@ -970,6 +1012,97 @@ defmodule AdvisorAi.AI.UniversalAgent do
       _ ->
         {:error, "No JSON found in text"}
     end
+  end
+
+  # Force execution based on user message when AI fails to generate tool calls
+  defp force_execute_based_on_message(user, user_message, context) do
+    message_lower = String.downcase(user_message)
+
+    cond do
+      # Last sent email
+      String.contains?(message_lower, "last sent email") or String.contains?(message_lower, "last email") ->
+        execute_tool_call(user, %{"name" => "gmail_list_messages", "arguments" => %{"query" => "in:sent", "max_results" => 1}})
+
+      # Send email
+      String.contains?(message_lower, "send email") or String.contains?(message_lower, "email to") ->
+        # Extract email and subject from message
+        case extract_email_info_from_message(user_message) do
+          {:ok, email_info} ->
+            execute_tool_call(user, %{"name" => "gmail_send_message", "arguments" => email_info})
+          {:error, _} ->
+            {:error, "Could not extract email information from message"}
+        end
+
+      # Search emails
+      String.contains?(message_lower, "find email") or String.contains?(message_lower, "search email") ->
+        query = extract_search_query_from_message(user_message)
+        execute_tool_call(user, %{"name" => "gmail_list_messages", "arguments" => %{"query" => query, "max_results" => 10}})
+
+      # Calendar events
+      String.contains?(message_lower, "schedule") or String.contains?(message_lower, "meeting") ->
+        case extract_calendar_info_from_message(user_message) do
+          {:ok, calendar_info} ->
+            execute_tool_call(user, %{"name" => "calendar_create_event", "arguments" => calendar_info})
+          {:error, _} ->
+            {:error, "Could not extract calendar information from message"}
+        end
+
+      # Default to recent emails
+      true ->
+        execute_tool_call(user, %{"name" => "gmail_list_messages", "arguments" => %{"query" => "", "max_results" => 5}})
+    end
+  end
+
+  # Extract email information from message
+  defp extract_email_info_from_message(message) do
+    # Simple extraction - look for email patterns and common phrases
+    email_regex = ~r/\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/
+
+    case Regex.run(email_regex, message) do
+      [email] ->
+        # Extract subject from message
+        subject = case Regex.run(~r/about\s+(.+?)(?:\s|$)/i, message) do
+          [_, subj] -> String.trim(subj)
+          _ -> "Meeting"
+        end
+
+        # Create body
+        body = "Hi,\n\nI wanted to touch base with you about #{subject}.\n\nBest regards"
+
+        {:ok, %{"to" => email, "subject" => subject, "body" => body}}
+
+      _ ->
+        {:error, "No email address found"}
+    end
+  end
+
+  # Extract search query from message
+  defp extract_search_query_from_message(message) do
+    # Remove common words and extract meaningful search terms
+    message_down = String.downcase(message)
+
+    # Remove common words
+    cleaned = message_down
+    |> String.replace(~r/\b(show|me|my|find|search|get|emails?|email)\b/, "")
+    |> String.replace(~r/\b(recent|last|sent|received)\b/, "")
+    |> String.trim()
+
+    if cleaned == "" do
+      ""  # Empty search for recent emails
+    else
+      cleaned
+    end
+  end
+
+  # Extract calendar information from message
+  defp extract_calendar_info_from_message(message) do
+    # Simple extraction for now
+    {:ok, %{
+      "summary" => "Meeting",
+      "start_time" => DateTime.utc_now() |> DateTime.add(3600, :second) |> DateTime.to_iso8601(),
+      "end_time" => DateTime.utc_now() |> DateTime.add(7200, :second) |> DateTime.to_iso8601(),
+      "description" => "Meeting scheduled from message"
+    }}
   end
 
   # Determine which tool to use based on parameters
