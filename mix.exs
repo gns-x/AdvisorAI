@@ -34,8 +34,9 @@ defmodule AdvisorAi.MixProject do
     [
       {:phoenix, "~> 1.7.21"},
       {:phoenix_ecto, "~> 4.6.5"},
-      {:ecto_sql, "~> 3.13"},
-      {:postgrex, "~> 0.17"},
+      {:ecto, "~> 3.9"},
+      {:ecto_sql, "~> 3.9"},
+      {:postgrex, "~> 0.17.5"},
       {:phoenix_html, "~> 4.1"},
       # keep your existing version
       {:phoenix_live_reload, "~> 1.5", only: :dev},
@@ -87,9 +88,7 @@ defmodule AdvisorAi.MixProject do
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
       {:sobelow, "~> 0.13", only: [:dev, :test], runtime: false},
       {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false},
-      {:dotenvy, "~> 0.9.0"},
-
-
+      {:dotenvy, "~> 0.9.0"}
     ]
   end
 
@@ -107,7 +106,11 @@ defmodule AdvisorAi.MixProject do
       test: ["ecto.create --quiet", "ecto.migrate --quiet", "test"],
       "assets.setup": ["tailwind.install --if-missing", "esbuild.install --if-missing"],
       "assets.build": ["tailwind advisor_ai", "esbuild advisor_ai"],
-      "assets.deploy": ["tailwind advisor_ai --minify", "esbuild advisor_ai --minify", "phx.digest"]
+      "assets.deploy": [
+        "tailwind advisor_ai --minify",
+        "esbuild advisor_ai --minify",
+        "phx.digest"
+      ]
     ]
   end
 end

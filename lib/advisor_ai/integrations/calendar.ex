@@ -19,26 +19,28 @@ defmodule AdvisorAi.Integrations.Calendar do
             dateTime: event_data["end_time"],
             timeZone: "UTC"
           },
-          attendees: Enum.map(event_data["attendees"] || [], fn email ->
-            %{email: email}
-          end)
+          attendees:
+            Enum.map(event_data["attendees"] || [], fn email ->
+              %{email: email}
+            end)
         }
 
         url = "#{@calendar_api_url}/calendars/primary/events"
 
         case HTTPoison.post(url, Jason.encode!(event), [
-          {"Authorization", "Bearer #{access_token}"},
-          {"Content-Type", "application/json"}
-        ]) do
+               {"Authorization", "Bearer #{access_token}"},
+               {"Content-Type", "application/json"}
+             ]) do
           {:ok, %{status_code: 200, body: body}} ->
             case Jason.decode(body) do
               {:ok, created_event} ->
                 # Trigger agent if needed
-                AdvisorAi.AI.Agent.handle_trigger(user, "calendar_event", %{
+                AdvisorAi.AI.Agent.handle_trigger(user, "calendar_event_created", %{
                   action: "created",
                   title: created_event["summary"],
                   id: created_event["id"]
                 })
+
                 {:ok, "Event created successfully"}
 
               {:error, reason} ->
@@ -70,9 +72,9 @@ defmodule AdvisorAi.Integrations.Calendar do
         }
 
         case HTTPoison.post(url, Jason.encode!(request_body), [
-          {"Authorization", "Bearer #{access_token}"},
-          {"Content-Type", "application/json"}
-        ]) do
+               {"Authorization", "Bearer #{access_token}"},
+               {"Content-Type", "application/json"}
+             ]) do
           {:ok, %{status_code: 200, body: body}} ->
             case Jason.decode(body) do
               {:ok, %{"calendars" => %{"primary" => %{"busy" => busy_times}}}} ->
@@ -103,17 +105,19 @@ defmodule AdvisorAi.Integrations.Calendar do
     case get_access_token(user) do
       {:ok, access_token} ->
         url = "#{@calendar_api_url}/calendars/primary/events"
-        params = URI.encode_query(%{
-          timeMin: start_date,
-          timeMax: end_date,
-          singleEvents: true,
-          orderBy: "startTime"
-        })
+
+        params =
+          URI.encode_query(%{
+            timeMin: start_date,
+            timeMax: end_date,
+            singleEvents: true,
+            orderBy: "startTime"
+          })
 
         case HTTPoison.get("#{url}?#{params}", [
-          {"Authorization", "Bearer #{access_token}"},
-          {"Content-Type", "application/json"}
-        ]) do
+               {"Authorization", "Bearer #{access_token}"},
+               {"Content-Type", "application/json"}
+             ]) do
           {:ok, %{status_code: 200, body: body}} ->
             case Jason.decode(body) do
               {:ok, %{"items" => events}} ->
@@ -138,24 +142,93 @@ defmodule AdvisorAi.Integrations.Calendar do
     end
   end
 
+  def get_event(user, event_id) do
+    case get_access_token(user) do
+      {:ok, access_token} ->
+        url = "#{@calendar_api_url}/calendars/primary/events/#{event_id}"
+
+        case HTTPoison.get(url, [
+               {"Authorization", "Bearer #{access_token}"},
+               {"Content-Type", "application/json"}
+             ]) do
+          {:ok, %{status_code: 200, body: body}} ->
+            case Jason.decode(body) do
+              {:ok, event} ->
+                {:ok, event}
+
+              {:error, reason} ->
+                {:error, "Failed to parse response: #{reason}"}
+            end
+
+          {:ok, %{status_code: 404}} ->
+            {:error, "Event not found"}
+
+          {:ok, %{status_code: status_code}} ->
+            {:error, "Calendar API error: #{status_code}"}
+
+          {:error, reason} ->
+            {:error, "HTTP error: #{reason}"}
+        end
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+  def get_availability(user, date, duration_minutes) do
+    # Parse the date and create a time range for the day
+    case DateTime.from_iso8601("#{date}T00:00:00Z") do
+      {:ok, start_of_day, _} ->
+        end_of_day = DateTime.add(start_of_day, 24 * 60 * 60, :second)
+
+        case get_available_times(user, DateTime.to_iso8601(start_of_day), DateTime.to_iso8601(end_of_day)) do
+          {:ok, available_times} ->
+            # Filter times that have enough duration
+            suitable_times = Enum.filter(available_times, fn slot ->
+              case {slot["start"], slot["end"]} do
+                {start_str, end_str} when is_binary(start_str) and is_binary(end_str) ->
+                  case {DateTime.from_iso8601(start_str), DateTime.from_iso8601(end_str)} do
+                    {{:ok, start_time, _}, {:ok, end_time, _}} ->
+                      duration = DateTime.diff(end_time, start_time, :minute)
+                      duration >= duration_minutes
+                    _ ->
+                      false
+                  end
+                _ ->
+                  false
+              end
+            end)
+
+            {:ok, suitable_times}
+
+          {:error, reason} ->
+            {:error, reason}
+        end
+
+      {:error, reason} ->
+        {:error, "Invalid date format: #{reason}"}
+    end
+  end
+
   def update_event(user, event_id, updates) do
     case get_access_token(user) do
       {:ok, access_token} ->
         url = "#{@calendar_api_url}/calendars/primary/events/#{event_id}"
 
         case HTTPoison.patch(url, Jason.encode!(updates), [
-          {"Authorization", "Bearer #{access_token}"},
-          {"Content-Type", "application/json"}
-        ]) do
+               {"Authorization", "Bearer #{access_token}"},
+               {"Content-Type", "application/json"}
+             ]) do
           {:ok, %{status_code: 200, body: body}} ->
             case Jason.decode(body) do
               {:ok, updated_event} ->
                 # Trigger agent if needed
-                AdvisorAi.AI.Agent.handle_trigger(user, "calendar_event", %{
+                AdvisorAi.AI.Agent.handle_trigger(user, "calendar_event_updated", %{
                   action: "updated",
                   title: updated_event["summary"],
                   id: updated_event["id"]
                 })
+
                 {:ok, "Event updated successfully"}
 
               {:error, reason} ->
@@ -180,14 +253,15 @@ defmodule AdvisorAi.Integrations.Calendar do
         url = "#{@calendar_api_url}/calendars/primary/events/#{event_id}"
 
         case HTTPoison.delete(url, [
-          {"Authorization", "Bearer #{access_token}"}
-        ]) do
+               {"Authorization", "Bearer #{access_token}"}
+             ]) do
           {:ok, %{status_code: 204}} ->
             # Trigger agent if needed
-            AdvisorAi.AI.Agent.handle_trigger(user, "calendar_event", %{
+            AdvisorAi.AI.Agent.handle_trigger(user, "calendar_event_deleted", %{
               action: "deleted",
               id: event_id
             })
+
             {:ok, "Event deleted successfully"}
 
           {:ok, %{status_code: status_code}} ->
@@ -204,15 +278,24 @@ defmodule AdvisorAi.Integrations.Calendar do
 
   defp calculate_available_times(start_date, end_date, busy_times) do
     # Convert to DateTime
-    {:ok, start_dt} = DateTime.from_iso8601(start_date)
-    {:ok, end_dt} = DateTime.from_iso8601(end_date)
+    {:ok, start_dt, _} = DateTime.from_iso8601(start_date)
+    {:ok, end_dt, _} = DateTime.from_iso8601(end_date)
 
     # Convert busy times to DateTime ranges
-    busy_ranges = Enum.map(busy_times, fn %{"start" => start, "end" => end_time} ->
-      {:ok, start_dt} = DateTime.from_iso8601(start)
-      {:ok, end_dt} = DateTime.from_iso8601(end_time)
-      {start_dt, end_dt}
-    end)
+    busy_ranges =
+      busy_times
+      |> Enum.filter(fn %{"start" => start, "end" => end_time} ->
+        is_binary(start) and is_binary(end_time)
+      end)
+      |> Enum.map(fn %{"start" => start, "end" => end_time} ->
+        case {DateTime.from_iso8601(start), DateTime.from_iso8601(end_time)} do
+          {{:ok, start_dt, _}, {:ok, end_dt, _}} ->
+            {start_dt, end_dt}
+          _ ->
+            nil
+        end
+      end)
+      |> Enum.reject(&is_nil/1)
 
     # Find available 30-minute slots
     available_slots = find_available_slots(start_dt, end_dt, busy_ranges, [])
@@ -225,21 +308,33 @@ defmodule AdvisorAi.Integrations.Calendar do
       slot_end = DateTime.add(current, 30 * 60, :second)
 
       if DateTime.compare(slot_end, end_dt) == :lt or DateTime.compare(slot_end, end_dt) == :eq do
-        is_available = Enum.all?(busy_ranges, fn {busy_start, busy_end} ->
-          DateTime.compare(current, busy_end) == :gt or DateTime.compare(current, busy_end) == :eq or
-          DateTime.compare(slot_end, busy_start) == :lt or DateTime.compare(slot_end, busy_start) == :eq
-        end)
+        is_available =
+          Enum.all?(busy_ranges, fn {busy_start, busy_end} ->
+            DateTime.compare(current, busy_end) == :gt or
+              DateTime.compare(current, busy_end) == :eq or
+              DateTime.compare(slot_end, busy_start) == :lt or
+              DateTime.compare(slot_end, busy_start) == :eq
+          end)
 
-        new_slots = if is_available do
-          [%{
-            start: DateTime.to_iso8601(current),
-            end: DateTime.to_iso8601(slot_end)
-          } | available_slots]
-        else
-          available_slots
-        end
+        new_slots =
+          if is_available do
+            [
+              %{
+                start: DateTime.to_iso8601(current),
+                end: DateTime.to_iso8601(slot_end)
+              }
+              | available_slots
+            ]
+          else
+            available_slots
+          end
 
-        find_available_slots(DateTime.add(current, 30 * 60, :second), end_dt, busy_ranges, new_slots)
+        find_available_slots(
+          DateTime.add(current, 30 * 60, :second),
+          end_dt,
+          busy_ranges,
+          new_slots
+        )
       else
         available_slots
       end

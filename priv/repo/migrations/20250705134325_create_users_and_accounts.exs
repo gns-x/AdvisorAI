@@ -45,7 +45,7 @@ defmodule AdvisorAi.Repo.Migrations.CreateUsersAndAccounts do
       add :source_type, :string, null: false
       add :source_id, :string, null: false
       add :content, :text, null: false
-      add :embedding, :vector, size: 1536
+      add :embedding, :vector, size: 768
       add :metadata, :map, default: %{}
 
       timestamps()

@@ -1,6 +1,8 @@
 defmodule AdvisorAi.AI.AgentInstruction do
   use Ecto.Schema
   import Ecto.Changeset
+  import Ecto.Query
+  alias AdvisorAi.Repo
 
   @primary_key {:id, :binary_id, autogenerate: true}
   @foreign_key_type :binary_id
@@ -8,7 +10,8 @@ defmodule AdvisorAi.AI.AgentInstruction do
   schema "agent_instructions" do
     field :instruction, :string
     field :is_active, :boolean, default: true
-    field :trigger_type, :string  # "email_received", "calendar_event", "hubspot_update", etc.
+    # "email_received", "calendar_event", "hubspot_update", etc.
+    field :trigger_type, :string
     field :conditions, :map, default: %{}
 
     belongs_to :user, AdvisorAi.Accounts.User
@@ -20,5 +23,30 @@ defmodule AdvisorAi.AI.AgentInstruction do
     agent_instruction
     |> cast(attrs, [:instruction, :is_active, :trigger_type, :conditions, :user_id])
     |> validate_required([:instruction, :user_id])
+  end
+
+  def list_by_user(user_id) do
+    from(i in __MODULE__, where: i.user_id == ^user_id)
+    |> Repo.all()
+  end
+
+  def create(attrs) do
+    %__MODULE__{}
+    |> changeset(attrs)
+    |> Repo.insert()
+  end
+
+  def get!(id) do
+    Repo.get!(__MODULE__, id)
+  end
+
+  def update(%__MODULE__{} = agent_instruction, attrs) do
+    agent_instruction
+    |> changeset(attrs)
+    |> Repo.update()
+  end
+
+  def delete(%__MODULE__{} = agent_instruction) do
+    Repo.delete(agent_instruction)
   end
 end

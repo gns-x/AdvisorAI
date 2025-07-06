@@ -10,236 +10,226 @@
     <link phx-track-static rel="stylesheet" href={~p"/assets/app.css"} />
     <script defer phx-track-static type="text/javascript" src={~p"/assets/app.js"}>
     </script>
-    <link
-      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap"
-      rel="stylesheet"
-    />
-    <style>
-      .animate-float {
-        animation: float 6s ease-in-out infinite;
-      }
-      .animate-float-delayed {
-        animation: float 6s ease-in-out infinite;
-        animation-delay: 2s;
-      }
-      .animate-float-delayed-2 {
-        animation: float 6s ease-in-out infinite;
-        animation-delay: 4s;
-      }
-      @keyframes float {
-        0%, 100% { transform: translateY(0px); }
-        50% { transform: translateY(-20px); }
-      }
-      .gradient-text {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        background-clip: text;
-      }
-      .glass-effect {
-        background: rgba(255, 255, 255, 0.1);
-        backdrop-filter: blur(10px);
-        border: 1px solid rgba(255, 255, 255, 0.2);
-      }
-      .google-btn {
-        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-      }
-      .google-btn:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 10px 25px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-      }
-      .google-btn:active {
-        transform: translateY(0);
-      }
-      .feature-card {
-        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-      }
-      .feature-card:hover {
-        transform: translateY(-8px);
-      }
-      .pulse-glow {
-        animation: pulse-glow 2s ease-in-out infinite alternate;
-      }
-      @keyframes pulse-glow {
-        from { box-shadow: 0 0 20px rgba(102, 126, 234, 0.4); }
-        to { box-shadow: 0 0 30px rgba(102, 126, 234, 0.6); }
-      }
-    </style>
   </head>
-  <body class="h-full bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 overflow-hidden">
-    <!-- Animated background elements -->
-    <div class="fixed inset-0 overflow-hidden pointer-events-none">
-      <div class="absolute top-20 left-20 w-72 h-72 bg-purple-500 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-float">
-      </div>
-      <div class="absolute top-40 right-20 w-72 h-72 bg-yellow-500 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-float-delayed">
-      </div>
-      <div class="absolute -bottom-8 left-40 w-72 h-72 bg-pink-500 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-float-delayed-2">
-      </div>
-    </div>
-
-    <div class="relative min-h-full flex flex-col justify-center py-12 sm:px-6 lg:px-8">
-      <div class="sm:mx-auto sm:w-full sm:max-w-4xl">
-        <!-- Logo and Title Section -->
-        <div class="text-center mb-12">
-          <div class="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-r from-blue-500 to-purple-600 rounded-2xl mb-6 pulse-glow">
-            <svg
-              class="w-10 h-10 text-white"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"
-              >
-              </path>
-            </svg>
-          </div>
-          <h1 class="text-6xl md:text-7xl font-black text-white mb-4">
-            <span class="gradient-text">Advisor</span>AI
-          </h1>
-          <h2 class="text-2xl md:text-3xl font-light text-gray-300 mb-6">
-            Your AI-Powered Financial Assistant
-          </h2>
-          <p class="text-lg text-gray-400 max-w-2xl mx-auto leading-relaxed">
-            Connect your Gmail, Google Calendar, and HubSpot to supercharge your workflow with intelligent automation and insights
-          </p>
-        </div>
-        
-<!-- Main Sign-in Card -->
-        <div class="glass-effect rounded-3xl p-8 md:p-12 shadow-2xl">
-          <div class="text-center mb-8">
-            <h3 class="text-2xl font-bold text-white mb-2">Get Started Today</h3>
-            <p class="text-gray-300">Sign in securely with your Google account</p>
-          </div>
-          
-<!-- Google Sign-in Button -->
-          <div class="flex justify-center mb-8">
-            <a
-              href="/auth/google"
-              class="google-btn w-full max-w-md flex items-center justify-center px-8 py-4 bg-white rounded-2xl text-gray-700 font-semibold text-lg hover:bg-gray-50 focus:outline-none focus:ring-4 focus:ring-blue-500 focus:ring-opacity-50"
-            >
-              <svg class="w-6 h-6 mr-4" viewBox="0 0 24 24">
-                <path
-                  fill="#4285F4"
-                  d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-                />
-                <path
-                  fill="#34A853"
-                  d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-                />
-                <path
-                  fill="#FBBC05"
-                  d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
-                />
-                <path
-                  fill="#EA4335"
-                  d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
-                />
-              </svg>
-              Continue with Google
-            </a>
-          </div>
-          
-<!-- Security Badge -->
-          <div class="flex items-center justify-center text-gray-400 text-sm">
-            <svg class="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
-              <path
-                fill-rule="evenodd"
-                d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z"
-                clip-rule="evenodd"
-              >
-              </path>
-            </svg>
-            <span>256-bit SSL encryption • Your data is secure</span>
-          </div>
-        </div>
-        
-<!-- Features Section -->
-        <div class="mt-16 grid grid-cols-1 md:grid-cols-3 gap-8">
-          <div class="feature-card glass-effect rounded-2xl p-6 text-center">
-            <div class="w-12 h-12 bg-gradient-to-r from-blue-500 to-blue-600 rounded-xl flex items-center justify-center mx-auto mb-4">
-              <svg
-                class="w-6 h-6 text-white"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="2"
-                  d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
+  <body class="h-full bg-slate-50">
+    <div class="min-h-screen">
+      <!-- Hero Section -->
+      <div class="relative overflow-hidden bg-white">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-24">
+          <div class="text-center">
+            <div class="flex items-center justify-center mb-8">
+              <div class="w-16 h-16 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-2xl flex items-center justify-center">
+                <svg
+                  class="w-8 h-8 text-white"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
                 >
-                </path>
-              </svg>
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"
+                  >
+                  </path>
+                </svg>
+              </div>
             </div>
-            <h3 class="text-xl font-semibold text-white mb-2">Smart Email Management</h3>
-            <p class="text-gray-400 text-sm">
-              AI-powered email organization and response suggestions
+
+            <h1 class="text-5xl font-bold text-slate-900 mb-6">
+              Your AI-Powered
+              <span class="bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
+                Financial Assistant
+              </span>
+            </h1>
+            <p class="text-xl text-slate-600 mb-8 max-w-3xl mx-auto">
+              Streamline your financial advisory practice with intelligent automation.
+              Connect Gmail, Google Calendar, and HubSpot for seamless client management.
+            </p>
+
+            <div class="flex flex-col sm:flex-row gap-4 justify-center">
+              <%= if @current_user do %>
+                <.link
+                  navigate={~p"/chat"}
+                  class="px-8 py-4 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors font-semibold text-lg"
+                >
+                  Start Chatting
+                </.link>
+              <% else %>
+                <.link
+                  href={~p"/auth/google"}
+                  class="px-8 py-4 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors font-semibold text-lg"
+                >
+                  Connect with Google
+                </.link>
+              <% end %>
+              <a
+                href="#features"
+                class="px-8 py-4 bg-white text-slate-700 border border-slate-300 rounded-xl hover:bg-slate-50 transition-colors font-semibold text-lg"
+              >
+                Learn More
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Features Section -->
+      <div id="features" class="py-24 bg-slate-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div class="text-center mb-16">
+            <h2 class="text-3xl font-bold text-slate-900 mb-4">Powerful Features</h2>
+            <p class="text-lg text-slate-600 max-w-2xl mx-auto">
+              Everything you need to manage your financial advisory practice efficiently
             </p>
           </div>
 
-          <div class="feature-card glass-effect rounded-2xl p-6 text-center">
-            <div class="w-12 h-12 bg-gradient-to-r from-purple-500 to-purple-600 rounded-xl flex items-center justify-center mx-auto mb-4">
-              <svg
-                class="w-6 h-6 text-white"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="2"
-                  d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <!-- Feature 1 -->
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-8 text-center">
+              <div class="w-16 h-16 bg-blue-100 rounded-2xl flex items-center justify-center mx-auto mb-6">
+                <svg
+                  class="w-8 h-8 text-blue-600"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
                 >
-                </path>
-              </svg>
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                  >
+                  </path>
+                </svg>
+              </div>
+              <h3 class="text-xl font-semibold text-slate-900 mb-3">Smart Client Search</h3>
+              <p class="text-slate-600">
+                Ask questions about your clients and get instant answers using data from emails and CRM.
+              </p>
             </div>
-            <h3 class="text-xl font-semibold text-white mb-2">Calendar Intelligence</h3>
-            <p class="text-gray-400 text-sm">Automated scheduling and meeting optimization</p>
-          </div>
-
-          <div class="feature-card glass-effect rounded-2xl p-6 text-center">
-            <div class="w-12 h-12 bg-gradient-to-r from-green-500 to-green-600 rounded-xl flex items-center justify-center mx-auto mb-4">
-              <svg
-                class="w-6 h-6 text-white"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="2"
-                  d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
+            
+<!-- Feature 2 -->
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-8 text-center">
+              <div class="w-16 h-16 bg-green-100 rounded-2xl flex items-center justify-center mx-auto mb-6">
+                <svg
+                  class="w-8 h-8 text-green-600"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
                 >
-                </path>
-              </svg>
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+                  >
+                  </path>
+                </svg>
+              </div>
+              <h3 class="text-xl font-semibold text-slate-900 mb-3">Automated Scheduling</h3>
+              <p class="text-slate-600">
+                Schedule meetings, send calendar invites, and manage appointments automatically.
+              </p>
             </div>
-            <h3 class="text-xl font-semibold text-white mb-2">CRM Integration</h3>
-            <p class="text-gray-400 text-sm">Seamless HubSpot integration for lead management</p>
+            
+<!-- Feature 3 -->
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-8 text-center">
+              <div class="w-16 h-16 bg-purple-100 rounded-2xl flex items-center justify-center mx-auto mb-6">
+                <svg
+                  class="w-8 h-8 text-purple-600"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"
+                  >
+                  </path>
+                </svg>
+              </div>
+              <h3 class="text-xl font-semibold text-slate-900 mb-3">AI-Powered Insights</h3>
+              <p class="text-slate-600">
+                Get intelligent recommendations and insights to improve your client relationships.
+              </p>
+            </div>
           </div>
         </div>
-        
-<!-- Test User Section -->
-        <div class="mt-12 text-center">
-          <div class="inline-flex items-center px-4 py-2 bg-yellow-500/20 border border-yellow-500/30 rounded-full">
-            <svg class="w-4 h-4 text-yellow-400 mr-2" fill="currentColor" viewBox="0 0 20 20">
-              <path
-                fill-rule="evenodd"
-                d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
-                clip-rule="evenodd"
-              >
-              </path>
-            </svg>
-            <span class="text-yellow-400 text-sm font-medium">Development Mode</span>
+      </div>
+      
+<!-- How It Works Section -->
+      <div class="py-24 bg-white">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div class="text-center mb-16">
+            <h2 class="text-3xl font-bold text-slate-900 mb-4">How It Works</h2>
+            <p class="text-lg text-slate-600 max-w-2xl mx-auto">
+              Simple steps to transform your financial advisory practice
+            </p>
           </div>
-          <p class="mt-2 text-gray-400 text-sm">Test with: webshookeng@gmail.com</p>
+
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <!-- Step 1 -->
+            <div class="text-center">
+              <div class="w-16 h-16 bg-blue-600 text-white rounded-full flex items-center justify-center mx-auto mb-6 text-2xl font-bold">
+                1
+              </div>
+              <h3 class="text-xl font-semibold text-slate-900 mb-3">Connect Your Accounts</h3>
+              <p class="text-slate-600">
+                Securely connect your Gmail, Google Calendar, and HubSpot accounts with OAuth.
+              </p>
+            </div>
+            
+<!-- Step 2 -->
+            <div class="text-center">
+              <div class="w-16 h-16 bg-blue-600 text-white rounded-full flex items-center justify-center mx-auto mb-6 text-2xl font-bold">
+                2
+              </div>
+              <h3 class="text-xl font-semibold text-slate-900 mb-3">Start Chatting</h3>
+              <p class="text-slate-600">
+                Ask questions about your clients, schedule meetings, or get insights from your data.
+              </p>
+            </div>
+            
+<!-- Step 3 -->
+            <div class="text-center">
+              <div class="w-16 h-16 bg-blue-600 text-white rounded-full flex items-center justify-center mx-auto mb-6 text-2xl font-bold">
+                3
+              </div>
+              <h3 class="text-xl font-semibold text-slate-900 mb-3">Automate & Grow</h3>
+              <p class="text-slate-600">
+                Let AI handle routine tasks while you focus on building client relationships.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- CTA Section -->
+      <div class="py-24 bg-slate-50">
+        <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+          <h2 class="text-3xl font-bold text-slate-900 mb-4">Ready to Get Started?</h2>
+          <p class="text-lg text-slate-600 mb-8">
+            Join financial advisors who are already using AI to streamline their practice.
+          </p>
+
+          <%= if @current_user do %>
+            <.link
+              navigate={~p"/chat"}
+              class="px-8 py-4 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors font-semibold text-lg"
+            >
+              Go to Chat
+            </.link>
+          <% else %>
+            <.link
+              href={~p"/auth/google"}
+              class="px-8 py-4 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors font-semibold text-lg"
+            >
+              Connect with Google
+            </.link>
+          <% end %>
         </div>
       </div>
     </div>

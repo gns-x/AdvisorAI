@@ -20,6 +20,9 @@ config :advisor_ai, AdvisorAiWeb.Endpoint,
   secret_key_base: "eGG2keV9aonHTDZ9co8SLvWqtUQ+U1My3ZlK5SXDkd48dmlFJ5ag0hv2rvdw82P2",
   server: false
 
+# Disable live reload in test
+config :advisor_ai, :dev_routes, false
+
 # In test we don't send emails
 config :advisor_ai, AdvisorAi.Mailer, adapter: Swoosh.Adapters.Test
 
@@ -35,3 +38,8 @@ config :phoenix, :plug_init_mode, :runtime
 # Enable helpful, but potentially expensive runtime checks
 config :phoenix_live_view,
   enable_expensive_runtime_checks: true
+
+config :advisor_ai, Oban,
+  repo: AdvisorAi.Repo,
+  queues: [default: 10, mailers: 10, ai_processing: 5],
+  plugins: false

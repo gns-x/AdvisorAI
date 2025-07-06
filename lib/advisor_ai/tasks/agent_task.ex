@@ -21,8 +21,29 @@ defmodule AdvisorAi.Tasks.AgentTask do
 
   def changeset(agent_task, attrs) do
     agent_task
-    |> cast(attrs, [:type, :status, :description, :context, :scheduled_at, :completed_at, :user_id, :conversation_id])
+    |> cast(attrs, [
+      :type,
+      :status,
+      :description,
+      :context,
+      :scheduled_at,
+      :completed_at,
+      :user_id,
+      :conversation_id
+    ])
     |> validate_required([:type, :user_id])
     |> validate_inclusion(:status, ["pending", "in_progress", "completed", "failed"])
+  end
+
+  def create(attrs) do
+    %__MODULE__{}
+    |> changeset(attrs)
+    |> AdvisorAi.Repo.insert()
+  end
+
+  def update(agent_task, attrs) do
+    agent_task
+    |> changeset(attrs)
+    |> AdvisorAi.Repo.update()
   end
 end

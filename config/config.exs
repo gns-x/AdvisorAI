@@ -7,6 +7,9 @@
 # General application configuration
 import Config
 
+# Configure Ecto repos
+config :advisor_ai, ecto_repos: [AdvisorAi.Repo]
+
 # Configure your database
 config :advisor_ai, AdvisorAi.Repo,
   username: System.get_env("POSTGRES_USER", "postgres"),
@@ -15,7 +18,8 @@ config :advisor_ai, AdvisorAi.Repo,
   database: System.get_env("POSTGRES_DB", "advisor_ai_dev"),
   stacktrace: true,
   show_sensitive_data_on_connection_error: true,
-  pool_size: 10
+  pool_size: 10,
+  types: Pgvector.PostgresTypes
 
 # For development, we disable any cache and enable
 # debugging and code reloading.
@@ -32,7 +36,9 @@ config :advisor_ai, AdvisorAiWeb.Endpoint,
   debug_errors: true,
   secret_key_base: System.get_env("SECRET_KEY_BASE", "your-secret-key-base-here"),
   watchers: [
-    esbuild: {Esbuild, :install_and_run, [:advisor_ai, ~w(--watch=advisor_ai=js/advisor_ai.js --minify=js.min.js --sourcemap=js)]},
+    esbuild:
+      {Esbuild, :install_and_run,
+       [:advisor_ai, ~w(--watch=advisor_ai=js/advisor_ai.js --minify=js.min.js --sourcemap=js)]},
     tailwind: {Tailwind, :install_and_run, [:advisor_ai, ~w(--watch)]}
   ]
 
@@ -103,31 +109,36 @@ config :advisor_ai, :openai_client, OpenAI
 # Configure OAuth providers
 config :ueberauth, Ueberauth,
   providers: [
-    google: {Ueberauth.Strategy.Google, [
-      default_scope: "email profile https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/calendar https://www.googleapis.com/auth/calendar.events",
-      prompt: "consent",
-      access_type: "offline"
-    ]}
+    google:
+      {Ueberauth.Strategy.Google,
+       [
+         default_scope:
+           "email profile https://www.googleapis.com/auth/gmail.modify https://www.googleapis.com/auth/calendar https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/contacts https://www.googleapis.com/auth/contacts.readonly https://www.googleapis.com/auth/drive https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/user.emails.read https://www.googleapis.com/auth/user.addresses.read https://www.googleapis.com/auth/user.birthday.read https://www.googleapis.com/auth/user.phonenumbers.read https://www.googleapis.com/auth/user.organization.read https://www.googleapis.com/auth/user.gender.read https://www.googleapis.com/auth/userinfo.profile https://www.googleapis.com/auth/userinfo.email",
+         access_type: "offline",
+         prompt: "consent"
+       ]},
+    hubspot:
+      {AdvisorAi.Auth.HubSpotStrategy,
+       [
+         default_scope: "",
+         send_redirect_uri: true
+       ]}
   ]
 
 config :ueberauth, Ueberauth.Strategy.Google.OAuth,
   client_id: System.get_env("GOOGLE_CLIENT_ID"),
   client_secret: System.get_env("GOOGLE_CLIENT_SECRET")
 
-# Configure HubSpot OAuth
-config :advisor_ai, :hubspot,
-  client_id: System.get_env("HUBSPOT_CLIENT_ID"),
-  client_secret: System.get_env("HUBSPOT_CLIENT_SECRET"),
-  redirect_uri: System.get_env("HUBSPOT_REDIRECT_URI", "http://localhost:4000/auth/hubspot/callback")
+config :ueberauth, Ueberauth.Strategy.HubSpot.OAuth,
+  client_id: System.get_env("HUBSPOT_CLIENT_ID", "your-hubspot-client-id"),
+  client_secret: System.get_env("HUBSPOT_CLIENT_SECRET", "your-hubspot-client-secret"),
+  redirect_uri:
+    System.get_env("HUBSPOT_REDIRECT_URI", "http://localhost:4000/auth/hubspot/callback")
 
-# Configure Oban for background jobs
-config :advisor_ai, Oban,
-  plugins: [Oban.Plugins.Pruner],
-  queues: [default: 10, mailers: 10, ai_processing: 5]
+# Oban configuration moved to runtime.exs
 
 # Configure Swoosh for email
-config :advisor_ai, AdvisorAi.Mailer,
-  adapter: Swoosh.Adapters.Local
+config :advisor_ai, AdvisorAi.Mailer, adapter: Swoosh.Adapters.Local
 
 # Do not print debug messages in production
 config :logger, level: :info

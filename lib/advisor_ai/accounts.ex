@@ -47,6 +47,12 @@ defmodule AdvisorAi.Accounts do
     |> Repo.insert()
   end
 
+  def update_user(%User{} = user, attrs) do
+    user
+    |> User.changeset(attrs)
+    |> Repo.update()
+  end
+
   def touch_last_login(user) do
     user
     |> User.changeset(%{last_login_at: DateTime.utc_now() |> DateTime.truncate(:second)})
@@ -78,5 +84,14 @@ defmodule AdvisorAi.Accounts do
 
   def get_user_hubspot_account(user_id) do
     Repo.get_by(Account, user_id: user_id, provider: "hubspot")
+  end
+
+  def update_account_tokens(account, new_token, expires_at) do
+    account
+    |> Account.changeset(%{
+      access_token: new_token,
+      token_expires_at: expires_at
+    })
+    |> Repo.update()
   end
 end

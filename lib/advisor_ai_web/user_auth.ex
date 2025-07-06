@@ -75,7 +75,58 @@ defmodule AdvisorAiWeb.UserAuth do
   def fetch_current_user(conn, _opts) do
     {user_token, conn} = ensure_user_token(conn)
     user = user_token && Accounts.get_user_by_session_token(user_token)
+
+    # Check if user has expired OAuth tokens and log them out if needed
+    conn = check_and_handle_expired_tokens(conn, user)
+
     assign(conn, :current_user, user)
+  end
+
+  defp check_and_handle_expired_tokens(conn, nil), do: conn
+
+  defp check_and_handle_expired_tokens(conn, user) do
+    if has_expired_oauth_tokens?(user) do
+      # Clear user tokens and log them out
+      clear_user_oauth_tokens(user)
+
+      # Log out the user
+      log_out_user(conn)
+    else
+      conn
+    end
+  end
+
+  defp has_expired_oauth_tokens?(user) do
+    # Check Google token expiration
+    google_expired = case user.google_token_expires_at do
+      nil -> false
+      expires_at -> DateTime.compare(DateTime.utc_now(), expires_at) == :gt
+    end
+
+    # Check HubSpot token expiration
+    hubspot_expired = case user.hubspot_token_expires_at do
+      nil -> false
+      expires_at -> DateTime.compare(DateTime.utc_now(), expires_at) == :gt
+    end
+
+    # If user has any OAuth tokens and they're expired, return true
+    (user.google_access_token && google_expired) ||
+    (user.hubspot_access_token && hubspot_expired)
+  end
+
+  defp clear_user_oauth_tokens(user) do
+    # Clear OAuth tokens from user record
+    user_params = %{
+      google_access_token: nil,
+      google_refresh_token: nil,
+      google_token_expires_at: nil,
+      google_scopes: [],
+      hubspot_access_token: nil,
+      hubspot_refresh_token: nil,
+      hubspot_token_expires_at: nil
+    }
+
+    Accounts.update_user(user, user_params)
   end
 
   defp ensure_user_token(conn) do
