@@ -14,21 +14,31 @@ defmodule AdvisorAi.Integrations.HubSpot do
       {:ok, access_token} ->
         url = "#{@hubspot_api_url}/crm/v3/objects/contacts/search"
 
-        request_body = %{
-          filterGroups: [
+        request_body =
+          if is_binary(query) and String.trim(query) != "" do
             %{
-              filters: [
+              filterGroups: [
                 %{
-                  propertyName: "email",
-                  operator: "CONTAINS_TOKEN",
-                  value: query
+                  filters: [
+                    %{
+                      propertyName: "email",
+                      operator: "CONTAINS_TOKEN",
+                      value: query
+                    }
+                  ]
                 }
-              ]
+              ],
+              properties: ["email", "firstname", "lastname", "company", "phone", "jobtitle"],
+              limit: 10,
+              after: 0
             }
-          ],
-          properties: ["email", "firstname", "lastname", "company"],
-          limit: 10
-        }
+          else
+            %{
+              properties: ["email", "firstname", "lastname", "company", "phone", "jobtitle"],
+              limit: 10,
+              after: 0
+            }
+          end
 
         case HTTPoison.post(url, Jason.encode!(request_body), [
                {"Authorization", "Bearer #{access_token}"},
@@ -46,8 +56,46 @@ defmodule AdvisorAi.Integrations.HubSpot do
                 {:error, "Failed to parse response: #{reason}"}
             end
 
-          {:ok, %{status_code: status_code}} ->
-            {:error, "HubSpot API error: #{status_code}"}
+          {:ok, %{status_code: status_code, body: body}} ->
+            {:error, "HubSpot API error: #{status_code} - #{body}"}
+
+          {:error, reason} ->
+            {:error, "HTTP error: #{reason}"}
+        end
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+  def list_contacts(user, limit \\ 50) do
+    case get_access_token(user) do
+      {:ok, access_token} ->
+        url = "#{@hubspot_api_url}/crm/v3/objects/contacts"
+
+        params = URI.encode_query(%{
+          limit: limit,
+          properties: "email,firstname,lastname,company,phone,jobtitle"
+        })
+
+        case HTTPoison.get("#{url}?#{params}", [
+               {"Authorization", "Bearer #{access_token}"},
+               {"Content-Type", "application/json"}
+             ]) do
+          {:ok, %{status_code: 200, body: body}} ->
+            case Jason.decode(body) do
+              {:ok, %{"results" => contacts}} ->
+                {:ok, contacts}
+
+              {:ok, _} ->
+                {:ok, []}
+
+              {:error, reason} ->
+                {:error, "Failed to parse response: #{reason}"}
+            end
+
+          {:ok, %{status_code: status_code, body: body}} ->
+            {:error, "HubSpot API error: #{status_code} - #{body}"}
 
           {:error, reason} ->
             {:error, "HTTP error: #{reason}"}
@@ -321,27 +369,27 @@ defmodule AdvisorAi.Integrations.HubSpot do
     end
   end
 
-  defp get_oauth_token(user) do
-    case AdvisorAi.Accounts.get_user_hubspot_account(user.id) do
-      nil ->
-        {:error, "No HubSpot account connected"}
+  # Force API key usage (bypass OAuth completely)
+  defp get_access_token_api_key_only(_user) do
+    get_api_key()
+  end
 
-      account ->
-        if is_token_expired?(account) do
-          refresh_access_token(account)
-        else
-          {:ok, account.access_token}
-        end
+  defp get_oauth_token(user) do
+    if user.hubspot_access_token do
+      if is_user_token_expired?(user) do
+        refresh_user_access_token(user)
+      else
+        {:ok, user.hubspot_access_token}
+      end
+    else
+      {:error, "No HubSpot tokens found. Please connect your HubSpot account via OAuth."}
     end
   end
 
   defp get_api_key() do
-    api_key = System.get_env("HUBSPOT_API_KEY")
-    if api_key && api_key != "" do
-      {:ok, api_key}
-    else
-      {:error, "No HubSpot API key configured"}
-    end
+    # For developer accounts, only OAuth is available
+    # Private Apps are only for paid accounts
+    {:error, "Private App Tokens are only available for paid HubSpot accounts. Please use OAuth 2.0 instead."}
   end
 
   defp is_token_expired?(account) do
@@ -351,9 +399,37 @@ defmodule AdvisorAi.Integrations.HubSpot do
     end
   end
 
+  defp is_user_token_expired?(user) do
+    case user.hubspot_token_expires_at do
+      nil -> false
+      expires_at -> DateTime.compare(DateTime.utc_now(), expires_at) == :gt
+    end
+  end
+
   defp refresh_access_token(_account) do
     # Implement token refresh logic
     # This would use the refresh_token to get a new access_token
     {:error, "Token refresh not implemented"}
+  end
+
+  defp refresh_user_access_token(user) do
+    if user.hubspot_refresh_token do
+      # Implement token refresh logic for user tokens
+      # This would use the refresh_token to get a new access_token
+      {:error, "Token refresh not implemented yet"}
+    else
+      {:error, "No refresh token available"}
+    end
+  end
+
+  # Test API key connection
+  def test_api_key_connection() do
+    # For developer accounts, only OAuth is available
+    {:error, "Private App Tokens are only available for paid HubSpot accounts. Please use OAuth 2.0 by clicking 'Connect with OAuth' in the settings."}
+  end
+
+  # Force API key usage (bypass OAuth)
+  defp get_access_token_api_key_only(_user) do
+    get_api_key()
   end
 end
