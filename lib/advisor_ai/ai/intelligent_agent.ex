@@ -4,7 +4,7 @@ defmodule AdvisorAi.AI.IntelligentAgent do
   """
 
   alias AdvisorAi.{Accounts, Chat, AI}
-  alias AdvisorAi.Integrations.{Gmail, Calendar, HubSpot, GoogleContacts, GoogleAuth}
+  alias AdvisorAi.Integrations.{Gmail, Calendar, HubSpot, GoogleAuth}
   alias AI.{OpenRouterClient, TogetherClient, OllamaClient, VectorEmbedding, AgentInstruction}
 
   @doc """
@@ -27,7 +27,7 @@ defmodule AdvisorAi.AI.IntelligentAgent do
   # Build a prompt that instructs the LLM to output a structured plan for real data, or a conversational response otherwise
   defp build_hybrid_prompt(user_message, context) do
     """
-    You are an advanced AI assistant with access to Gmail, Google Calendar, and Google Contacts APIs. The user will ask you to perform any task. If the request requires real data (like listing emails, contacts, or calendar events), output a JSON object with an 'action' key and any needed parameters, e.g. {"action": "get_contacts"}. If the request is conversational or does not require real data, return a conversational response or a JSON object with a 'response' key. Never ask for confirmation, never list available actions, and never require the user to use specific keywords. Always act autonomously and return only the final result.
+    You are an advanced AI assistant with access to Gmail, Google Calendar, and HubSpot APIs. The user will ask you to perform any task. If the request requires real data (like listing emails, contacts, or calendar events), output a JSON object with an 'action' key and any needed parameters, e.g. {"action": "get_contacts"}. If the request is conversational or does not require real data, return a conversational response or a JSON object with a 'response' key. Never ask for confirmation, never list available actions, and never require the user to use specific keywords. Always act autonomously and return only the final result.
 
     User Request: \"#{user_message}\"
 
@@ -88,18 +88,25 @@ defmodule AdvisorAi.AI.IntelligentAgent do
   defp execute_generic_action(user, conversation_id, action, params, context) do
     case String.downcase(action) do
       "get_contacts" ->
-        case GoogleContacts.get_all_contacts(user, page_size: params["page_size"] || 50) do
+        case HubSpot.list_contacts(user, params["page_size"] || 50) do
           {:ok, contacts} ->
             contact_list = Enum.map(contacts, fn contact ->
-              name = get_in(contact, ["names", Access.at(0), "displayName"]) || "Unknown"
-              email = get_in(contact, ["emailAddresses", Access.at(0), "value"]) || "No email"
-              phone = get_in(contact, ["phoneNumbers", Access.at(0), "value"]) || "No phone"
-              "• #{name} (#{email}, #{phone})"
+              properties = contact["properties"] || %{}
+              firstname = properties["firstname"] || ""
+              lastname = properties["lastname"] || ""
+              email = properties["email"] || "No email"
+              company = properties["company"] || ""
+              phone = properties["phone"] || "No phone"
+
+              name = "#{firstname} #{lastname}" |> String.trim()
+              name = if name == "", do: "Unknown", else: name
+
+              "• #{name} (#{email}, #{phone})#{if company != "", do: " - #{company}", else: ""}"
             end) |> Enum.join("\n")
-            response = if contact_list == "", do: "No contacts found.", else: "Your contacts:\n\n#{contact_list}"
+            response = if contact_list == "", do: "No HubSpot contacts found.", else: "Your HubSpot contacts:\n\n#{contact_list}"
             create_agent_response(user, conversation_id, response, "action")
           {:error, reason} ->
-            create_agent_response(user, conversation_id, "Failed to get contacts: #{reason}", "error")
+            create_agent_response(user, conversation_id, "Failed to get HubSpot contacts: #{reason}", "error")
         end
       "search_emails" ->
         query = params["query"] || params["q"] || ""
@@ -157,7 +164,7 @@ defmodule AdvisorAi.AI.IntelligentAgent do
   # Build a universal prompt for the LLM to decide and act
   defp build_universal_prompt(user_message, context) do
     """
-    You are an advanced AI assistant with access to Gmail, Google Calendar, and Google Contacts APIs. The user will ask you to perform any task, and you must decide what to do and execute it. Do not ask for confirmation, do not list available actions, and do not require the user to use specific keywords. Always act autonomously and return only the final result.
+    You are an advanced AI assistant with access to Gmail, Google Calendar, and HubSpot APIs. The user will ask you to perform any task, and you must decide what to do and execute it. Do not ask for confirmation, do not list available actions, and do not require the user to use specific keywords. Always act autonomously and return only the final result.
 
     User Request: \"#{user_message}\"
 
@@ -175,7 +182,7 @@ defmodule AdvisorAi.AI.IntelligentAgent do
 
     Instructions:
     1. Intelligently interpret the user's request and decide what to do, without relying on specific keywords or imperative forms.
-    2. If the request requires accessing Gmail, Calendar, or Contacts, use the appropriate API and return the result.
+    2. If the request requires accessing Gmail, Calendar, or HubSpot, use the appropriate API and return the result.
     3. If the request is informational or conversational, respond directly.
     4. Always return only the final result or answer, never a list of possible actions or a request for confirmation.
     5. If you need to perform an action, return a JSON object with the action and parameters, e.g.:
@@ -373,42 +380,39 @@ defmodule AdvisorAi.AI.IntelligentAgent do
     if is_nil(query) or query == "" do
       {:ok, nil} # Gracefully skip if no query provided
     else
-      case GoogleContacts.find_contact(user, params) do
-        {:ok, contact} ->
-          contact_name = get_in(contact, ["names", Access.at(0), "displayName"]) || "Unknown"
-          contact_email = get_in(contact, ["emailAddresses", Access.at(0), "value"]) || "No email"
-          {:ok, "Found contact: #{contact_name} (#{contact_email})"}
-        {:ok, nil} ->
-          {:ok, "No contact found matching the criteria."}
+      case HubSpot.search_contacts(user, query) do
+        {:ok, [contact | _]} ->
+          properties = contact["properties"] || %{}
+          firstname = properties["firstname"] || ""
+          lastname = properties["lastname"] || ""
+          email = properties["email"] || "No email"
+
+          name = "#{firstname} #{lastname}" |> String.trim()
+          name = if name == "", do: "Unknown", else: name
+
+          {:ok, "Found HubSpot contact: #{name} (#{email})"}
+        {:ok, []} ->
+          {:ok, "No HubSpot contact found matching the criteria."}
         {:error, reason} ->
-          {:error, "Failed to find contact: #{reason}"}
+          {:error, "Failed to find HubSpot contact: #{reason}"}
       end
     end
   end
 
   defp execute_create_contact_action(user, _conversation_id, params, _context) do
-    case GoogleContacts.create_contact(user, params) do
-      {:ok, contact} ->
-        contact_name = get_in(contact, ["names", Access.at(0), "displayName"]) || "Unknown"
-        {:ok, "Contact created successfully: #{contact_name}"}
-      {:error, reason} -> {:error, "Failed to create contact: #{reason}"}
+    case HubSpot.create_contact(user, params) do
+      {:ok, result} ->
+        {:ok, "HubSpot contact created successfully: #{result}"}
+      {:error, reason} -> {:error, "Failed to create HubSpot contact: #{reason}"}
     end
   end
 
   defp execute_update_contact_action(user, _conversation_id, params, _context) do
-    case GoogleContacts.update_contact(user, params["contact_id"], params) do
-      {:ok, contact} ->
-        contact_name = get_in(contact, ["names", Access.at(0), "displayName"]) || "Unknown"
-        {:ok, "Contact updated successfully: #{contact_name}"}
-      {:error, reason} -> {:error, "Failed to update contact: #{reason}"}
-    end
+    {:error, "HubSpot contact update not yet implemented"}
   end
 
   defp execute_delete_contact_action(user, _conversation_id, params, _context) do
-    case GoogleContacts.delete_contact(user, params["contact_id"]) do
-      {:ok, _} -> {:ok, "Contact deleted successfully."}
-      {:error, reason} -> {:error, "Failed to delete contact: #{reason}"}
-    end
+    {:error, "HubSpot contact deletion not yet implemented"}
   end
 
   # Gmail API functions (update existing ones to match new naming)
