@@ -7,6 +7,7 @@ cmds = [
   "mix local.rebar --force",
   "mix deps.get",
   "npm install --prefix assets",
+  "pip install -r requirements.txt",
   "mix assets.deploy"
 ]
 
@@ -14,4 +15,4 @@ cmds = [
 cmds = ["mix compile"]
 
 [start]
-cmd = "mix phx.server" 
+cmd = "python embedding_server.py & mix phx.server" 
