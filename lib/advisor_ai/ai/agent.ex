@@ -10,7 +10,7 @@ defmodule AdvisorAi.AI.Agent do
   import Ecto.Query
   alias AdvisorAi.Repo
   alias AdvisorAi.Chat.{Conversation, Message}
-  alias AdvisorAi.AI.{VectorEmbedding, AgentInstruction, OpenRouterClient, LocalEmbeddingClient, IntelligentAgent, WorkflowGenerator}
+  alias AdvisorAi.AI.{VectorEmbedding, AgentInstruction, OpenRouterClient, LocalEmbeddingClient, IntelligentAgent, WorkflowGenerator, UniversalAgent}
   alias AdvisorAi.Tasks.AgentTask
   alias AdvisorAi.Integrations.{Gmail, Calendar, HubSpot}
 
@@ -33,24 +33,31 @@ defmodule AdvisorAi.AI.Agent do
     # Get active instructions
     instructions = get_active_instructions(user.id)
 
-    # Use intelligent agent approach
-    case IntelligentAgent.process_request(user, conversation_id, message_content) do
+    # Use universal agent approach (AI-driven tool calling)
+    case UniversalAgent.process_request(user, conversation_id, message_content) do
       {:ok, assistant_message} ->
         {:ok, assistant_message}
 
       {:error, reason} ->
-        # Fallback to workflow generator
-        case handle_with_workflow(user, conversation_id, message_content, context, instructions) do
-          {:ok, response} ->
-            {:ok, response}
-          {:error, workflow_reason} ->
-            # Final fallback: simple response
-            {:ok, error_message} =
-              create_message(conversation_id, %{
-                role: "assistant",
-                content: "I understand your request. Let me help you with that. #{workflow_reason}"
-              })
-            {:ok, error_message}
+        # Fallback to intelligent agent
+        case IntelligentAgent.process_request(user, conversation_id, message_content) do
+          {:ok, assistant_message} ->
+            {:ok, assistant_message}
+
+          {:error, intelligent_reason} ->
+            # Fallback to workflow generator
+            case handle_with_workflow(user, conversation_id, message_content, context, instructions) do
+              {:ok, response} ->
+                {:ok, response}
+              {:error, workflow_reason} ->
+                # Final fallback: simple response
+                {:ok, error_message} =
+                  create_message(conversation_id, %{
+                    role: "assistant",
+                    content: "I understand your request. Let me help you with that. #{workflow_reason}"
+                  })
+                {:ok, error_message}
+            end
         end
     end
   end
