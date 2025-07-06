@@ -112,4 +112,14 @@ defmodule AdvisorAi.Accounts do
     })
     |> Repo.update()
   end
+
+  def update_user_hubspot_tokens(user, access_token, refresh_token, expires_at) do
+    user
+    |> Ecto.Changeset.change(%{
+      hubspot_access_token: access_token,
+      hubspot_refresh_token: refresh_token,
+      hubspot_token_expires_at: expires_at
+    })
+    |> Repo.update()
+  end
 end
