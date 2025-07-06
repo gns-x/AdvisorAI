@@ -310,6 +310,9 @@ defmodule AdvisorAi.AI.WorkflowGenerator do
       "search_contacts" ->
         query = Map.get(params, "query", "")
         AdvisorAi.Integrations.HubSpot.search_contacts(user, query)
+      "list_contacts" ->
+        limit = Map.get(params, "limit", 50)
+        AdvisorAi.Integrations.HubSpot.list_contacts(user, limit)
       _ ->
         {:error, "Unknown HubSpot action: #{action}"}
     end
