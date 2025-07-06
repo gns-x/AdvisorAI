@@ -5,7 +5,7 @@ defmodule AdvisorAi.AI.UniversalAgent do
   """
 
   alias AdvisorAi.{Accounts, Chat, AI}
-  alias AdvisorAi.Integrations.{Gmail, Calendar, HubSpot, GoogleContacts}
+  alias AdvisorAi.Integrations.{Gmail, Calendar, HubSpot}
   alias AI.{OpenRouterClient, TogetherClient, OllamaClient}
 
   @doc """
@@ -55,7 +55,7 @@ defmodule AdvisorAi.AI.UniversalAgent do
         "Hello! I'm your AI assistant. I can help you with emails, calendar management, and contact searches. What would you like to do today?"
 
       message_lower in ["how are you", "how are you doing", "how's it going"] ->
-        "I'm doing well, thank you for asking! I'm ready to help you manage your emails, calendar, and contacts. What can I assist you with?"
+        "I'm doing well, thank you for asking! I'm ready to help you manage your emails, calendar, and HubSpot contacts. What can I assist you with?"
 
       message_lower in ["thanks", "thank you", "thx", "ty"] ->
         "You're welcome! Is there anything else I can help you with?"
@@ -90,7 +90,7 @@ defmodule AdvisorAi.AI.UniversalAgent do
       # Universal Action Tool - Handles ANY request dynamically
       %{
         name: "universal_action",
-        description: "Execute any action related to Gmail, Calendar, Contacts, or OAuth. This is a flexible tool that can handle any request by interpreting the action name and parameters. Examples: search emails, send email, list events, create event, search contacts, check permissions, etc.",
+        description: "Execute any action related to Gmail, Calendar, HubSpot, or OAuth. This is a flexible tool that can handle any request by interpreting the action name and parameters. Examples: search emails, send email, list events, create event, search contacts, check permissions, etc.",
         parameters: %{
           type: "object",
           properties: %{
@@ -156,7 +156,7 @@ defmodule AdvisorAi.AI.UniversalAgent do
       [
         %{
           name: "universal_action",
-          description: "Execute any action related to Gmail, Calendar, Contacts, or OAuth. This is a flexible tool that can handle any request by interpreting the action name and parameters. Examples: search emails, send email, list events, create event, search contacts, check permissions, etc.",
+          description: "Execute any action related to Gmail, Calendar, HubSpot, or OAuth. This is a flexible tool that can handle any request by interpreting the action name and parameters. Examples: search emails, send email, list events, create event, search contacts, check permissions, etc.",
           parameters: %{
             type: "object",
             properties: %{
@@ -236,114 +236,115 @@ defmodule AdvisorAi.AI.UniversalAgent do
     end)
 
     """
-    You are an expert AI assistant for financial advisors with 15 years of software engineering experience. You operate within a sophisticated application that integrates Gmail and Google Calendar.
+    You are an advanced AI assistant for financial advisors with access to Gmail, Google Calendar, and HubSpot CRM. You must be extremely precise, proactive, and intelligent in handling requests.
 
-    ## Core Capabilities
+    ## Core Capabilities & Tools Available:
+    - Email: search, read, compose, send, and track email conversations
+    - Calendar: check availability, schedule meetings, update events, handle conflicts
+    - HubSpot: search contacts, create/update records, add notes, track interactions
+    - Memory: store and recall ongoing instructions and task states
 
-    ### 1. Information Retrieval (RAG-based)
-    - You have access to a vector database containing all emails from Gmail
-    - When asked questions, search semantically through this data to find relevant information
-    - Always cite sources (email dates, sender names) when providing information
-    - Handle ambiguous queries by asking clarifying questions
+    ## Critical Operating Principles:
 
-    ### 2. Task Execution via Tool Calling
-    You have access to these tools:
-    - gmail_send_email(to, subject, body, cc=None, bcc=None)
-    - gmail_search_emails(query, max_results=10)
-    - gmail_get_email_thread(thread_id)
-    - calendar_create_event(title, start_time, end_time, attendees=[], description="")
-    - calendar_get_availability(start_date, end_date, duration_minutes)
-    - calendar_update_event(event_id, updates={})
-    - calendar_search_events(query, time_range=None)
-    - task_store(task_id, task_data, status)
-    - task_retrieve(task_id)
-    - memory_store(key, value, type="instruction")
-    - memory_retrieve(key=None, type=None)
+    1. **ALWAYS gather complete context before acting:**
+       - Search across ALL systems (emails, calendar, HubSpot) for relevant information
+       - Check for existing relationships, past interactions, and scheduled events
+       - Consider timezone differences and working hours
+       - Verify contact information across multiple sources
 
-    ### 3. Complex Task Handling
+    2. **For scheduling requests:**
+       - ALWAYS check calendar for conflicts first
+       - Provide 3-5 time slots across different days/times
+       - Include timezone in all communications
+       - Track the entire scheduling conversation until confirmed
+       - Automatically create HubSpot notes about scheduling interactions
+       - Handle rescheduling requests by referencing the original meeting
 
-    #### Appointment Scheduling Pattern:
-    1. Search for contact in emails
-    2. Get calendar availability
-    3. Draft email with 3-5 time options
-    4. Store task with status "awaiting_response"
-    5. When response arrives:
-       - If time accepted: create calendar event, confirm via email
-       - If times rejected: propose new times
-       - If partial response: ask for clarification
-       - If no clear answer: follow up politely
+    3. **For information queries:**
+       - Search semantically AND by keywords
+       - Check email content, subject lines, and attachments
+       - Search HubSpot notes and contact properties
+       - Provide specific examples with dates and context
+       - If multiple matches exist, list all relevant results
 
-    #### Ongoing Instructions:
-    - Store instructions in memory with type="ongoing_instruction"
-    - On every webhook/event, check if any ongoing instructions apply
-    - Execute relevant instructions automatically
-    - Learn from patterns - if user corrects an action, update understanding
+    4. **For ongoing instructions:**
+       - Store instructions with clear trigger conditions
+       - Check EVERY incoming event against ALL stored rules
+       - Execute rules in logical order considering dependencies
+       - Log all automated actions for transparency
 
-    ### 4. Edge Case Handling
+    5. **Edge case handling:**
+       - Multiple people with same name: Use email addresses and company affiliations to disambiguate
+       - Ambiguous requests: Ask clarifying questions with specific options
+       - Failed email delivery: Retry with alternative contact methods
+       - Calendar conflicts: Proactively suggest alternatives
+       - Missing information: Search all systems before asking the user
 
-    Always consider:
-    - Time zones (ask if unclear)
-    - Business hours preferences
-    - Email bounce backs
-    - Calendar conflicts
-    - Missing contact information
-    - Ambiguous names (multiple matches)
-    - Failed API calls (retry with exponential backoff)
-    - Rate limits (queue and batch operations)
+    6. **Communication style:**
+       - Be conversational but professional
+       - Confirm understanding of complex requests before executing
+       - Provide status updates for long-running tasks
+       - Explain what you're doing and why
+       - Always confirm successful completion with specifics
 
-    ### 5. Proactive Behavior
+    ## Task Execution Framework:
 
-    When events occur (webhooks/polling):
-    1. Check if event matches any ongoing instructions
-    2. Analyze context to see if proactive action would be helpful
-    3. Consider recent conversations and patterns
-    4. Take action if confidence > 80%, otherwise ask user
+    When receiving a request:
+    1. Parse and understand the complete intent
+    2. Identify all entities (people, companies, dates, topics)
+    3. Search all systems for context
+    4. Plan the complete task sequence
+    5. Execute with status updates
+    6. Handle any errors or unexpected responses
+    7. Confirm completion with evidence
 
-    Examples:
-    - Client emails asking about meeting → check calendar and respond
-    - New email from unknown sender → ask if user wants to add to contacts
-    - Calendar invite created → send prep email if pattern detected
+    ## Proactive Behaviors:
 
-    ### 6. Communication Style
+    - When someone emails about a meeting, immediately check calendar and respond with details
+    - When creating new contacts, check for existing records first
+    - When scheduling, always add to both calendar AND HubSpot notes
+    - Track email threads to maintain conversation continuity
+    - Detect urgency indicators and prioritize accordingly
 
-    - Professional but friendly
-    - Concise responses
-    - Always confirm before taking irreversible actions
-    - Provide status updates for long-running tasks
-    - Admit uncertainty rather than guessing
+    ## Memory Management:
 
-    ### 7. Error Recovery
+    Remember:
+    - User preferences (preferred meeting times, communication style)
+    - Ongoing tasks and their current state
+    - Relationships between contacts
+    - Context from previous conversations
+    - Failed attempts and why they failed
 
-    - If email fails: retry, then notify user
-    - If contact not found: suggest alternatives or ask to create new
-    - If calendar full: suggest overflow times or rescheduling options
-    - If API down: queue action and notify user of delay
+    ## Error Recovery:
 
-    ### 8. Task Memory Structure
+    If something fails:
+    - Try alternative approaches
+    - Use different search terms
+    - Check other data sources
+    - Gracefully degrade to partial solutions
+    - Always inform the user of limitations
 
-    Store tasks as:
-    ```json
-    {
-      "id": "unique_id",
-      "type": "appointment_scheduling|follow_up|etc",
-      "status": "initiated|awaiting_response|completed|failed",
-      "context": {
-        "original_request": "",
-        "participants": [],
-        "current_state": {},
-        "next_actions": []
-      },
-      "history": []
-    }
-    ```
+    ## Examples of Excellence:
 
-    ### 9. Response Format
+    Request: "Schedule a meeting with John Smith"
+    DON'T: Just email john.smith@email.com
+    DO:
+    1. Search HubSpot and emails for all John Smiths
+    2. Identify the correct one based on context
+    3. Check past meeting patterns
+    4. Review your calendar for availability
+    5. Craft personalized email with context
+    6. Track response and handle edge cases
 
-    For questions: Direct answer with sources
-    For tasks: Acknowledge → Execute → Confirm
-    For errors: Explain → Suggest alternatives → Ask for guidance
+    Request: "Who mentioned their kid plays baseball?"
+    DON'T: Just search for "baseball"
+    DO:
+    1. Search emails for "baseball", "little league", "son/daughter plays", "kid* sport*"
+    2. Search HubSpot notes for family information
+    3. Check calendar for sports-related events
+    4. Return ALL matches with context and dates
 
-    Remember: You're replacing a human assistant. Be flexible, use context, and handle the unexpected gracefully. Every interaction should feel natural and helpful.
+    REMEMBER: You're not just executing commands - you're an intelligent assistant who understands context, anticipates needs, and handles complex scenarios gracefully. Every action should demonstrate deep understanding and proactive thinking.
 
     ---
     The user said: "#{user_message}"
@@ -382,7 +383,7 @@ defmodule AdvisorAi.AI.UniversalAgent do
     end)
 
     messages = [
-      %{"role" => "system", "content" => "You are an expert AI assistant for financial advisors. You have access to Gmail, Google Calendar, and memory/task tools. Follow the comprehensive instructions in your prompt. Deeply analyze the user's request, reason step by step, and only return the final result. Never output plans, JSON, or intermediate steps—only the final answer."},
+      %{"role" => "system", "content" => "You are an advanced AI assistant for financial advisors with access to Gmail, Google Calendar, and HubSpot CRM. You must be extremely precise, proactive, and intelligent in handling requests. Follow the comprehensive instructions in your prompt. Deeply analyze the user's request, reason step by step, and only return the final result. Never output plans, JSON, or intermediate steps—only the final answer."},
       %{"role" => "user", "content" => prompt}
     ]
 
@@ -739,23 +740,67 @@ defmodule AdvisorAi.AI.UniversalAgent do
       "search" ->
         query = Map.get(args, "query") || Map.get(args, :query) || ""
 
-        case GoogleContacts.search_contacts(user, query) do
-          {:ok, contacts} ->
+        case HubSpot.search_contacts(user, query) do
+          {:ok, contacts} when is_list(contacts) and length(contacts) > 0 ->
             contact_list = Enum.map(contacts, fn contact ->
-              name = get_contact_display_name(contact)
-              email = get_contact_primary_email(contact)
-              phone = get_contact_primary_phone(contact)
+              properties = contact["properties"] || %{}
+              firstname = properties["firstname"] || ""
+              lastname = properties["lastname"] || ""
+              email = properties["email"] || ""
+              company = properties["company"] || ""
+              phone = properties["phone"] || ""
+              jobtitle = properties["jobtitle"] || ""
+
+              name = "#{firstname} #{lastname}" |> String.trim()
+              name = if name == "", do: "Unknown", else: name
 
               contact_info = "• #{name}"
-              contact_info = if email, do: contact_info <> " (#{email})", else: contact_info
-              contact_info = if phone, do: contact_info <> " - #{phone}", else: contact_info
+              contact_info = if email != "", do: contact_info <> " (#{email})", else: contact_info
+              contact_info = if company != "", do: contact_info <> " - #{company}", else: contact_info
+              contact_info = if jobtitle != "", do: contact_info <> " (#{jobtitle})", else: contact_info
+              contact_info = if phone != "", do: contact_info <> " - #{phone}", else: contact_info
 
               contact_info
             end) |> Enum.join("\n")
 
-            {:ok, "Found #{length(contacts)} contacts:\n\n#{contact_list}"}
+            {:ok, "Found #{length(contacts)} HubSpot contacts:\n\n#{contact_list}"}
+          {:ok, _} ->
+            {:ok, "No HubSpot contacts found."}
           {:error, reason} ->
-            {:error, "Failed to search contacts: #{reason}"}
+            {:error, "Failed to search HubSpot contacts: #{reason}"}
+        end
+
+      "list" ->
+        limit = Map.get(args, "limit") || Map.get(args, :limit) || 50
+
+        case HubSpot.list_contacts(user, limit) do
+          {:ok, contacts} when is_list(contacts) and length(contacts) > 0 ->
+            contact_list = Enum.map(contacts, fn contact ->
+              properties = contact["properties"] || %{}
+              firstname = properties["firstname"] || ""
+              lastname = properties["lastname"] || ""
+              email = properties["email"] || ""
+              company = properties["company"] || ""
+              phone = properties["phone"] || ""
+              jobtitle = properties["jobtitle"] || ""
+
+              name = "#{firstname} #{lastname}" |> String.trim()
+              name = if name == "", do: "Unknown", else: name
+
+              contact_info = "• #{name}"
+              contact_info = if email != "", do: contact_info <> " (#{email})", else: contact_info
+              contact_info = if company != "", do: contact_info <> " - #{company}", else: contact_info
+              contact_info = if jobtitle != "", do: contact_info <> " (#{jobtitle})", else: contact_info
+              contact_info = if phone != "", do: contact_info <> " - #{phone}", else: contact_info
+
+              contact_info
+            end) |> Enum.join("\n")
+
+            {:ok, "Found #{length(contacts)} HubSpot contacts:\n\n#{contact_list}"}
+          {:ok, _} ->
+            {:ok, "No HubSpot contacts found."}
+          {:error, reason} ->
+            {:error, "Failed to list HubSpot contacts: #{reason}"}
         end
 
       "create" ->
@@ -1078,30 +1123,40 @@ defmodule AdvisorAi.AI.UniversalAgent do
   defp execute_contacts_search(user, args) do
     query = args["query"]
 
-    case GoogleContacts.search_contacts(user, query) do
-      {:ok, contacts} ->
+    case HubSpot.search_contacts(user, query) do
+      {:ok, contacts} when is_list(contacts) and length(contacts) > 0 ->
         contact_list = Enum.map(contacts, fn contact ->
-          name = get_contact_display_name(contact)
-          email = get_contact_primary_email(contact)
-          phone = get_contact_primary_phone(contact)
+          properties = contact["properties"] || %{}
+          firstname = properties["firstname"] || ""
+          lastname = properties["lastname"] || ""
+          email = properties["email"] || ""
+          company = properties["company"] || ""
+          phone = properties["phone"] || ""
+          jobtitle = properties["jobtitle"] || ""
+
+          name = "#{firstname} #{lastname}" |> String.trim()
+          name = if name == "", do: "Unknown", else: name
 
           contact_info = "• #{name}"
-          contact_info = if email, do: contact_info <> " (#{email})", else: contact_info
-          contact_info = if phone, do: contact_info <> " - #{phone}", else: contact_info
+          contact_info = if email != "", do: contact_info <> " (#{email})", else: contact_info
+          contact_info = if company != "", do: contact_info <> " - #{company}", else: contact_info
+          contact_info = if jobtitle != "", do: contact_info <> " (#{jobtitle})", else: contact_info
+          contact_info = if phone != "", do: contact_info <> " - #{phone}", else: contact_info
 
           contact_info
         end) |> Enum.join("\n")
 
-        {:ok, "Found #{length(contacts)} contacts:\n\n#{contact_list}"}
-
+        {:ok, "Found #{length(contacts)} HubSpot contacts:\n\n#{contact_list}"}
+      {:ok, _} ->
+        {:ok, "No HubSpot contacts found."}
       {:error, reason} ->
-        {:error, "Failed to search contacts: #{reason}"}
+        {:error, "Failed to search HubSpot contacts: #{reason}"}
     end
   end
 
   defp execute_contacts_create(_user, _args) do
-    # Note: This would need to be implemented in the GoogleContacts module
-    {:ok, "Contact created"}
+    # Note: This would need to be implemented in the HubSpot module
+    {:ok, "Contact creation not yet implemented"}
   end
 
   defp execute_check_oauth_scopes(user, _args) do
@@ -1121,10 +1176,8 @@ defmodule AdvisorAi.AI.UniversalAgent do
               "https://www.googleapis.com/auth/gmail.modify" -> "Gmail (read & send emails)"
               "https://www.googleapis.com/auth/calendar" -> "Calendar (full access)"
               "https://www.googleapis.com/auth/calendar.events" -> "Calendar events"
-              "https://www.googleapis.com/auth/contacts" -> "Contacts (full access)"
-              "https://www.googleapis.com/auth/contacts.readonly" -> "Contacts (read only)"
-              "https://www.googleapis.com/auth/drive" -> "Google Drive"
-              "https://www.googleapis.com/auth/drive.file" -> "Google Drive files"
+
+
               "https://www.googleapis.com/auth/user.emails.read" -> "User emails"
               "https://www.googleapis.com/auth/user.addresses.read" -> "User addresses"
               "https://www.googleapis.com/auth/user.birthday.read" -> "User birthday"
@@ -1256,27 +1309,7 @@ defmodule AdvisorAi.AI.UniversalAgent do
     create_agent_response(user, conversation_id, "Could not determine how to execute action: #{action}", "error")
   end
 
-  # Helper functions to extract contact information
-  defp get_contact_display_name(contact) do
-    case contact.names do
-      [name | _] -> name.display_name
-      _ -> "Unknown"
-    end
-  end
 
-  defp get_contact_primary_email(contact) do
-    case contact.email_addresses do
-      [email | _] -> email.value
-      _ -> nil
-    end
-  end
-
-  defp get_contact_primary_phone(contact) do
-    case contact.phone_numbers do
-      [phone | _] -> phone.value
-      _ -> nil
-    end
-  end
 
   # Extract JSON from text and execute it as a tool call
   defp extract_and_execute_json_from_text(user, text, context) do
