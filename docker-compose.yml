@@ -1,12 +1,28 @@
 version: '3.8'
 
 services:
+  app:
+    build: .
+    ports:
+      - "4000:4000"
+      - "8001:8001"
+    environment:
+      - DATABASE_URL=postgresql://postgres:password@db:5432/advisor_ai_prod
+      - SECRET_KEY_BASE=your_secret_key_here
+      - PHX_HOST=localhost
+      - EMBEDDING_SERVER_URL=http://localhost:8001
+    depends_on:
+      - db
+    volumes:
+      - .:/app
+    command: sh -c "python embedding_server.py & mix phx.server"
+
   db:
     image: pgvector/pgvector:pg16
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: advisor_ai_dev
+      - POSTGRES_DB=advisor_ai_prod
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=password
     ports:
       - "5432:5432"
     volumes:
