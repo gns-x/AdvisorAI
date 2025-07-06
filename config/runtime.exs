@@ -29,14 +29,19 @@ if config_env() in [:dev, :prod] do
     ]
 
   # Default model configuration
-  config :advisor_ai, :openai,
-    default_model: System.get_env("OPENAI_MODEL") || "gpt-3.5-turbo"
+  config :advisor_ai, :openai, default_model: System.get_env("OPENAI_MODEL") || "gpt-3.5-turbo"
 
   # HubSpot Config
   config :advisor_ai, :hubspot,
     client_id: System.get_env("HUBSPOT_CLIENT_ID"),
     client_secret: System.get_env("HUBSPOT_CLIENT_SECRET"),
     redirect_uri: System.get_env("HUBSPOT_REDIRECT_URI")
+
+  # Oban configuration
+  config :advisor_ai, Oban,
+    repo: AdvisorAi.Repo,
+    plugins: [Oban.Plugins.Pruner],
+    queues: [default: 10, mailers: 10, ai_processing: 5]
 end
 
 # Production specific config
@@ -69,4 +74,10 @@ if config_env() == :prod do
       port: String.to_integer(System.get_env("PORT") || "4000")
     ],
     secret_key_base: secret_key_base
+
+  # Oban configuration for production
+  config :advisor_ai, Oban,
+    repo: AdvisorAi.Repo,
+    plugins: [Oban.Plugins.Pruner],
+    queues: [default: 10, mailers: 10, ai_processing: 5]
 end

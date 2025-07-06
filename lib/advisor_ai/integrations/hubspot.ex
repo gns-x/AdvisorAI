@@ -3,7 +3,7 @@ defmodule AdvisorAi.Integrations.HubSpot do
   HubSpot integration for managing contacts and notes
   """
 
-  alias AdvisorAi.AI.{VectorEmbedding, OllamaClient}
+  alias AdvisorAi.AI.{VectorEmbedding, TogetherClient}
   alias AdvisorAi.Repo
 
   @hubspot_api_url "https://api.hubapi.com"
@@ -31,9 +31,9 @@ defmodule AdvisorAi.Integrations.HubSpot do
         }
 
         case HTTPoison.post(url, Jason.encode!(request_body), [
-          {"Authorization", "Bearer #{access_token}"},
-          {"Content-Type", "application/json"}
-        ]) do
+               {"Authorization", "Bearer #{access_token}"},
+               {"Content-Type", "application/json"}
+             ]) do
           {:ok, %{status_code: 200, body: body}} ->
             case Jason.decode(body) do
               {:ok, %{"results" => contacts}} ->
@@ -75,9 +75,9 @@ defmodule AdvisorAi.Integrations.HubSpot do
         }
 
         case HTTPoison.post(url, Jason.encode!(request_body), [
-          {"Authorization", "Bearer #{access_token}"},
-          {"Content-Type", "application/json"}
-        ]) do
+               {"Authorization", "Bearer #{access_token}"},
+               {"Content-Type", "application/json"}
+             ]) do
           {:ok, %{status_code: 201, body: body}} ->
             case Jason.decode(body) do
               {:ok, created_contact} ->
@@ -144,9 +144,9 @@ defmodule AdvisorAi.Integrations.HubSpot do
             }
 
             case HTTPoison.post(url, Jason.encode!(request_body), [
-              {"Authorization", "Bearer #{access_token}"},
-              {"Content-Type", "application/json"}
-            ]) do
+                   {"Authorization", "Bearer #{access_token}"},
+                   {"Content-Type", "application/json"}
+                 ]) do
               {:ok, %{status_code: 201, body: body}} ->
                 case Jason.decode(body) do
                   {:ok, created_note} ->
@@ -166,6 +166,9 @@ defmodule AdvisorAi.Integrations.HubSpot do
                   {:error, reason} ->
                     {:error, "Failed to parse response: #{reason}"}
                 end
+
+              {:ok, %{status_code: 403}} ->
+                {:error, "Insufficient permissions for notes. Please check your HubSpot scopes."}
 
               {:ok, %{status_code: status_code}} ->
                 {:error, "HubSpot API error: #{status_code}"}
@@ -189,16 +192,18 @@ defmodule AdvisorAi.Integrations.HubSpot do
         case find_contact_by_email(user, contact_email) do
           {:ok, contact_id} ->
             url = "#{@hubspot_api_url}/crm/v3/objects/notes"
-            params = URI.encode_query(%{
-              associations: "contacts",
-              after: contact_id,
-              limit: 100
-            })
+
+            params =
+              URI.encode_query(%{
+                associations: "contacts",
+                after: contact_id,
+                limit: 100
+              })
 
             case HTTPoison.get("#{url}?#{params}", [
-              {"Authorization", "Bearer #{access_token}"},
-              {"Content-Type", "application/json"}
-            ]) do
+                   {"Authorization", "Bearer #{access_token}"},
+                   {"Content-Type", "application/json"}
+                 ]) do
               {:ok, %{status_code: 200, body: body}} ->
                 case Jason.decode(body) do
                   {:ok, %{"results" => notes}} ->
@@ -210,6 +215,9 @@ defmodule AdvisorAi.Integrations.HubSpot do
                   {:error, reason} ->
                     {:error, "Failed to parse response: #{reason}"}
                 end
+
+              {:ok, %{status_code: 403}} ->
+                {:error, "Insufficient permissions for notes. Please check your HubSpot scopes."}
 
               {:ok, %{status_code: status_code}} ->
                 {:error, "HubSpot API error: #{status_code}"}
@@ -240,22 +248,80 @@ defmodule AdvisorAi.Integrations.HubSpot do
     end
   end
 
-  defp store_contact_embedding(_user, _contact) do
-    # Temporarily disabled embeddings to fix the error
-    :ok
+  defp store_contact_embedding(user, contact) do
+    content =
+      "Contact: #{contact["properties"]["firstname"]} #{contact["properties"]["lastname"]} (#{contact["properties"]["email"]}) - #{contact["properties"]["company"]}"
+
+    case get_embedding(content) do
+      {:ok, embedding} ->
+        %VectorEmbedding{
+          user_id: user.id,
+          source: "hubspot_contact",
+          content: content,
+          embedding: embedding,
+          metadata: %{
+            email: contact["properties"]["email"],
+            firstname: contact["properties"]["firstname"],
+            lastname: contact["properties"]["lastname"],
+            company: contact["properties"]["company"]
+          }
+        }
+        |> VectorEmbedding.changeset(%{})
+        |> Repo.insert()
+
+      {:error, _reason} ->
+        :ok
+    end
   end
 
-    defp store_note_embedding(_user, _note, _contact_email) do
-    # Temporarily disabled embeddings to fix the error
-    :ok
+  defp store_note_embedding(user, note, contact_email) do
+    content = "Note for #{contact_email}: #{note["properties"]["hs_note_body"]}"
+
+    case get_embedding(content) do
+      {:ok, embedding} ->
+        %VectorEmbedding{
+          user_id: user.id,
+          source: "hubspot_note",
+          content: content,
+          embedding: embedding,
+          metadata: %{
+            contact_email: contact_email,
+            note_body: note["properties"]["hs_note_body"],
+            timestamp: note["properties"]["hs_timestamp"]
+          }
+        }
+        |> VectorEmbedding.changeset(%{})
+        |> Repo.insert()
+
+      {:error, _reason} ->
+        :ok
+    end
   end
 
-  defp get_embedding(_text) do
-    # Temporarily disabled embeddings to fix the error
-    {:error, "embeddings disabled"}
+  defp get_embedding(text) do
+    # Use local embedding server for RAG
+    case AdvisorAi.AI.LocalEmbeddingClient.embeddings(input: text) do
+      {:ok, %{"data" => [%{"embedding" => embedding}]}} ->
+        {:ok, embedding}
+      {:error, reason} ->
+        {:error, "Failed to generate embedding: #{reason}"}
+    end
   end
 
+  # Try OAuth first, then fall back to API key
   defp get_access_token(user) do
+    # First try OAuth token
+    case get_oauth_token(user) do
+      {:ok, token} ->
+        {:ok, token}
+
+      {:error, _} ->
+        # Fall back to API key
+        get_api_key()
+    end
+  end
+
+  defp get_oauth_token(user) do
     case AdvisorAi.Accounts.get_user_hubspot_account(user.id) do
       nil ->
         {:error, "No HubSpot account connected"}
@@ -266,6 +332,15 @@ defmodule AdvisorAi.Integrations.HubSpot do
         else
           {:ok, account.access_token}
         end
+    end
+  end
+
+  defp get_api_key() do
+    api_key = System.get_env("HUBSPOT_API_KEY")
+    if api_key && api_key != "" do
+      {:ok, api_key}
+    else
+      {:error, "No HubSpot API key configured"}
     end
   end
 

@@ -26,7 +26,7 @@ defmodule AdvisorAiWeb.Router do
 
   # Authentication routes
   scope "/auth", AdvisorAiWeb do
-    pipe_through [:browser, :redirect_if_user_is_authenticated]
+    pipe_through [:browser]
 
     get "/:provider", AuthController, :request
     get "/:provider/callback", AuthController, :callback
@@ -44,6 +44,7 @@ defmodule AdvisorAiWeb.Router do
     # Settings routes
     live "/settings", SettingsLive.Index, :index
     live "/settings/integrations", SettingsLive.Integrations, :index
+    live "/settings/instructions", SettingsLive.Instructions, :index
   end
 
   # API routes (for webhooks and integrations)
@@ -53,6 +54,13 @@ defmodule AdvisorAiWeb.Router do
     post "/webhooks/gmail", WebhookController, :gmail
     post "/webhooks/calendar", WebhookController, :calendar
     post "/webhooks/hubspot", WebhookController, :hubspot
+  end
+
+  # Health check endpoint
+  scope "/", AdvisorAiWeb do
+    pipe_through :api
+
+    get "/health", HealthController, :check
   end
 
   # Enable LiveDashboard in development

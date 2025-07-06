@@ -1,223 +1,208 @@
-# AdvisorAI - AI-Powered Financial Advisor Assistant
+# AdvisorAI - Financial Advisor AI Assistant
 
-A comprehensive AI agent for financial advisors that integrates with Gmail, Google Calendar, and HubSpot CRM. Built with Phoenix LiveView, Elixir, and OpenAI.
+A comprehensive AI-powered financial advisor assistant built with Elixir/Phoenix, featuring advanced chat capabilities, meeting integration, and financial planning tools.
 
 ## Features
 
-### 🤖 AI Agent Capabilities
-- **RAG (Retrieval Augmented Generation)**: Search through emails and CRM data using vector embeddings
-- **Tool Calling**: Execute actions like sending emails, scheduling meetings, and updating CRM
-- **Task Memory**: Remember ongoing tasks and follow up appropriately
-- **Proactive Behavior**: Automatically respond to triggers from integrations
+- **AI Chat Interface**: Powered by OpenRouter with multiple model support
+- **Meeting Integration**: Gmail and Google Calendar integration for context-aware responses
+- **RAG Pipeline**: Retrieval Augmented Generation with local embedding server
+- **HubSpot Integration**: CRM integration for client management
+- **Real-time Updates**: LiveView-powered real-time chat experience
+- **Professional UI**: Modern, responsive design with advanced interactions
 
-### 🔗 Integrations
-- **Gmail**: Read and send emails, search through email history
-- **Google Calendar**: Schedule appointments, check availability, manage events
-- **HubSpot CRM**: Create contacts, add notes, search client information
+## UI Enhancement & Design System
 
-### 💬 Chat Interface
-- Modern, responsive design similar to ChatGPT
-- Real-time messaging with LiveView
-- Conversation management
-- Tool usage indicators
+### Recent UI Enhancements (Latest Update)
 
-## Prerequisites
+The chat interface has been completely redesigned with a professional, modern design system that includes:
 
-- Elixir 1.14+
-- Erlang/OTP 25+
-- PostgreSQL 12+
+#### 🎨 **Design System Implementation**
+- **Unified Color Palette**: Consistent primary colors, grays, and semantic colors
+- **Typography System**: Display, title, heading, body, and caption text styles
+- **Spacing System**: Standardized spacing variables (xs, sm, md, lg, xl, 2xl)
+- **Component Library**: Reusable components with consistent styling
+
+#### 💬 **Enhanced Chat Interface**
+- **Context Indicator**: Shows current context setting with timestamp
+- **Message Styling**: 
+  - User messages: Blue bubble with rounded corners
+  - Bot messages: Clean, readable text with proper line height
+  - System messages: Subtle gray styling
+- **Message Reactions**: Interactive reaction buttons (👍 👎 💡) with hover effects
+- **Smart Reply Suggestions**: Quick action buttons for common tasks
+- **Auto-resize Textarea**: Dynamic input that grows with content
+
+#### 🎯 **Interactive Features**
+- **Voice Recording**: Built-in microphone support with visual feedback
+- **Typing Indicators**: Real-time typing status with smooth animations
+- **Context Menu**: Dropdown for selecting meeting context
+- **Enhanced Input Controls**: 
+  - Attachment button
+  - Context selector
+  - Voice recorder
+  - Link/paperclip button
+  - Microphone button
+  - Send button with proper states
+
+#### 📱 **Mobile Optimization**
+- **Responsive Design**: Optimized for all screen sizes
+- **Touch-friendly**: Proper touch targets and gestures
+- **Safe Area Support**: Respects device safe areas
+- **Mobile-specific Styling**: Adjusted spacing and sizing for mobile
+
+#### ♿ **Accessibility Features**
+- **Focus Management**: Proper focus indicators and keyboard navigation
+- **Screen Reader Support**: Semantic HTML and ARIA labels
+- **High Contrast Mode**: Support for high contrast preferences
+- **Reduced Motion**: Respects user's motion preferences
+
+#### 🎭 **Advanced Animations**
+- **Smooth Transitions**: CSS transitions for all interactive elements
+- **Loading Animations**: Typing indicators and loading states
+- **Hover Effects**: Subtle animations on hover
+- **Voice Recording**: Pulsing animation during recording
+
+### Component Architecture
+
+#### Meeting Card Component
+```elixir
+<.meeting_card
+  date="May 13, 2025"
+  time_range="10:00 AM - 11:00 AM"
+  title="Client Portfolio Review"
+  attendees={[
+    %{name: "John Doe", avatar: "/images/avatar1.jpg"},
+    %{name: "Jane Smith", avatar: "/images/avatar2.jpg"}
+  ]}
+/>
+```
+
+#### JavaScript Hooks
+- **AutoResize**: Automatically resizes textarea based on content
+- **VoiceRecorder**: Handles voice recording with MediaRecorder API
+- **MessageReactions**: Manages message reaction interactions
+- **SmartReplies**: Handles quick action button clicks
+- **TypingIndicator**: Manages typing status and timeouts
+
+### CSS Architecture
+
+The design system uses CSS custom properties for consistency:
+
+```css
+:root {
+  /* Primary Colors */
+  --primary-50: #EFF6FF;
+  --primary-500: #3B82F6;
+  
+  /* Grays */
+  --gray-50: #F9FAFB;
+  --gray-900: #111827;
+  
+  /* Spacing */
+  --space-xs: 0.5rem;
+  --space-lg: 1.5rem;
+}
+```
+
+### LiveView Integration
+
+All UI enhancements are fully integrated with Phoenix LiveView:
+- **Real-time Updates**: Messages appear instantly
+- **State Management**: Proper loading states and error handling
+- **Event Handling**: Comprehensive event system for all interactions
+- **Stream Management**: Efficient message streaming with proper cleanup
+
+## Installation & Setup
+
+### Prerequisites
+- Elixir 1.15+ and Erlang/OTP 25+
+- PostgreSQL 13+
+- Python 3.8+ (for embedding server)
 - Node.js 18+ (for assets)
 
-## Setup
+### Quick Start
 
-### 1. Clone and Install Dependencies
+1. **Clone and Setup**
+   ```bash
+   git clone <repository-url>
+   cd advisor_ai
+   mix deps.get
+   npm install --prefix assets
+   ```
 
-```bash
-git clone <repository-url>
-cd advisor_ai
-mix deps.get
-cd assets && npm install && cd ..
-```
+2. **Database Setup**
+   ```bash
+   mix ecto.setup
+   ```
 
-### 2. Database Setup
+3. **Environment Configuration**
+   ```bash
+   cp .env.example .env
+   # Edit .env with your API keys
+   ```
 
-```bash
-# Create and migrate database
-mix ecto.create
-mix ecto.migrate
+4. **Start the Application**
+   ```bash
+   mix phx.server
+   ```
 
-# Optional: Seed with sample data
-mix run priv/repo/seeds.exs
-```
+5. **Start Embedding Server** (in separate terminal)
+   ```bash
+   python embedding_server.py
+   ```
 
-### 3. Environment Configuration
-
-#### Required: OpenAI API Key Setup
-
-**This is required for the AI agent to function!**
-
-1. Get your OpenAI API key from [https://platform.openai.com/account/api-keys](https://platform.openai.com/account/api-keys)
-2. Run the setup script (recommended):
-```bash
-./setup_openai.sh
-```
-
-Or manually set the environment variable:
-```bash
-export OPENAI_API_KEY="your_actual_openai_api_key_here"
-```
-
-3. To make this permanent, add it to your shell profile (`~/.zshrc`, `~/.bashrc`, etc.):
-```bash
-echo 'export OPENAI_API_KEY="your_actual_openai_api_key_here"' >> ~/.zshrc
-source ~/.zshrc
-```
-
-#### Optional: Create a `.env` file
-
-For development, you can create a `.env` file in the root directory:
-
-```bash
-# Database
-POSTGRES_USER=postgres
-POSTGRES_PASSWORD=postgres
-POSTGRES_HOST=localhost
-POSTGRES_DB=advisor_ai_dev
-
-# Phoenix
-SECRET_KEY_BASE=your-secret-key-base-here-replace-in-production
-PORT=4000
-
-# Google OAuth
-GOOGLE_CLIENT_ID=your-google-client-id
-GOOGLE_CLIENT_SECRET=your-google-client-secret
-
-# HubSpot OAuth
-HUBSPOT_CLIENT_ID=your-hubspot-client-id
-HUBSPOT_CLIENT_SECRET=your-hubspot-client-secret
-HUBSPOT_REDIRECT_URI=http://localhost:4000/auth/hubspot/callback
-
-# OpenAI (REQUIRED)
-OPENAI_API_KEY=your-openai-api-key
-```
-
-### 4. OAuth Setup
-
-#### Google OAuth
-1. Go to [Google Cloud Console](https://console.cloud.google.com/)
-2. Create a new project or select existing one
-3. Enable Gmail API and Google Calendar API
-4. Create OAuth 2.0 credentials
-5. Add `webshookeng@gmail.com` as a test user
-6. Set redirect URI to `http://localhost:4000/auth/google/callback`
-
-#### HubSpot OAuth
-1. Go to [HubSpot Developer Portal](https://developers.hubspot.com/)
-2. Create a new app
-3. Configure OAuth settings
-4. Set redirect URI to `http://localhost:4000/auth/hubspot/callback`
-
-### 5. Build Assets
-
-```bash
-mix assets.deploy
-```
-
-### 6. Start the Server
-
-```bash
-mix phx.server
-```
-
-Visit [http://localhost:4000](http://localhost:4000) to see the application.
-
-## Usage
-
-### 1. Sign In
-- Click "Sign in with Google" to authenticate
-- Grant permissions for Gmail and Calendar access
-
-### 2. Connect HubSpot
-- Navigate to Settings > Integrations
-- Connect your HubSpot account
-
-### 3. Start Chatting
-- Ask questions about clients: "Who mentioned their kid plays baseball?"
-- Schedule appointments: "Schedule an appointment with Sara Smith"
-- Send emails: "Send a follow-up email to John about the investment proposal"
-- Manage CRM: "Create a contact for the new client from yesterday's email"
-
-### 4. Set Up Ongoing Instructions
-- "When someone emails me that is not in HubSpot, please create a contact"
-- "When I create a contact in HubSpot, send them a welcome email"
-- "When I add an event in my calendar, send an email to attendees"
+### API Keys Required
+- **OpenRouter API Key**: For AI chat functionality
+- **Google OAuth**: For Gmail and Calendar integration
+- **HubSpot OAuth**: For CRM integration
 
 ## Architecture
 
-### Core Components
+### Backend (Elixir/Phoenix)
+- **LiveView**: Real-time chat interface
+- **AI Integration**: OpenRouter API with multiple models
+- **RAG Pipeline**: Local embedding server with pgvector
+- **Integrations**: Gmail, Calendar, HubSpot APIs
 
-- **AI Agent** (`lib/advisor_ai/ai/agent.ex`): Main AI processing logic
-- **Vector Embeddings** (`lib/advisor_ai/ai/vector_embedding.ex`): RAG functionality
-- **Integrations**: Gmail, Calendar, and HubSpot modules
-- **Chat System**: LiveView-based real-time chat interface
-- **Task Management**: Background job processing with Oban
+### Frontend
+- **Tailwind CSS**: Utility-first styling
+- **JavaScript Hooks**: Interactive features
+- **Responsive Design**: Mobile-first approach
 
-### Database Schema
-
-- **Users**: User accounts and authentication
-- **Accounts**: OAuth provider connections
-- **Conversations**: Chat conversations
-- **Messages**: Individual chat messages
-- **Vector Embeddings**: RAG data storage
-- **Agent Tasks**: Background task management
-- **Agent Instructions**: Ongoing instruction storage
+### Database
+- **PostgreSQL**: Primary database
+- **pgvector**: Vector similarity search
+- **Migrations**: Schema management
 
 ## Development
 
 ### Running Tests
-
 ```bash
 mix test
 ```
 
 ### Code Quality
-
 ```bash
+mix format
 mix credo
-mix dialyzer
 ```
 
-### Database Reset
-
+### Database Migrations
 ```bash
-mix ecto.reset
+mix ecto.migrate
 ```
 
 ## Deployment
 
-### Environment Variables
-
-Ensure all required environment variables are set in production:
-
-- Database credentials
-- OAuth client secrets
-- OpenAI API key
-- Phoenix secret key base
-
-### Database Setup
-
+### Docker Deployment
 ```bash
-# Run migrations
-mix ecto.migrate
-
-# Optional: seed data
-mix run priv/repo/seeds.exs
+docker-compose up -d
 ```
 
-### Assets
-
+### Fly.io Deployment
 ```bash
-mix assets.deploy
+fly deploy
 ```
 
 ## Contributing
@@ -230,8 +215,11 @@ mix assets.deploy
 
 ## License
 
-This project is licensed under the MIT License.
+This project is licensed under the MIT License - see the LICENSE file for details.
 
 ## Support
 
-For support, please open an issue in the GitHub repository or contact the development team.
+For support and questions:
+- Create an issue on GitHub
+- Check the documentation in `/docs`
+- Review the API documentation in `/docs/api`
