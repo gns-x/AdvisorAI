@@ -65,4 +65,20 @@ defmodule AdvisorAi.Chat do
       conversation -> {:ok, conversation}
     end
   end
+
+  def get_conversation_messages(conversation_id, opts \\ []) do
+    limit = Keyword.get(opts, :limit)
+
+    query = Message
+    |> where(conversation_id: ^conversation_id)
+    |> order_by(asc: :inserted_at)
+
+    query = if limit do
+      limit(query, ^limit)
+    else
+      query
+    end
+
+    Repo.all(query)
+  end
 end

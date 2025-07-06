@@ -9,6 +9,7 @@ defmodule AdvisorAi.AI.Agent do
 
   import Ecto.Query
   alias AdvisorAi.Repo
+  alias AdvisorAi.Chat
   alias AdvisorAi.Chat.{Conversation, Message}
   alias AdvisorAi.AI.{VectorEmbedding, AgentInstruction, OpenRouterClient, LocalEmbeddingClient, IntelligentAgent, WorkflowGenerator, UniversalAgent}
   alias AdvisorAi.Tasks.AgentTask
@@ -431,22 +432,15 @@ defmodule AdvisorAi.AI.Agent do
   end
 
   defp list_user_conversations(user_id) do
-    Conversation
-    |> where(user_id: ^user_id)
-    |> order_by(desc: :updated_at)
-    |> Repo.all()
+    AdvisorAi.Chat.list_user_conversations(user_id)
   end
 
   defp create_conversation(user_id, attrs) do
-    %Conversation{user_id: user_id}
-    |> Conversation.changeset(attrs)
-    |> Repo.insert()
+    AdvisorAi.Chat.create_conversation(user_id, attrs)
   end
 
   defp create_message(conversation_id, attrs) do
-    %Message{conversation_id: conversation_id}
-    |> Message.changeset(attrs)
-    |> Repo.insert()
+    AdvisorAi.Chat.create_message(conversation_id, attrs)
   end
 
   defp build_trigger_message(trigger_type, trigger_data) do
