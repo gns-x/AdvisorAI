@@ -27,7 +27,7 @@ This app fully meets all the requirements from the $3,000 challenge:
 - ✅ "Schedule an appointment with Sara Smith" - Multi-step workflow
 - ✅ "When is my next meeting with Sara Smith?" - Calendar lookup
 - ✅ Proactive email responses and calendar event creation
-- ✅ Intelligent contact management via Gmail and Google Contacts
+- ✅ Intelligent contact management via HubSpot CRM
 
 ## Features
 
