@@ -91,7 +91,10 @@ defmodule AdvisorAi.Auth.HubSpotStrategy do
   end
 
   defp put_scope(opts, nil), do: opts
-  defp put_scope(opts, scope) when is_binary(scope) and scope != "", do: Keyword.put(opts, :scope, scope)
+
+  defp put_scope(opts, scope) when is_binary(scope) and scope != "",
+    do: Keyword.put(opts, :scope, scope)
+
   defp put_scope(opts, scope) when is_binary(scope) and scope == "", do: opts
 
   defp put_scope(opts, scopes) when is_list(scopes),

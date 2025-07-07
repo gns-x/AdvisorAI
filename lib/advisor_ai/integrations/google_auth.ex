@@ -93,11 +93,12 @@ defmodule AdvisorAi.Integrations.GoogleAuth do
         with {:ok, profile} <- do_get_user_profile(access_token),
              {:ok, calendar_count} <- get_calendar_count(access_token),
              {:ok, gmail_info} <- get_gmail_info(access_token) do
-          {:ok, %{
-            profile: profile,
-            calendar_count: calendar_count,
-            gmail_info: gmail_info
-          }}
+          {:ok,
+           %{
+             profile: profile,
+             calendar_count: calendar_count,
+             gmail_info: gmail_info
+           }}
         end
 
       {:error, reason} ->
@@ -120,12 +121,13 @@ defmodule AdvisorAi.Integrations.GoogleAuth do
 
     url = "https://oauth2.googleapis.com/token"
 
-    body = URI.encode_query(%{
-      "client_id" => client_id,
-      "client_secret" => client_secret,
-      "refresh_token" => refresh_token,
-      "grant_type" => "refresh_token"
-    })
+    body =
+      URI.encode_query(%{
+        "client_id" => client_id,
+        "client_secret" => client_secret,
+        "refresh_token" => refresh_token,
+        "grant_type" => "refresh_token"
+      })
 
     case HTTPoison.post(url, body, [
            {"Content-Type", "application/x-www-form-urlencoded"}
@@ -136,7 +138,9 @@ defmodule AdvisorAi.Integrations.GoogleAuth do
             expires_at = DateTime.add(DateTime.utc_now(), expires_in)
             # Update account in DB
             case Accounts.get_user_google_account_by_refresh_token(refresh_token) do
-              nil -> {:error, "Account not found for refresh token"}
+              nil ->
+                {:error, "Account not found for refresh token"}
+
               account ->
                 case Accounts.update_account_tokens(account, access_token, expires_at) do
                   {:ok, _} -> {:ok, access_token}
@@ -173,16 +177,17 @@ defmodule AdvisorAi.Integrations.GoogleAuth do
       {:ok, %{status_code: 200, body: body}} ->
         case Jason.decode(body) do
           {:ok, profile} ->
-            {:ok, %{
-              id: profile["id"],
-              email: profile["email"],
-              name: profile["name"],
-              given_name: profile["given_name"],
-              family_name: profile["family_name"],
-              picture: profile["picture"],
-              locale: profile["locale"],
-              verified_email: profile["verified_email"]
-            }}
+            {:ok,
+             %{
+               id: profile["id"],
+               email: profile["email"],
+               name: profile["name"],
+               given_name: profile["given_name"],
+               family_name: profile["family_name"],
+               picture: profile["picture"],
+               locale: profile["locale"],
+               verified_email: profile["verified_email"]
+             }}
 
           {:ok, %{"error" => error}} ->
             {:error, "Profile API error: #{inspect(error)}"}
@@ -249,10 +254,6 @@ defmodule AdvisorAi.Integrations.GoogleAuth do
     end
   end
 
-
-
-
-
   defp get_calendar_count(access_token) do
     url = "https://www.googleapis.com/calendar/v3/users/me/calendarList?maxResults=1"
 
@@ -274,8 +275,6 @@ defmodule AdvisorAi.Integrations.GoogleAuth do
     end
   end
 
-
-
   defp get_gmail_info(access_token) do
     url = "https://gmail.googleapis.com/gmail/v1/users/me/profile"
 
@@ -286,12 +285,13 @@ defmodule AdvisorAi.Integrations.GoogleAuth do
       {:ok, %{status_code: 200, body: body}} ->
         case Jason.decode(body) do
           {:ok, profile} ->
-            {:ok, %{
-              email_address: profile["emailAddress"],
-              messages_total: profile["messagesTotal"],
-              threads_total: profile["threadsTotal"],
-              history_id: profile["historyId"]
-            }}
+            {:ok,
+             %{
+               email_address: profile["emailAddress"],
+               messages_total: profile["messagesTotal"],
+               threads_total: profile["threadsTotal"],
+               history_id: profile["historyId"]
+             }}
 
           _ ->
             {:ok, "Unable to retrieve Gmail info"}

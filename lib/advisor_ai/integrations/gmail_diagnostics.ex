@@ -54,6 +54,7 @@ defmodule AdvisorAi.Integrations.GmailDiagnostics do
     case Accounts.get_user_google_account(user.id) do
       nil ->
         {:error, "No Google account connected. Please connect your Google account first."}
+
       account ->
         {:ok, account}
     end
@@ -70,6 +71,7 @@ defmodule AdvisorAi.Integrations.GmailDiagnostics do
         case refresh_access_token(account) do
           {:ok, _new_token} ->
             {:ok, "Token refreshed successfully"}
+
           {:error, reason} ->
             {:error, "Token refresh failed: #{reason}"}
         end
@@ -96,6 +98,7 @@ defmodule AdvisorAi.Integrations.GmailDiagnostics do
               {:ok, profile} ->
                 IO.puts("📧 Gmail profile: #{profile["emailAddress"]}")
                 {:ok, account.scopes || []}
+
               {:error, _} ->
                 {:error, "Failed to parse Gmail profile response"}
             end
@@ -104,6 +107,7 @@ defmodule AdvisorAi.Integrations.GmailDiagnostics do
             case Jason.decode(body) do
               {:ok, %{"error" => %{"message" => message}}} ->
                 {:error, "Gmail API access denied: #{message}"}
+
               _ ->
                 {:error, "Gmail API access denied (403)"}
             end
@@ -128,7 +132,10 @@ defmodule AdvisorAi.Integrations.GmailDiagnostics do
       {:ok, access_token} ->
         # Create a test email (won't actually send it, just test permissions)
         user_email = get_user_email_from_account(account)
-        test_email = create_test_email_message(user_email, "test@example.com", "Test", "Test body")
+
+        test_email =
+          create_test_email_message(user_email, "test@example.com", "Test", "Test body")
+
         encoded_email = Base.encode64(test_email)
 
         url = "https://gmail.googleapis.com/gmail/v1/users/me/messages/send"
@@ -148,6 +155,7 @@ defmodule AdvisorAi.Integrations.GmailDiagnostics do
             case Jason.decode(body) do
               {:ok, %{"error" => %{"message" => message}}} ->
                 {:error, "Send permission denied: #{message}"}
+
               _ ->
                 {:error, "Send permission denied (403)"}
             end
@@ -170,6 +178,7 @@ defmodule AdvisorAi.Integrations.GmailDiagnostics do
   def provide_fix_instructions do
     IO.puts("\n🔧 Gmail API Permission Fix Instructions:")
     IO.puts("=" |> String.duplicate(50))
+
     IO.puts("""
     1. **Check Google Cloud Console:**
        - Go to https://console.cloud.google.com/
@@ -228,12 +237,14 @@ defmodule AdvisorAi.Integrations.GmailDiagnostics do
     refresh_token = account.refresh_token
 
     url = "https://oauth2.googleapis.com/token"
-    body = URI.encode_query(%{
-      client_id: client_id,
-      client_secret: client_secret,
-      refresh_token: refresh_token,
-      grant_type: "refresh_token"
-    })
+
+    body =
+      URI.encode_query(%{
+        client_id: client_id,
+        client_secret: client_secret,
+        refresh_token: refresh_token,
+        grant_type: "refresh_token"
+      })
 
     headers = [
       {"Content-Type", "application/x-www-form-urlencoded"}
@@ -247,13 +258,17 @@ defmodule AdvisorAi.Integrations.GmailDiagnostics do
             # Update account in DB
             Accounts.update_account_tokens(account, new_token, expires_at)
             {:ok, new_token}
+
           {:ok, %{"error" => error}} ->
             {:error, "Google token refresh error: #{error}"}
+
           _ ->
             {:error, "Failed to parse Google token refresh response"}
         end
+
       {:ok, %{status_code: code, body: resp_body}} ->
         {:error, "Google token refresh failed: #{code} #{resp_body}"}
+
       {:error, reason} ->
         {:error, "HTTP error refreshing token: #{inspect(reason)}"}
     end
@@ -275,6 +290,7 @@ defmodule AdvisorAi.Integrations.GmailDiagnostics do
     case account.raw_data do
       %{"info" => %{"email" => email}} when is_binary(email) ->
         email
+
       _ ->
         # Fallback: try to get user from database
         case Accounts.get_user!(account.user_id) do

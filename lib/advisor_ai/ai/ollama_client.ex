@@ -30,9 +30,14 @@ defmodule AdvisorAi.AI.OllamaClient do
 
     http_opts = [timeout: 30_000, recv_timeout: 120_000]
 
-    case HTTPoison.post("#{@ollama_url}/api/chat", Jason.encode!(request_body), [
-           {"Content-Type", "application/json"}
-         ], http_opts) do
+    case HTTPoison.post(
+           "#{@ollama_url}/api/chat",
+           Jason.encode!(request_body),
+           [
+             {"Content-Type", "application/json"}
+           ],
+           http_opts
+         ) do
       {:ok, %HTTPoison.Response{status_code: 200, body: body}} ->
         case Jason.decode(body) do
           {:ok, %{"message" => %{"content" => response}}} ->
@@ -72,9 +77,14 @@ defmodule AdvisorAi.AI.OllamaClient do
 
     http_opts = [timeout: 30_000, recv_timeout: 120_000]
 
-    case HTTPoison.post("#{@ollama_url}/api/embeddings", Jason.encode!(request_body), [
-           {"Content-Type", "application/json"}
-         ], http_opts) do
+    case HTTPoison.post(
+           "#{@ollama_url}/api/embeddings",
+           Jason.encode!(request_body),
+           [
+             {"Content-Type", "application/json"}
+           ],
+           http_opts
+         ) do
       {:ok, %HTTPoison.Response{status_code: 200, body: body}} ->
         case Jason.decode(body) do
           {:ok, %{"embedding" => embedding}} ->
@@ -116,21 +126,30 @@ defmodule AdvisorAi.AI.OllamaClient do
       # Accept both string and atom keys for role/content
       %{role: role, content: content} when role in ["system", :system] ->
         %{role: "system", content: content}
+
       %{role: role, content: content} when role in ["user", :user] ->
         %{role: "user", content: content}
+
       %{role: role, content: content} when role in ["assistant", :assistant] ->
         %{role: "assistant", content: content}
+
       %{role: role, content: content, tool_call_id: tool_call_id} when role in ["tool", :tool] ->
         %{role: "user", content: "Tool Result (#{tool_call_id}): #{content}"}
+
       # Fallback for string-keyed maps
       %{"role" => role, "content" => content} when role in ["system", :system] ->
         %{role: "system", content: content}
+
       %{"role" => role, "content" => content} when role in ["user", :user] ->
         %{role: "user", content: content}
+
       %{"role" => role, "content" => content} when role in ["assistant", :assistant] ->
         %{role: "assistant", content: content}
-      %{"role" => role, "content" => content, "tool_call_id" => tool_call_id} when role in ["tool", :tool] ->
+
+      %{"role" => role, "content" => content, "tool_call_id" => tool_call_id}
+      when role in ["tool", :tool] ->
         %{role: "user", content: "Tool Result (#{tool_call_id}): #{content}"}
+
       # Fallback: stringify role/content if present
       msg ->
         %{

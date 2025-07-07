@@ -29,8 +29,11 @@ defmodule AdvisorAiWeb.HealthController do
   defp check_database do
     try do
       case AdvisorAi.Repo.query("SELECT 1") do
-        {:ok, _} -> %{status: "healthy", message: "Database connection successful"}
-        {:error, reason} -> %{status: "unhealthy", message: "Database connection failed: #{inspect(reason)}"}
+        {:ok, _} ->
+          %{status: "healthy", message: "Database connection successful"}
+
+        {:error, reason} ->
+          %{status: "unhealthy", message: "Database connection failed: #{inspect(reason)}"}
       end
     rescue
       e -> %{status: "unhealthy", message: "Database check failed: #{inspect(e)}"}
@@ -40,8 +43,11 @@ defmodule AdvisorAiWeb.HealthController do
   defp check_openai do
     try do
       case OpenAI.models() do
-        {:ok, _} -> %{status: "healthy", message: "OpenAI connection successful"}
-        {:error, reason} -> %{status: "unhealthy", message: "OpenAI connection failed: #{inspect(reason)}"}
+        {:ok, _} ->
+          %{status: "healthy", message: "OpenAI connection successful"}
+
+        {:error, reason} ->
+          %{status: "unhealthy", message: "OpenAI connection failed: #{inspect(reason)}"}
       end
     rescue
       e -> %{status: "unhealthy", message: "OpenAI check failed: #{inspect(e)}"}
@@ -51,8 +57,11 @@ defmodule AdvisorAiWeb.HealthController do
   defp check_openrouter do
     try do
       case AdvisorAi.AI.OpenRouterClient.health_check() do
-        {:ok, _} -> %{status: "healthy", message: "OpenRouter connection successful"}
-        {:error, reason} -> %{status: "unhealthy", message: "OpenRouter connection failed: #{inspect(reason)}"}
+        {:ok, _} ->
+          %{status: "healthy", message: "OpenRouter connection successful"}
+
+        {:error, reason} ->
+          %{status: "unhealthy", message: "OpenRouter connection failed: #{inspect(reason)}"}
       end
     rescue
       e -> %{status: "unhealthy", message: "OpenRouter check failed: #{inspect(e)}"}

@@ -4,37 +4,63 @@
     <h1 class="text-2xl font-bold text-gray-900">Ask Anything</h1>
     <button class="text-gray-400 hover:text-gray-600 text-2xl font-light">×</button>
   </div>
-
-  <!-- Navigation Tabs -->
+  
+<!-- Navigation Tabs -->
   <div class="flex items-center justify-between px-6 py-3 border-b border-gray-100 bg-white">
     <div class="flex space-x-8">
-      <button phx-click="show_chat" class={if @view_mode == "chat", do: "text-sm font-bold text-gray-900 border-b-2 border-blue-600 pb-2", else: "text-sm text-gray-500 hover:text-gray-700"}>Chat</button>
-      <button phx-click="show_history" class={if @view_mode == "history", do: "text-sm font-bold text-gray-900 border-b-2 border-blue-600 pb-2", else: "text-sm text-gray-500 hover:text-gray-700"}>History</button>
+      <button
+        phx-click="show_chat"
+        class={
+          if @view_mode == "chat",
+            do: "text-sm font-bold text-gray-900 border-b-2 border-blue-600 pb-2",
+            else: "text-sm text-gray-500 hover:text-gray-700"
+        }
+      >
+        Chat
+      </button>
+      <button
+        phx-click="show_history"
+        class={
+          if @view_mode == "history",
+            do: "text-sm font-bold text-gray-900 border-b-2 border-blue-600 pb-2",
+            else: "text-sm text-gray-500 hover:text-gray-700"
+        }
+      >
+        History
+      </button>
     </div>
-    <button phx-click="new_conversation" class="flex items-center space-x-2 px-3 py-1 text-sm text-gray-600 hover:text-gray-800 hover:bg-gray-50 rounded-lg transition-colors">
+    <button
+      phx-click="new_conversation"
+      class="flex items-center space-x-2 px-3 py-1 text-sm text-gray-600 hover:text-gray-800 hover:bg-gray-50 rounded-lg transition-colors"
+    >
       <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4">
+        </path>
       </svg>
       <span>New thread</span>
     </button>
   </div>
-
-  <!-- Main Content Area - Fixed Layout -->
+  
+<!-- Main Content Area - Fixed Layout -->
   <div id="chat-layout" class="flex-1 flex flex-col min-h-0" phx-hook="ChatLayout LoadingState">
     <%= if @view_mode == "chat" do %>
       <!-- Chat View with Fixed Input -->
       <div class="flex-1 flex flex-col min-h-0">
         <!-- Messages Container - Scrollable with fixed height -->
-        <div class="flex-1 overflow-y-auto px-6 py-4 space-y-6 min-h-0" id="messages" phx-update="stream">
+        <div
+          class="flex-1 overflow-y-auto px-6 py-4 space-y-6 min-h-0"
+          id="messages"
+          phx-update="stream"
+        >
           <%= for {dom_id, message} <- @streams.messages do %>
             <div id={dom_id} class="w-full">
               <%= if message.role == "user" do %>
                 <!-- User Message -->
                 <div class="flex justify-end">
                   <div class="user-message">
-                    <div class="text-sm whitespace-pre-wrap break-words"><%= message.content %></div>
+                    <div class="text-sm whitespace-pre-wrap break-words">{message.content}</div>
                     <div class="mt-1 text-xs text-gray-500 text-right">
-                      <%= Calendar.strftime(message.inserted_at, "%I:%M %p") %>
+                      {Calendar.strftime(message.inserted_at, "%I:%M %p")}
                     </div>
                   </div>
                 </div>
@@ -42,13 +68,20 @@
                 <!-- Bot Response -->
                 <div class="w-full">
                   <div class="max-w-4xl">
-                    <div class="bot-message text-sm whitespace-pre-wrap break-words"><%= message.content %></div>
+                    <div class="bot-message text-sm whitespace-pre-wrap break-words">
+                      {message.content}
+                    </div>
                     <div class="mt-2 text-xs text-gray-500">
-                      <%= Calendar.strftime(message.inserted_at, "%I:%M %p") %>
+                      {Calendar.strftime(message.inserted_at, "%I:%M %p")}
                     </div>
                     
-                    <!-- Message Reactions -->
-                    <div id={"message-reactions-#{message.id}"} phx-hook="MessageReactions" class="message-reactions flex gap-1 mt-2" data-message-id={message.id}>
+<!-- Message Reactions -->
+                    <div
+                      id={"message-reactions-#{message.id}"}
+                      phx-hook="MessageReactions"
+                      class="message-reactions flex gap-1 mt-2"
+                      data-message-id={message.id}
+                    >
                       <button class="reaction-btn px-2 py-1 rounded-full bg-gray-100 hover:bg-gray-200 text-xs transition-colors">
                         👍 <span class="count">2</span>
                       </button>
@@ -65,67 +98,105 @@
             </div>
           <% end %>
         </div>
-
-        <!-- Loading Indicator OUTSIDE the stream container -->
+        
+<!-- Loading Indicator OUTSIDE the stream container -->
         <%= if @loading do %>
           <div id="thinking-indicator" class="w-full">
             <div class="max-w-4xl">
               <div class="flex items-center space-x-2">
                 <div class="flex space-x-1">
                   <div class="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
-                  <div class="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style="animation-delay: 0.1s"></div>
-                  <div class="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style="animation-delay: 0.2s"></div>
+                  <div
+                    class="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
+                    style="animation-delay: 0.1s"
+                  >
+                  </div>
+                  <div
+                    class="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
+                    style="animation-delay: 0.2s"
+                  >
+                  </div>
                 </div>
-                <span class="text-sm text-gray-500">Thinking... (Loading: <%= @loading %>)</span>
+                <span class="text-sm text-gray-500">Thinking... (Loading: {@loading})</span>
               </div>
             </div>
           </div>
         <% end %>
         
-        <!-- Hidden element to force re-render -->
+<!-- Hidden element to force re-render -->
         <div style="display: none;" data-update={@last_update}></div>
-
-        <!-- Welcome Message (for demonstration) -->
+        
+<!-- Welcome Message (for demonstration) -->
         <%= if length(@streams.messages.inserts) == 0 do %>
           <div class="w-full">
             <div class="max-w-4xl">
               <div class="text-center mb-8">
                 <h3 class="text-lg font-semibold text-gray-900 mb-2">Welcome to AdvisorAI</h3>
-                <p class="text-gray-600 mb-6">Ask me anything about your portfolio, financial planning, or any other questions you have.</p>
+                <p class="text-gray-600 mb-6">
+                  Ask me anything about your portfolio, financial planning, or any other questions you have.
+                </p>
               </div>
             </div>
           </div>
         <% end %>
       </div>
-
-      <!-- Smart Reply Suggestions -->
-      <div id="smart-replies" phx-hook="SmartReplies" class="smart-replies flex gap-2 px-6 py-2 border-t border-gray-100 bg-white">
-        <button phx-click="quick_action" phx-value-action="schedule_followup" class="smart-reply px-3 py-1 text-sm bg-white border border-gray-300 rounded-full hover:bg-gray-50 transition-colors" data-action="schedule_followup">
+      
+<!-- Smart Reply Suggestions -->
+      <div
+        id="smart-replies"
+        phx-hook="SmartReplies"
+        class="smart-replies flex gap-2 px-6 py-2 border-t border-gray-100 bg-white"
+      >
+        <button
+          phx-click="quick_action"
+          phx-value-action="schedule_followup"
+          class="smart-reply px-3 py-1 text-sm bg-white border border-gray-300 rounded-full hover:bg-gray-50 transition-colors"
+          data-action="schedule_followup"
+        >
           Schedule a follow-up
         </button>
-        <button phx-click="quick_action" phx-value-action="send_notes" class="smart-reply px-3 py-1 text-sm bg-white border border-gray-300 rounded-full hover:bg-gray-50 transition-colors" data-action="send_notes">
+        <button
+          phx-click="quick_action"
+          phx-value-action="send_notes"
+          class="smart-reply px-3 py-1 text-sm bg-white border border-gray-300 rounded-full hover:bg-gray-50 transition-colors"
+          data-action="send_notes"
+        >
           Send meeting notes
         </button>
-        <button phx-click="quick_action" phx-value-action="analyze_portfolio" class="smart-reply px-3 py-1 text-sm bg-white border border-gray-300 rounded-full hover:bg-gray-50 transition-colors" data-action="analyze_portfolio">
+        <button
+          phx-click="quick_action"
+          phx-value-action="analyze_portfolio"
+          class="smart-reply px-3 py-1 text-sm bg-white border border-gray-300 rounded-full hover:bg-gray-50 transition-colors"
+          data-action="analyze_portfolio"
+        >
           Analyze Portfolio
         </button>
       </div>
-
-      <!-- Enhanced Input Section - Fixed at Bottom -->
+      
+<!-- Enhanced Input Section - Fixed at Bottom -->
       <div class="border-t border-gray-200 bg-white px-6 py-4 flex-shrink-0">
         <div class="max-w-4xl mx-auto">
           <form phx-submit="send_message" class="relative">
             <div class="flex bg-gray-50 rounded-xl border border-gray-300 focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-500 focus-within:ring-opacity-20 transition-all shadow-sm cursor-input-container">
               <!-- Left Controls -->
               <div class="flex items-center pl-3 flex-shrink-0">
-                <button type="button" class="p-2 text-gray-500 hover:text-gray-700 rounded-lg hover:bg-gray-200 transition-colors">
+                <button
+                  type="button"
+                  class="p-2 text-gray-500 hover:text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+                >
                   <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      d="M12 6v6m0 0v6m0-6h6m-6 0H6"
+                    >
+                    </path>
                   </svg>
                 </button>
               </div>
               
-              <!-- Main Input Container -->
+<!-- Main Input Container -->
               <div class="flex-1 min-w-0 flex items-center">
                 <textarea
                   id="message-input"
@@ -143,11 +214,22 @@
                 ></textarea>
               </div>
               
-              <!-- Right Controls -->
+<!-- Right Controls -->
               <div class="flex items-center pr-3 space-x-1 flex-shrink-0">
-                <button id="voice-recorder" phx-hook="VoiceRecorder" type="button" class="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-200 rounded-lg transition-colors">
+                <button
+                  id="voice-recorder"
+                  phx-hook="VoiceRecorder"
+                  type="button"
+                  class="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-200 rounded-lg transition-colors"
+                >
                   <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"></path>
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"
+                    >
+                    </path>
                   </svg>
                 </button>
                 <button
@@ -156,7 +238,7 @@
                   class="cursor-send-button p-2 text-gray-400 hover:text-blue-600 disabled:text-gray-300 disabled:cursor-not-allowed rounded-lg transition-colors"
                 >
                   <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
+                    <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" />
                   </svg>
                 </button>
               </div>
@@ -171,10 +253,11 @@
           <div class="mb-4 flex justify-between items-center">
             <h3 class="text-lg font-semibold text-gray-800">Chat History</h3>
             <%= if length(@conversations) > 0 do %>
-              <button 
-                phx-click="clear_all_conversations" 
+              <button
+                phx-click="clear_all_conversations"
                 class="text-sm text-red-600 hover:text-red-800 hover:bg-red-50 px-3 py-1 rounded transition-colors"
-                title="Clear all conversations">
+                title="Clear all conversations"
+              >
                 Clear All
               </button>
             <% end %>
@@ -184,12 +267,18 @@
               <div class="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow relative">
                 <div class="flex items-start justify-between">
                   <div class="flex-1">
-                    <h3 class="text-lg font-semibold text-gray-900 mb-2"><%= conversation.title || "New Chat" %></h3>
+                    <h3 class="text-lg font-semibold text-gray-900 mb-2">
+                      {conversation.title || "New Chat"}
+                    </h3>
                     <p class="text-sm text-gray-600 mb-3">
-                      <%= Calendar.strftime(conversation.inserted_at, "%B %d, %Y at %I:%M %p") %>
+                      {Calendar.strftime(conversation.inserted_at, "%B %d, %Y at %I:%M %p")}
                     </p>
                     <div class="flex items-center space-x-2">
-                      <button phx-click="continue_conversation" phx-value-id={conversation.id} class="text-sm text-blue-600 hover:text-blue-800 font-medium transition-colors">
+                      <button
+                        phx-click="continue_conversation"
+                        phx-value-id={conversation.id}
+                        class="text-sm text-blue-600 hover:text-blue-800 font-medium transition-colors"
+                      >
                         Continue conversation
                       </button>
                       <span class="text-gray-400">•</span>
@@ -200,19 +289,45 @@
                   </div>
                   <div class="flex items-center space-x-2">
                     <!-- Three dots menu -->
-                    <div id={"conversation-menu-#{conversation.id}"} class="relative" phx-hook="ConversationMenu" data-conversation-id={conversation.id}>
+                    <div
+                      id={"conversation-menu-#{conversation.id}"}
+                      class="relative"
+                      phx-hook="ConversationMenu"
+                      data-conversation-id={conversation.id}
+                    >
                       <button class="p-2 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100 transition-colors">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z"></path>
+                          <path
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            stroke-width="2"
+                            d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z"
+                          >
+                          </path>
                         </svg>
                       </button>
                       
-                      <!-- Dropdown menu -->
+<!-- Dropdown menu -->
                       <div class="conversation-menu absolute right-0 top-full mt-1 w-48 bg-white rounded-md shadow-lg border border-gray-200 z-10 hidden">
                         <div class="py-1">
-                          <button phx-click="delete_conversation" phx-value-id={conversation.id} class="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors flex items-center">
-                            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                          <button
+                            phx-click="delete_conversation"
+                            phx-value-id={conversation.id}
+                            class="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors flex items-center"
+                          >
+                            <svg
+                              class="w-4 h-4 mr-2"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                                stroke-width="2"
+                                d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                              >
+                              </path>
                             </svg>
                             Delete conversation
                           </button>
@@ -232,7 +347,11 @@
 
 <!-- Mobile Sidebar Overlay -->
 <div id="mobile-sidebar" class="fixed inset-0 z-40 md:hidden hidden">
-  <div class="fixed inset-0 bg-gray-600 bg-opacity-75" onclick="document.getElementById('mobile-sidebar').classList.add('hidden')"></div>
+  <div
+    class="fixed inset-0 bg-gray-600 bg-opacity-75"
+    onclick="document.getElementById('mobile-sidebar').classList.add('hidden')"
+  >
+  </div>
   <div class="relative flex-1 flex flex-col max-w-xs w-full bg-white">
     <!-- Mobile sidebar content would go here -->
   </div>

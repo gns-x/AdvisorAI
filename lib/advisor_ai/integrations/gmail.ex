@@ -17,46 +17,46 @@ defmodule AdvisorAi.Integrations.Gmail do
     if is_nil(query) or query == "" do
       {:error, "Search query cannot be empty"}
     else
-    case get_access_token(user) do
-      {:ok, access_token} ->
-        search_url = "#{@gmail_api_url}/messages?q=#{URI.encode(query)}"
+      case get_access_token(user) do
+        {:ok, access_token} ->
+          search_url = "#{@gmail_api_url}/messages?q=#{URI.encode(query)}"
 
-        case HTTPoison.get(search_url, [
-          {"Authorization", "Bearer #{access_token}"},
-          {"Content-Type", "application/json"}
-        ]) do
-          {:ok, %{status_code: 200, body: body}} ->
-            case Jason.decode(body) do
-              {:ok, %{"messages" => messages}} ->
-                # Get full email details for each message
+          case HTTPoison.get(search_url, [
+                 {"Authorization", "Bearer #{access_token}"},
+                 {"Content-Type", "application/json"}
+               ]) do
+            {:ok, %{status_code: 200, body: body}} ->
+              case Jason.decode(body) do
+                {:ok, %{"messages" => messages}} ->
+                  # Get full email details for each message
                   emails =
                     Enum.map(messages, fn %{"id" => id} ->
-                  get_email_details(user, id)
-                end)
+                      get_email_details(user, id)
+                    end)
                     |> Enum.filter(fn
                       {:ok, _email} -> true
                       {:error, _} -> false
                     end)
                     |> Enum.map(fn {:ok, email} -> email end)
 
-                {:ok, emails}
+                  {:ok, emails}
 
-              {:ok, _} ->
-                {:ok, []}
+                {:ok, _} ->
+                  {:ok, []}
 
-              {:error, reason} ->
-                {:error, "Failed to parse search results: #{reason}"}
-            end
+                {:error, reason} ->
+                  {:error, "Failed to parse search results: #{reason}"}
+              end
 
-          {:ok, %{status_code: status_code}} ->
-            {:error, "Gmail API error: #{status_code}"}
+            {:ok, %{status_code: status_code}} ->
+              {:error, "Gmail API error: #{status_code}"}
 
-          {:error, reason} ->
-            {:error, "HTTP error: #{reason}"}
-        end
+            {:error, reason} ->
+              {:error, "HTTP error: #{reason}"}
+          end
 
-      {:error, reason} ->
-        {:error, reason}
+        {:error, reason} ->
+          {:error, reason}
       end
     end
   end
@@ -67,9 +67,9 @@ defmodule AdvisorAi.Integrations.Gmail do
         url = "#{@gmail_api_url}/messages?maxResults=#{max_results}"
 
         case HTTPoison.get(url, [
-          {"Authorization", "Bearer #{access_token}"},
-          {"Content-Type", "application/json"}
-        ]) do
+               {"Authorization", "Bearer #{access_token}"},
+               {"Content-Type", "application/json"}
+             ]) do
           {:ok, %{status_code: 200, body: body}} ->
             case Jason.decode(body) do
               {:ok, %{"messages" => messages}} ->
@@ -114,9 +114,9 @@ defmodule AdvisorAi.Integrations.Gmail do
         url = "#{@gmail_api_url}/messages/#{message_id}/trash"
 
         case HTTPoison.post(url, "", [
-          {"Authorization", "Bearer #{access_token}"},
-          {"Content-Type", "application/json"}
-        ]) do
+               {"Authorization", "Bearer #{access_token}"},
+               {"Content-Type", "application/json"}
+             ]) do
           {:ok, %{status_code: 200}} ->
             {:ok, "Message moved to trash"}
 
@@ -146,9 +146,9 @@ defmodule AdvisorAi.Integrations.Gmail do
         }
 
         case HTTPoison.post(url, Jason.encode!(request_body), [
-          {"Authorization", "Bearer #{access_token}"},
-          {"Content-Type", "application/json"}
-        ]) do
+               {"Authorization", "Bearer #{access_token}"},
+               {"Content-Type", "application/json"}
+             ]) do
           {:ok, %{status_code: 200}} ->
             {:ok, "Message labels updated"}
 
@@ -183,9 +183,9 @@ defmodule AdvisorAi.Integrations.Gmail do
         }
 
         case HTTPoison.post(url, Jason.encode!(request_body), [
-          {"Authorization", "Bearer #{access_token}"},
-          {"Content-Type", "application/json"}
-        ]) do
+               {"Authorization", "Bearer #{access_token}"},
+               {"Content-Type", "application/json"}
+             ]) do
           {:ok, %{status_code: 200}} ->
             {:ok, "Draft created successfully"}
 
@@ -210,9 +210,9 @@ defmodule AdvisorAi.Integrations.Gmail do
         url = "#{@gmail_api_url}/profile"
 
         case HTTPoison.get(url, [
-          {"Authorization", "Bearer #{access_token}"},
-          {"Content-Type", "application/json"}
-        ]) do
+               {"Authorization", "Bearer #{access_token}"},
+               {"Content-Type", "application/json"}
+             ]) do
           {:ok, %{status_code: 200, body: body}} ->
             case Jason.decode(body) do
               {:ok, profile} ->
@@ -240,40 +240,43 @@ defmodule AdvisorAi.Integrations.Gmail do
         # First, check if we have the right permissions
         case check_gmail_permissions(user, access_token) do
           {:ok, _} ->
-        # Create email message
-        email_content = create_email_message(user.email, to, subject, body)
-        encoded_email = Base.encode64(email_content)
+            # Create email message
+            email_content = create_email_message(user.email, to, subject, body)
+            encoded_email = Base.encode64(email_content)
 
-        url = "#{@gmail_api_url}/messages/send"
+            url = "#{@gmail_api_url}/messages/send"
 
             case HTTPoison.post(
                    url,
                    Jason.encode!(%{
-          raw: encoded_email
+                     raw: encoded_email
                    }),
                    [
-          {"Authorization", "Bearer #{access_token}"},
-          {"Content-Type", "application/json"}
+                     {"Authorization", "Bearer #{access_token}"},
+                     {"Content-Type", "application/json"}
                    ]
                  ) do
-          {:ok, %{status_code: 200}} ->
-            # Store email in vector embeddings for future reference
-            store_email_embedding(user, %{
-              from: user.email,
-              to: to,
-              subject: subject,
-              body: body,
-              type: "sent"
-            })
+              {:ok, %{status_code: 200}} ->
+                # Store email in vector embeddings for future reference
+                store_email_embedding(user, %{
+                  from: user.email,
+                  to: to,
+                  subject: subject,
+                  body: body,
+                  type: "sent"
+                })
 
-            {:ok, "Email sent successfully"}
+                {:ok, "Email sent successfully"}
 
               {:ok, %{status_code: 403, body: body}} ->
                 case Jason.decode(body) do
                   {:ok, %{"error" => %{"message" => message}}} ->
-                    {:error, "Gmail permission denied: #{message}. Please check your Gmail API permissions and ensure you have 'gmail.send' scope."}
+                    {:error,
+                     "Gmail permission denied: #{message}. Please check your Gmail API permissions and ensure you have 'gmail.send' scope."}
+
                   _ ->
-                    {:error, "Gmail permission denied (403). Please check your Gmail API permissions."}
+                    {:error,
+                     "Gmail permission denied (403). Please check your Gmail API permissions."}
                 end
 
               {:ok, %{status_code: status_code, body: body}} ->
@@ -281,8 +284,8 @@ defmodule AdvisorAi.Integrations.Gmail do
                 Logger.error("Gmail API error #{status_code}: #{body}")
                 {:error, "Failed to send email: #{status_code} - #{body}"}
 
-          {:error, reason} ->
-            {:error, "HTTP error: #{reason}"}
+              {:error, reason} ->
+                {:error, "HTTP error: #{reason}"}
             end
 
           {:error, reason} ->
@@ -301,9 +304,9 @@ defmodule AdvisorAi.Integrations.Gmail do
         url = "#{@gmail_api_url}/messages?maxResults=50"
 
         case HTTPoison.get(url, [
-          {"Authorization", "Bearer #{access_token}"},
-          {"Content-Type", "application/json"}
-        ]) do
+               {"Authorization", "Bearer #{access_token}"},
+               {"Content-Type", "application/json"}
+             ]) do
           {:ok, %{status_code: 200, body: body}} ->
             case Jason.decode(body) do
               {:ok, %{"messages" => messages}} ->
@@ -334,7 +337,8 @@ defmodule AdvisorAi.Integrations.Gmail do
   end
 
   def sync_emails_intelligent(user, opts \\ []) do
-    max_results = Keyword.get(opts, :max_results, 1000)  # Sync more emails
+    # Sync more emails
+    max_results = Keyword.get(opts, :max_results, 1000)
     query = Keyword.get(opts, :query, "")
 
     Logger.info("Starting intelligent email sync for user #{user.email}")
@@ -353,27 +357,30 @@ defmodule AdvisorAi.Integrations.Gmail do
     # Try HubSpot first
     case AdvisorAi.Integrations.HubSpot.search_contacts(user, name) do
       {:ok, [hubspot_contact | _]} ->
-        {:ok, %{
-          name: "#{hubspot_contact["properties"]["firstname"]} #{hubspot_contact["properties"]["lastname"]}",
-          email: hubspot_contact["properties"]["email"],
-          phone: hubspot_contact["properties"]["phone"],
-          company: hubspot_contact["properties"]["company"],
-          title: hubspot_contact["properties"]["jobtitle"],
-          source: "hubspot"
-        }}
+        {:ok,
+         %{
+           name:
+             "#{hubspot_contact["properties"]["firstname"]} #{hubspot_contact["properties"]["lastname"]}",
+           email: hubspot_contact["properties"]["email"],
+           phone: hubspot_contact["properties"]["phone"],
+           company: hubspot_contact["properties"]["company"],
+           title: hubspot_contact["properties"]["jobtitle"],
+           source: "hubspot"
+         }}
 
       {:ok, []} ->
         # Fallback to Gmail search
         case search_emails_by_contact_name(user, name) do
           {:ok, email_data} ->
-            {:ok, %{
-              name: name,
-              email: extract_email_from_gmail_data(email_data),
-              phone: nil,
-              company: nil,
-              title: nil,
-              source: "gmail_search"
-            }}
+            {:ok,
+             %{
+               name: name,
+               email: extract_email_from_gmail_data(email_data),
+               phone: nil,
+               company: nil,
+               title: nil,
+               source: "gmail_search"
+             }}
 
           {:error, _reason} ->
             {:error, "Contact '#{name}' not found in HubSpot or Gmail"}
@@ -383,22 +390,22 @@ defmodule AdvisorAi.Integrations.Gmail do
         # If HubSpot fails, try Gmail
         case search_emails_by_contact_name(user, name) do
           {:ok, email_data} ->
-            {:ok, %{
-              name: name,
-              email: extract_email_from_gmail_data(email_data),
-              phone: nil,
-              company: nil,
-              title: nil,
-              source: "gmail_search"
-            }}
+            {:ok,
+             %{
+               name: name,
+               email: extract_email_from_gmail_data(email_data),
+               phone: nil,
+               company: nil,
+               title: nil,
+               source: "gmail_search"
+             }}
 
           {:error, gmail_reason} ->
-            {:error, "Could not find contact '#{name}'. HubSpot error: #{hubspot_reason}, Gmail error: #{gmail_reason}"}
+            {:error,
+             "Could not find contact '#{name}'. HubSpot error: #{hubspot_reason}, Gmail error: #{gmail_reason}"}
         end
     end
   end
-
-
 
   defp search_emails_by_contact_name(user, name) do
     case get_access_token(user) do
@@ -417,11 +424,14 @@ defmodule AdvisorAi.Integrations.Gmail do
                 case get_email_details_with_token(user, message["id"], access_token) do
                   email_data when is_map(email_data) ->
                     {:ok, email_data}
+
                   {:error, reason} ->
                     {:error, "Failed to get email details: #{reason}"}
                 end
+
               {:ok, _} ->
                 {:error, "No emails found for #{name}"}
+
               {:error, reason} ->
                 {:error, "Failed to parse Gmail response: #{reason}"}
             end
@@ -447,6 +457,7 @@ defmodule AdvisorAi.Integrations.Gmail do
           [_, email] -> email
           nil -> from
         end
+
       _ ->
         "unknown@example.com"
     end
@@ -500,9 +511,9 @@ defmodule AdvisorAi.Integrations.Gmail do
         url = "#{@gmail_api_url}/messages/#{message_id}"
 
         case HTTPoison.get(url, [
-          {"Authorization", "Bearer #{access_token}"},
-          {"Content-Type", "application/json"}
-        ]) do
+               {"Authorization", "Bearer #{access_token}"},
+               {"Content-Type", "application/json"}
+             ]) do
           {:ok, %{status_code: 200, body: body}} ->
             case Jason.decode(body) do
               {:ok, email_data} ->
@@ -550,14 +561,15 @@ defmodule AdvisorAi.Integrations.Gmail do
 
     {:ok,
      %{
-      id: email_data["id"],
-      from: from,
-      to: to,
-      subject: subject,
-      date: date,
-      body: body,
-      type: "received"
-    }}
+       id: email_data["id"],
+       internalDate: email_data["internalDate"],
+       from: from,
+       to: to,
+       subject: subject,
+       date: date,
+       body: body,
+       type: "received"
+     }}
   end
 
   defp get_header_value(headers, name) do
@@ -596,13 +608,17 @@ defmodule AdvisorAi.Integrations.Gmail do
 
   defp safe_decode64(data) do
     # Handle URL-safe Base64 (replace - and _ with + and /)
-    cleaned_data = data
-    |> String.replace("-", "+")
-    |> String.replace("_", "/")
-    |> String.replace(~r/\s+/, "")  # Remove whitespace
+    cleaned_data =
+      data
+      |> String.replace("-", "+")
+      |> String.replace("_", "/")
+      # Remove whitespace
+      |> String.replace(~r/\s+/, "")
 
     case Base.decode64(cleaned_data) do
-      {:ok, decoded} -> decoded
+      {:ok, decoded} ->
+        decoded
+
       :error ->
         require Logger
         Logger.warning("Failed to decode Base64 email data")
@@ -629,30 +645,36 @@ defmodule AdvisorAi.Integrations.Gmail do
     case get_embedding(content) do
       {:ok, embedding} ->
         if is_list(embedding) and (length(embedding) == 384 or length(embedding) == 768) do
-        %VectorEmbedding{
-          user_id: user.id,
+          %VectorEmbedding{
+            user_id: user.id,
             source: "email",
-          content: content,
-          embedding: embedding,
-          metadata: %{
-            from: email_data.from,
-            to: email_data.to,
-            subject: email_data.subject,
+            content: content,
+            embedding: embedding,
+            metadata: %{
+              from: email_data.from,
+              to: email_data.to,
+              subject: email_data.subject,
               date: Map.get(email_data, :date, DateTime.utc_now()),
-            type: email_data.type
+              type: email_data.type
+            }
           }
-        }
-        |> VectorEmbedding.changeset(%{})
-        |> Repo.insert()
+          |> VectorEmbedding.changeset(%{})
+          |> Repo.insert()
         else
           require Logger
-          Logger.error("Embedding dimension mismatch: got #{length(embedding)}, expected 384 or 768. Skipping save.")
+
+          Logger.error(
+            "Embedding dimension mismatch: got #{length(embedding)}, expected 384 or 768. Skipping save."
+          )
+
           :error
         end
+
       {:error, reason} ->
         require Logger
         Logger.error("Failed to store email embedding: #{inspect(reason)}")
         :error
+
       other ->
         require Logger
         Logger.error("Unexpected embedding result: #{inspect(other)}")
@@ -660,11 +682,12 @@ defmodule AdvisorAi.Integrations.Gmail do
     end
   end
 
-    defp get_embedding(text) do
+  defp get_embedding(text) do
     # Use local embedding server for RAG
     case AdvisorAi.AI.LocalEmbeddingClient.embeddings(input: text) do
       {:ok, %{"data" => [%{"embedding" => embedding}]}} ->
         {:ok, embedding}
+
       {:error, reason} ->
         require Logger
         Logger.error("Failed to generate embedding with local server: #{inspect(reason)}")
@@ -699,12 +722,14 @@ defmodule AdvisorAi.Integrations.Gmail do
     refresh_token = account.refresh_token
 
     url = "https://oauth2.googleapis.com/token"
-    body = URI.encode_query(%{
-      client_id: client_id,
-      client_secret: client_secret,
-      refresh_token: refresh_token,
-      grant_type: "refresh_token"
-    })
+
+    body =
+      URI.encode_query(%{
+        client_id: client_id,
+        client_secret: client_secret,
+        refresh_token: refresh_token,
+        grant_type: "refresh_token"
+      })
 
     headers = [
       {"Content-Type", "application/x-www-form-urlencoded"}
@@ -718,13 +743,17 @@ defmodule AdvisorAi.Integrations.Gmail do
             # Update account in DB
             AdvisorAi.Accounts.update_account_tokens(account, new_token, expires_at)
             {:ok, new_token}
+
           {:ok, %{"error" => error}} ->
             {:error, "Google token refresh error: #{error}"}
+
           _ ->
             {:error, "Failed to parse Google token refresh response"}
         end
+
       {:ok, %{status_code: code, body: resp_body}} ->
         {:error, "Google token refresh failed: #{code} #{resp_body}"}
+
       {:error, reason} ->
         {:error, "HTTP error refreshing token: #{inspect(reason)}"}
     end
@@ -745,6 +774,7 @@ defmodule AdvisorAi.Integrations.Gmail do
         case Jason.decode(body) do
           {:ok, %{"error" => %{"message" => message}}} ->
             {:error, "Gmail API access denied: #{message}"}
+
           _ ->
             {:error, "Gmail API access denied (403)"}
         end
@@ -767,10 +797,14 @@ defmodule AdvisorAi.Integrations.Gmail do
       q: query
     }
 
-    case HTTPoison.get(url, [
-           {"Authorization", "Bearer #{access_token}"},
-           {"Content-Type", "application/json"}
-         ], params: params) do
+    case HTTPoison.get(
+           url,
+           [
+             {"Authorization", "Bearer #{access_token}"},
+             {"Content-Type", "application/json"}
+           ],
+           params: params
+         ) do
       {:ok, %{status_code: 200, body: body}} ->
         case Jason.decode(body) do
           {:ok, %{"messages" => messages}} ->
@@ -836,10 +870,14 @@ defmodule AdvisorAi.Integrations.Gmail do
       q: query
     }
 
-    case HTTPoison.get(url, [
-           {"Authorization", "Bearer #{access_token}"},
-           {"Content-Type", "application/json"}
-         ], params: params) do
+    case HTTPoison.get(
+           url,
+           [
+             {"Authorization", "Bearer #{access_token}"},
+             {"Content-Type", "application/json"}
+           ],
+           params: params
+         ) do
       {:ok, %{status_code: 200, body: body}} ->
         case Jason.decode(body) do
           {:ok, %{"messages" => messages}} ->
@@ -861,16 +899,17 @@ defmodule AdvisorAi.Integrations.Gmail do
   end
 
   defp get_emails_with_context(messages, access_token) do
-    emails_with_context = Enum.map(messages, fn %{"id" => message_id} ->
-      case get_email_details_with_token(nil, message_id, access_token) do
-        email_data when is_map(email_data) ->
-          email_data
+    emails_with_context =
+      Enum.map(messages, fn %{"id" => message_id} ->
+        case get_email_details_with_token(nil, message_id, access_token) do
+          email_data when is_map(email_data) ->
+            email_data
 
-        {:error, _} ->
-          nil
-      end
-    end)
-    |> Enum.filter(&(&1 != nil))
+          {:error, _} ->
+            nil
+        end
+      end)
+      |> Enum.filter(&(&1 != nil))
 
     {:ok, emails_with_context}
   end
@@ -891,8 +930,8 @@ defmodule AdvisorAi.Integrations.Gmail do
     """
 
     case AdvisorAi.AI.OpenRouterClient.chat_completion([
-      %{role: "user", content: prompt}
-    ]) do
+           %{role: "user", content: prompt}
+         ]) do
       {:ok, %{"choices" => [%{"message" => %{"content" => content}} | _]}} ->
         content
 
@@ -918,14 +957,17 @@ defmodule AdvisorAi.Integrations.Gmail do
     date = get_header_value(headers, "Date")
 
     # Parse date if available
-    parsed_date = case date do
-      nil -> DateTime.utc_now()
-      date_str ->
-        case DateTime.from_iso8601(date_str) do
-          {:ok, dt, _} -> dt
-          _ -> DateTime.utc_now()
-        end
-    end
+    parsed_date =
+      case date do
+        nil ->
+          DateTime.utc_now()
+
+        date_str ->
+          case DateTime.from_iso8601(date_str) do
+            {:ok, dt, _} -> dt
+            _ -> DateTime.utc_now()
+          end
+      end
 
     body = extract_email_body(get_in(message_data, ["payload"]) || %{})
 
@@ -987,6 +1029,7 @@ defmodule AdvisorAi.Integrations.Gmail do
             case Jason.decode(body) do
               {:ok, draft_data} ->
                 {:ok, "Draft created successfully with ID: #{get_in(draft_data, ["id"])}"}
+
               {:error, _} ->
                 {:ok, "Draft created successfully"}
             end
@@ -994,9 +1037,12 @@ defmodule AdvisorAi.Integrations.Gmail do
           {:ok, %{status_code: 403, body: body}} ->
             case Jason.decode(body) do
               {:ok, %{"error" => %{"message" => message}}} ->
-                {:error, "Gmail permission denied: #{message}. Please check your Gmail API permissions and ensure you have 'gmail.compose' scope."}
+                {:error,
+                 "Gmail permission denied: #{message}. Please check your Gmail API permissions and ensure you have 'gmail.compose' scope."}
+
               _ ->
-                {:error, "Gmail permission denied (403). Please check your Gmail API permissions."}
+                {:error,
+                 "Gmail permission denied (403). Please check your Gmail API permissions."}
             end
 
           {:ok, %{status_code: status_code, body: body}} ->
@@ -1011,5 +1057,143 @@ defmodule AdvisorAi.Integrations.Gmail do
       {:error, reason} ->
         {:error, reason}
     end
+  end
+
+  @doc """
+  Set up Gmail push notifications to trigger webhooks when new emails arrive.
+  This enables automatic email processing for the automation system.
+  """
+  def setup_push_notifications(user, webhook_url) do
+    case get_access_token(user) do
+      {:ok, access_token} ->
+        # First, stop any existing watch
+        stop_watch(user)
+
+        # Set up new watch
+        url = "#{@gmail_api_url}/watch"
+
+        request_body = %{
+          topicName: "projects/#{get_project_id()}/topics/gmail-notifications",
+          labelIds: ["INBOX"],
+          labelFilterAction: "include"
+        }
+
+        case HTTPoison.post(url, Jason.encode!(request_body), [
+               {"Authorization", "Bearer #{access_token}"},
+               {"Content-Type", "application/json"}
+             ]) do
+          {:ok, %{status_code: 200, body: body}} ->
+            case Jason.decode(body) do
+              {:ok, %{"historyId" => history_id, "expiration" => expiration}} ->
+                Logger.info("Gmail push notifications set up successfully. History ID: #{history_id}, Expires: #{expiration}")
+                {:ok, %{history_id: history_id, expiration: expiration}}
+
+              {:ok, response} ->
+                Logger.info("Gmail watch response: #{inspect(response)}")
+                {:ok, response}
+
+              {:error, reason} ->
+                {:error, "Failed to parse watch response: #{reason}"}
+            end
+
+          {:ok, %{status_code: 401}} ->
+            {:error, "Gmail API authentication failed. Please reconnect your Gmail account."}
+
+          {:ok, %{status_code: status_code, body: body}} ->
+            Logger.error("Gmail API error #{status_code}: #{body}")
+            {:error, "Gmail API error: #{status_code}"}
+
+          {:error, reason} ->
+            {:error, "HTTP error: #{reason}"}
+        end
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+  @doc """
+  Stop Gmail push notifications.
+  """
+  def stop_watch(user) do
+    case get_access_token(user) do
+      {:ok, access_token} ->
+        url = "#{@gmail_api_url}/stop"
+
+        case HTTPoison.post(url, "", [
+               {"Authorization", "Bearer #{access_token}"},
+               {"Content-Type", "application/json"}
+             ]) do
+          {:ok, %{status_code: 200}} ->
+            Logger.info("Gmail watch stopped successfully")
+            {:ok, "Watch stopped"}
+
+          {:ok, %{status_code: status_code}} ->
+            Logger.warn("Failed to stop Gmail watch: #{status_code}")
+            {:error, "Failed to stop watch: #{status_code}"}
+
+          {:error, reason} ->
+            {:error, "HTTP error: #{reason}"}
+        end
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+  @doc """
+  Get Gmail history to process new emails since last check.
+  This is used when webhooks are received to get the actual email data.
+  """
+  def get_history(user, start_history_id) do
+    case get_access_token(user) do
+      {:ok, access_token} ->
+        url = "#{@gmail_api_url}/history?startHistoryId=#{start_history_id}&historyTypes=messageAdded"
+
+        case HTTPoison.get(url, [
+               {"Authorization", "Bearer #{access_token}"},
+               {"Content-Type", "application/json"}
+             ]) do
+          {:ok, %{status_code: 200, body: body}} ->
+            case Jason.decode(body) do
+              {:ok, %{"history" => history}} ->
+                # Process new messages
+                new_messages =
+                  history
+                  |> Enum.flat_map(fn %{"messagesAdded" => messages_added} ->
+                    Enum.map(messages_added, fn %{"message" => %{"id" => id}} ->
+                      get_email_details(user, id)
+                    end)
+                  end)
+                  |> Enum.filter(fn
+                    {:ok, _email} -> true
+                    {:error, _} -> false
+                  end)
+                  |> Enum.map(fn {:ok, email} -> email end)
+
+                {:ok, new_messages}
+
+              {:ok, _} ->
+                {:ok, []}
+
+              {:error, reason} ->
+                {:error, "Failed to parse history: #{reason}"}
+            end
+
+          {:ok, %{status_code: status_code}} ->
+            {:error, "Gmail API error: #{status_code}"}
+
+          {:error, reason} ->
+            {:error, "HTTP error: #{reason}"}
+        end
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+  # Get Google Cloud project ID from environment or config
+  defp get_project_id() do
+    Application.get_env(:advisor_ai, :google_project_id, "advisor-ai-project")
   end
 end

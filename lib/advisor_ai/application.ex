@@ -25,6 +25,8 @@ defmodule AdvisorAi.Application do
       {Oban, Application.fetch_env!(:advisor_ai, Oban)},
       # Start a worker by calling: AdvisorAi.Worker.start_link(arg)
       # {AdvisorAi.Worker, arg},
+      # Start email monitoring worker
+      AdvisorAi.Workers.EmailMonitorWorker,
       # Start to serve requests, typically the last entry
       AdvisorAiWeb.Endpoint
     ]

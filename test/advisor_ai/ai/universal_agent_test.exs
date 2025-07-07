@@ -12,6 +12,7 @@ defmodule AdvisorAi.AI.UniversalAgentTest do
       email: "test@example.com",
       name: "Test User"
     }
+
     user = Repo.insert!(user)
 
     # Create and insert conversation
@@ -20,6 +21,7 @@ defmodule AdvisorAi.AI.UniversalAgentTest do
       user_id: user.id,
       title: "Test Conversation"
     }
+
     conversation = Repo.insert!(conversation)
 
     # Create and insert Google account
@@ -37,13 +39,17 @@ defmodule AdvisorAi.AI.UniversalAgentTest do
       ],
       token_expires_at: DateTime.utc_now() |> DateTime.add(3600) |> DateTime.truncate(:second)
     }
+
     account = Repo.insert!(account)
 
     {:ok, %{user: user, conversation: conversation, account: account}}
   end
 
   describe "Universal Action System - Core Functionality" do
-    test "process_request function exists and is callable", %{user: user, conversation: conversation} do
+    test "process_request function exists and is callable", %{
+      user: user,
+      conversation: conversation
+    } do
       # Test that the function exists and can be called
       assert function_exported?(UniversalAgent, :process_request, 3)
 
@@ -77,8 +83,15 @@ defmodule AdvisorAi.AI.UniversalAgentTest do
       # Test parameter extraction
       test_cases = [
         {"search emails with query 'important'", %{action: "search_emails", query: "important"}},
-        {"send email to test@example.com subject 'Test' body 'Hello'", %{action: "send_email", to: "test@example.com", subject: "Test", body: "Hello"}},
-        {"create event 'Meeting' from 2024-01-01 10:00 to 11:00", %{action: "create_event", summary: "Meeting", start_time: "2024-01-01T10:00:00Z", end_time: "2024-01-01T11:00:00Z"}}
+        {"send email to test@example.com subject 'Test' body 'Hello'",
+         %{action: "send_email", to: "test@example.com", subject: "Test", body: "Hello"}},
+        {"create event 'Meeting' from 2024-01-01 10:00 to 11:00",
+         %{
+           action: "create_event",
+           summary: "Meeting",
+           start_time: "2024-01-01T10:00:00Z",
+           end_time: "2024-01-01T11:00:00Z"
+         }}
       ]
 
       for {message, _expected_params} <- test_cases do
@@ -91,10 +104,14 @@ defmodule AdvisorAi.AI.UniversalAgentTest do
     test "error handling for invalid requests", %{user: user, conversation: conversation} do
       # Test error handling
       error_cases = [
-        "",  # Empty message
-        "   ",  # Whitespace only
-        "perform unknown action",  # Unknown action
-        "send email without parameters"  # Missing required parameters
+        # Empty message
+        "",
+        # Whitespace only
+        "   ",
+        # Unknown action
+        "perform unknown action",
+        # Missing required parameters
+        "send email without parameters"
       ]
 
       for message <- error_cases do
@@ -109,9 +126,12 @@ defmodule AdvisorAi.AI.UniversalAgentTest do
       edge_cases = [
         "search emails with query 'test@example.com & subject:meeting'",
         "search emails with query 'café résumé'",
-        "SEARCH EMAILS WITH QUERY TEST",  # All caps
-        "Search Emails With Query Test",  # Mixed case
-        String.duplicate("search emails ", 100)  # Very long message
+        # All caps
+        "SEARCH EMAILS WITH QUERY TEST",
+        # Mixed case
+        "Search Emails With Query Test",
+        # Very long message
+        String.duplicate("search emails ", 100)
       ]
 
       for message <- edge_cases do
@@ -125,7 +145,8 @@ defmodule AdvisorAi.AI.UniversalAgentTest do
       # Test complex scenarios
       complex_cases = [
         "search emails for important and also create calendar event",
-        "find meeting",  # Ambiguous but should infer email search
+        # Ambiguous but should infer email search
+        "find meeting",
         "send email to recipient@example.com subject 'Subject' body 'Body'",
         "show my next 5 calendar events"
       ]
@@ -442,9 +463,11 @@ defmodule AdvisorAi.AI.UniversalAgentTest do
       # Tools might be empty if user doesn't have Google tokens
       if length(tools) > 0 do
         # Check that universal_action tool exists
-        universal_tool = Enum.find(tools, fn tool ->
-          tool[:name] == "universal_action" || (is_map(tool) && Map.get(tool, "name") == "universal_action")
-        end)
+        universal_tool =
+          Enum.find(tools, fn tool ->
+            tool[:name] == "universal_action" ||
+              (is_map(tool) && Map.get(tool, "name") == "universal_action")
+          end)
 
         assert universal_tool != nil
       end
@@ -454,9 +477,11 @@ defmodule AdvisorAi.AI.UniversalAgentTest do
       tools = UniversalAgent.get_available_tools(user)
 
       if length(tools) > 0 do
-        universal_tool = Enum.find(tools, fn tool ->
-          tool[:name] == "universal_action" || (is_map(tool) && Map.get(tool, "name") == "universal_action")
-        end)
+        universal_tool =
+          Enum.find(tools, fn tool ->
+            tool[:name] == "universal_action" ||
+              (is_map(tool) && Map.get(tool, "name") == "universal_action")
+          end)
 
         assert universal_tool != nil
 
@@ -495,22 +520,31 @@ defmodule AdvisorAi.AI.UniversalAgentTest do
 
   describe "Universal Action System - Response Handling" do
     test "create_agent_response creates valid message", %{user: user, conversation: conversation} do
-      result = UniversalAgent.create_agent_response(user, conversation.id, "Test response", "action")
+      result =
+        UniversalAgent.create_agent_response(user, conversation.id, "Test response", "action")
 
       assert {:ok, message} = result
       assert message.role == "assistant"
       assert message.content == "Test response"
-      assert (message.metadata["response_type"] == "action" || message.metadata[:response_type] == "action")
+
+      assert message.metadata["response_type"] == "action" ||
+               message.metadata[:response_type] == "action"
+
       assert message.conversation_id == conversation.id
     end
 
-    test "handle_unknown_action handles unknown actions gracefully", %{user: user, conversation: conversation} do
+    test "handle_unknown_action handles unknown actions gracefully", %{
+      user: user,
+      conversation: conversation
+    } do
       result = UniversalAgent.handle_unknown_action(user, conversation.id, "unknown action")
 
       assert {:ok, message} = result
       assert message.role == "assistant"
       assert String.contains?(message.content, "Could not determine how to execute action")
-      assert (message.metadata["response_type"] == "error" || message.metadata[:response_type] == "error")
+
+      assert message.metadata["response_type"] == "error" ||
+               message.metadata[:response_type] == "error"
     end
   end
 

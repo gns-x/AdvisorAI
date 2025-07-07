@@ -20,12 +20,14 @@ defmodule AdvisorAi.AI.LocalEmbeddingClient do
       }
 
       # Make request to local embedding server
-      case HTTPoison.post("#{@local_embedding_url}/v1/embeddings",
-                         Jason.encode!(request_body),
-                         [
-                           {"Content-Type", "application/json"}
-                         ],
-                         recv_timeout: 15_000) do
+      case HTTPoison.post(
+             "#{@local_embedding_url}/v1/embeddings",
+             Jason.encode!(request_body),
+             [
+               {"Content-Type", "application/json"}
+             ],
+             recv_timeout: 15_000
+           ) do
         {:ok, %{status_code: 200, body: body}} ->
           case Jason.decode(body) do
             {:ok, response} ->
@@ -33,10 +35,13 @@ defmodule AdvisorAi.AI.LocalEmbeddingClient do
               case response do
                 %{"data" => [%{"embedding" => embedding} | _]} ->
                   {:ok, %{"data" => [%{"embedding" => embedding}]}}
+
                 _ ->
                   {:error, "Unexpected response format from local embedding server"}
               end
-            {:error, reason} -> {:error, "Failed to parse response: #{reason}"}
+
+            {:error, reason} ->
+              {:error, "Failed to parse response: #{reason}"}
           end
 
         {:ok, %{status_code: code, body: body}} ->
@@ -57,6 +62,7 @@ defmodule AdvisorAi.AI.LocalEmbeddingClient do
         case Jason.decode(body) do
           {:ok, %{"status" => "healthy", "model" => model}} ->
             {:ok, "Local embedding server is available using model: #{model}"}
+
           _ ->
             {:error, "Local embedding server returned unexpected response"}
         end
@@ -76,6 +82,7 @@ defmodule AdvisorAi.AI.LocalEmbeddingClient do
     case embeddings(input: "test embedding") do
       {:ok, %{"data" => [%{"embedding" => embedding}]}} ->
         {:ok, "Embedding generated successfully with #{length(embedding)} dimensions"}
+
       {:error, reason} ->
         {:error, "Embedding test failed: #{reason}"}
     end

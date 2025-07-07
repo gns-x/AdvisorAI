@@ -21,6 +21,7 @@ defmodule AdvisorAi.Repo.Migrations.UpdateVectorEmbeddingsDimensions do
 
     # Create indexes
     execute "CREATE INDEX vector_embeddings_user_id_index ON vector_embeddings(user_id)"
+
     execute "CREATE INDEX vector_embeddings_embedding_idx ON vector_embeddings USING ivfflat (embedding vector_cosine_ops) WITH (lists = 100)"
   end
 
@@ -44,6 +45,7 @@ defmodule AdvisorAi.Repo.Migrations.UpdateVectorEmbeddingsDimensions do
 
     # Recreate indexes
     execute "CREATE INDEX vector_embeddings_user_id_index ON vector_embeddings(user_id)"
+
     execute "CREATE INDEX vector_embeddings_embedding_idx ON vector_embeddings USING ivfflat (embedding vector_cosine_ops) WITH (lists = 100)"
   end
 end

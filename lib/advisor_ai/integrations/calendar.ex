@@ -181,23 +181,30 @@ defmodule AdvisorAi.Integrations.Calendar do
       {:ok, start_of_day, _} ->
         end_of_day = DateTime.add(start_of_day, 24 * 60 * 60, :second)
 
-        case get_available_times(user, DateTime.to_iso8601(start_of_day), DateTime.to_iso8601(end_of_day)) do
+        case get_available_times(
+               user,
+               DateTime.to_iso8601(start_of_day),
+               DateTime.to_iso8601(end_of_day)
+             ) do
           {:ok, available_times} ->
             # Filter times that have enough duration
-            suitable_times = Enum.filter(available_times, fn slot ->
-              case {slot["start"], slot["end"]} do
-                {start_str, end_str} when is_binary(start_str) and is_binary(end_str) ->
-                  case {DateTime.from_iso8601(start_str), DateTime.from_iso8601(end_str)} do
-                    {{:ok, start_time, _}, {:ok, end_time, _}} ->
-                      duration = DateTime.diff(end_time, start_time, :minute)
-                      duration >= duration_minutes
-                    _ ->
-                      false
-                  end
-                _ ->
-                  false
-              end
-            end)
+            suitable_times =
+              Enum.filter(available_times, fn slot ->
+                case {slot["start"], slot["end"]} do
+                  {start_str, end_str} when is_binary(start_str) and is_binary(end_str) ->
+                    case {DateTime.from_iso8601(start_str), DateTime.from_iso8601(end_str)} do
+                      {{:ok, start_time, _}, {:ok, end_time, _}} ->
+                        duration = DateTime.diff(end_time, start_time, :minute)
+                        duration >= duration_minutes
+
+                      _ ->
+                        false
+                    end
+
+                  _ ->
+                    false
+                end
+              end)
 
             {:ok, suitable_times}
 
@@ -300,16 +307,22 @@ defmodule AdvisorAi.Integrations.Calendar do
         params = if time_max, do: Map.put(params, :timeMax, time_max), else: params
         params = if q, do: Map.put(params, :q, q), else: params
 
-        case HTTPoison.get(url, [
-          {"Authorization", "Bearer #{access_token}"},
-          {"Content-Type", "application/json"}
-        ], params: params) do
+        case HTTPoison.get(
+               url,
+               [
+                 {"Authorization", "Bearer #{access_token}"},
+                 {"Content-Type", "application/json"}
+               ],
+               params: params
+             ) do
           {:ok, %{status_code: 200, body: body}} ->
             case Jason.decode(body) do
               {:ok, %{"items" => events}} ->
                 {:ok, events}
+
               {:ok, _} ->
                 {:ok, []}
+
               {:error, reason} ->
                 {:error, "Failed to parse events: #{reason}"}
             end
@@ -345,19 +358,21 @@ defmodule AdvisorAi.Integrations.Calendar do
             dateTime: event_data["end_time"],
             timeZone: "UTC"
           },
-          attendees: Enum.map(event_data["attendees"] || [], fn email ->
-            %{email: email}
-          end)
+          attendees:
+            Enum.map(event_data["attendees"] || [], fn email ->
+              %{email: email}
+            end)
         }
 
         case HTTPoison.put(url, Jason.encode!(event), [
-          {"Authorization", "Bearer #{access_token}"},
-          {"Content-Type", "application/json"}
-        ]) do
+               {"Authorization", "Bearer #{access_token}"},
+               {"Content-Type", "application/json"}
+             ]) do
           {:ok, %{status_code: 200, body: body}} ->
             case Jason.decode(body) do
               {:ok, updated_event} ->
                 {:ok, updated_event}
+
               {:error, reason} ->
                 {:error, "Failed to parse updated event: #{reason}"}
             end
@@ -383,15 +398,17 @@ defmodule AdvisorAi.Integrations.Calendar do
         url = "#{@calendar_api_url}/users/me/calendarList"
 
         case HTTPoison.get(url, [
-          {"Authorization", "Bearer #{access_token}"},
-          {"Content-Type", "application/json"}
-        ]) do
+               {"Authorization", "Bearer #{access_token}"},
+               {"Content-Type", "application/json"}
+             ]) do
           {:ok, %{status_code: 200, body: body}} ->
             case Jason.decode(body) do
               {:ok, %{"items" => calendars}} ->
                 {:ok, calendars}
+
               {:ok, _} ->
                 {:ok, []}
+
               {:error, reason} ->
                 {:error, "Failed to parse calendars: #{reason}"}
             end
@@ -423,6 +440,7 @@ defmodule AdvisorAi.Integrations.Calendar do
         case {DateTime.from_iso8601(start), DateTime.from_iso8601(end_time)} do
           {{:ok, start_dt, _}, {:ok, end_dt, _}} ->
             {start_dt, end_dt}
+
           _ ->
             nil
         end
