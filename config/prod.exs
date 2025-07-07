@@ -23,3 +23,11 @@ config :logger, level: :info
 
 config :advisor_ai, AdvisorAi.Repo,
   prepare: :unnamed
+
+config :advisor_ai, :embedding_client,
+  embedding_url: "https://openrouter.ai/api/v1/embeddings",
+  api_key: System.get_env("OPENROUTER_API_KEY")
+
+config :advisor_ai, :ollama_client,
+  ollama_url: "https://openrouter.ai/api/v1",
+  api_key: System.get_env("OPENROUTER_API_KEY")

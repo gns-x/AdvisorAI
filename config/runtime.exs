@@ -42,6 +42,14 @@ if config_env() in [:dev, :prod] do
     repo: AdvisorAi.Repo,
     plugins: [Oban.Plugins.Pruner],
     queues: [default: 10, mailers: 10, ai_processing: 5]
+
+  config :advisor_ai, :embedding_client,
+    embedding_url: "https://openrouter.ai/api/v1/embeddings",
+    api_key: System.get_env("OPENROUTER_API_KEY")
+
+  config :advisor_ai, :ollama_client,
+    ollama_url: "https://openrouter.ai/api/v1",
+    api_key: System.get_env("OPENROUTER_API_KEY")
 end
 
 # Production specific config
