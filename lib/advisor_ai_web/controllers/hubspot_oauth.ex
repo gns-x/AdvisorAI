@@ -4,6 +4,8 @@ defmodule AdvisorAiWeb.HubspotOauthController do
 
   plug :fetch_session
 
+
+  
   defp hubspot_client_id, do: System.get_env("HUBSPOT_CLIENT_ID")
   defp hubspot_client_secret, do: System.get_env("HUBSPOT_CLIENT_SECRET")
   defp redirect_uri, do: System.get_env("HUBSPOT_REDIRECT_URI") || "https://advisorai-production.up.railway.app/hubspot/oauth/callback"
