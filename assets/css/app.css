@@ -486,6 +486,156 @@ textarea[data-auto-resize] {
   color: #6b7280;
 }
 
+/* ChatGPT-style message layout */
+.chatgpt-message-group {
+  padding: 1.5rem 1rem;
+  transition: background-color 0.2s ease-in-out;
+}
+
+.chatgpt-message-group:hover {
+  background-color: #f9fafb;
+}
+
+.chatgpt-avatar {
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.875rem;
+  font-weight: 500;
+  flex-shrink: 0;
+}
+
+.chatgpt-user-avatar {
+  background: #1f2937;
+  color: white;
+}
+
+.chatgpt-assistant-avatar {
+  background: #10b981;
+  color: white;
+}
+
+.chatgpt-system-avatar {
+  background: #3b82f6;
+  color: white;
+}
+
+.chatgpt-message-content {
+  margin-left: 1rem;
+  flex: 1;
+  min-width: 0;
+}
+
+.chatgpt-message-text {
+  color: #1f2937;
+  line-height: 1.75;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+}
+
+.chatgpt-message-timestamp {
+  margin-top: 0.5rem;
+  font-size: 0.75rem;
+  color: #6b7280;
+}
+
+/* ChatGPT-style input area */
+.chatgpt-input-container {
+  border-top: 1px solid #e5e7eb;
+  background: white;
+  padding: 1rem;
+}
+
+.chatgpt-input-wrapper {
+  max-width: 48rem;
+  margin: 0 auto;
+  position: relative;
+}
+
+.chatgpt-textarea {
+  width: 100%;
+  min-height: 48px;
+  max-height: 200px;
+  padding: 12px 48px 12px 16px;
+  border: 1px solid #d1d5db;
+  border-radius: 12px;
+  resize: none;
+  font-family: inherit;
+  font-size: 1rem;
+  line-height: 1.5;
+  background: white;
+  transition: border-color 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+}
+
+.chatgpt-textarea:focus {
+  outline: none;
+  border-color: #10b981;
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
+}
+
+.chatgpt-send-button {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  padding: 8px;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  color: #6b7280;
+  transition: all 0.2s ease-in-out;
+  cursor: pointer;
+}
+
+.chatgpt-send-button:hover:not(:disabled) {
+  background: #f3f4f6;
+  color: #10b981;
+}
+
+.chatgpt-send-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ChatGPT-style header */
+.chatgpt-header {
+  border-bottom: 1px solid #e5e7eb;
+  background: white;
+  padding: 0.75rem 1rem;
+  flex-shrink: 0;
+}
+
+.chatgpt-header-content {
+  max-width: 48rem;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.chatgpt-title {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.chatgpt-new-chat-button {
+  padding: 0.5rem;
+  color: #6b7280;
+  background: transparent;
+  border: none;
+  border-radius: 0.5rem;
+  cursor: pointer;
+  transition: all 0.2s ease-in-out;
+}
+
+.chatgpt-new-chat-button:hover {
+  color: #374151;
+  background: #f3f4f6;
+}
 /* Loading indicator */
 .typing-indicator {
   display: flex;
