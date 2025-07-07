@@ -519,15 +519,19 @@ defmodule AdvisorAi.Integrations.Calendar do
     client_secret = System.get_env("GOOGLE_CLIENT_SECRET")
     refresh_token = account.refresh_token
     url = "https://oauth2.googleapis.com/token"
-    body = URI.encode_query(%{
-      client_id: client_id,
-      client_secret: client_secret,
-      refresh_token: refresh_token,
-      grant_type: "refresh_token"
-    })
+
+    body =
+      URI.encode_query(%{
+        client_id: client_id,
+        client_secret: client_secret,
+        refresh_token: refresh_token,
+        grant_type: "refresh_token"
+      })
+
     headers = [
       {"Content-Type", "application/x-www-form-urlencoded"}
     ]
+
     case HTTPoison.post(url, body, headers) do
       {:ok, %{status_code: 200, body: resp_body}} ->
         case Jason.decode(resp_body) do
@@ -535,13 +539,17 @@ defmodule AdvisorAi.Integrations.Calendar do
             expires_at = DateTime.add(DateTime.utc_now(), expires_in)
             AdvisorAi.Accounts.update_account_tokens(account, new_token, expires_at)
             {:ok, new_token}
+
           {:ok, %{"error" => error}} ->
             {:error, "Google token refresh error: #{error}"}
+
           _ ->
             {:error, "Failed to parse Google token refresh response"}
         end
+
       {:ok, %{status_code: code, body: resp_body}} ->
         {:error, "Google token refresh failed: #{code} #{resp_body}"}
+
       {:error, reason} ->
         {:error, "HTTP error refreshing token: #{inspect(reason)}"}
     end

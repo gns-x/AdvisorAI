@@ -127,7 +127,8 @@ defmodule AdvisorAi.AI.WorkflowGenerator do
         "params" => %{
           "to" => "contact_email",
           "subject" => "Let's set up an appointment",
-          "body" => "Here are my available times: {available_times}. Please reply with what works for you."
+          "body" =>
+            "Here are my available times: {available_times}. Please reply with what works for you."
         },
         "description" => "Send an email to the contact proposing available times.",
         "depends_on" => 3
@@ -156,7 +157,10 @@ defmodule AdvisorAi.AI.WorkflowGenerator do
         "step" => 7,
         "action" => "add_note",
         "api" => "hubspot",
-        "params" => %{"contact_email" => "contact_email", "note_content" => "Appointment scheduled for {chosen_time}."},
+        "params" => %{
+          "contact_email" => "contact_email",
+          "note_content" => "Appointment scheduled for {chosen_time}."
+        },
         "description" => "Add a note in HubSpot about the scheduled appointment.",
         "depends_on" => 6
       },
@@ -167,7 +171,8 @@ defmodule AdvisorAi.AI.WorkflowGenerator do
         "params" => %{
           "to" => "contact_email",
           "subject" => "Appointment Confirmed",
-          "body" => "Your appointment is confirmed for {chosen_time}. Looking forward to speaking with you!"
+          "body" =>
+            "Your appointment is confirmed for {chosen_time}. Looking forward to speaking with you!"
         },
         "description" => "Send a confirmation email to the contact.",
         "depends_on" => 7
@@ -179,9 +184,9 @@ defmodule AdvisorAi.AI.WorkflowGenerator do
     message_lower = String.downcase(user_request)
 
     if String.contains?(message_lower, "schedule an appointment") or
-       String.contains?(message_lower, "set up a meeting") or
-       String.contains?(message_lower, "book a call") or
-       String.contains?(message_lower, "arrange a meeting") do
+         String.contains?(message_lower, "set up a meeting") or
+         String.contains?(message_lower, "book a call") or
+         String.contains?(message_lower, "arrange a meeting") do
       {:ok, Map.get(@workflow_templates, "advanced_appointment_scheduling")}
     else
       # Use AI to analyze the request and generate a workflow
@@ -242,10 +247,12 @@ defmodule AdvisorAi.AI.WorkflowGenerator do
           case Jason.decode(response) do
             {:ok, workflow} ->
               {:ok, workflow}
+
             {:error, _} ->
               # Fallback to template matching
               fallback_workflow(user_request)
           end
+
         {:error, reason} ->
           {:error, "Failed to generate workflow: #{reason}"}
       end
@@ -472,6 +479,7 @@ defmodule AdvisorAi.AI.WorkflowGenerator do
     # Call LLM with workflow_state and recent_memories to decide next step
     # Placeholder: if last step result contains "need info", ask user
     last_result = List.last(workflow_state["results"] || [])
+
     if is_binary(last_result) and String.contains?(last_result, "need info") do
       {:ask_user, "Can you provide more details or clarification?"}
     else

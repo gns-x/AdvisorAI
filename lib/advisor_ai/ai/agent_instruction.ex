@@ -61,9 +61,10 @@ defmodule AdvisorAi.AI.AgentInstruction do
   """
   def get_active_instructions_by_trigger(user_id, trigger_type) do
     case Repo.all(
-      from i in __MODULE__,
-      where: i.user_id == ^user_id and i.trigger_type == ^trigger_type and i.is_active == true
-    ) do
+           from i in __MODULE__,
+             where:
+               i.user_id == ^user_id and i.trigger_type == ^trigger_type and i.is_active == true
+         ) do
       instructions when is_list(instructions) -> {:ok, instructions}
       _ -> {:ok, []}
     end
@@ -80,9 +81,9 @@ defmodule AdvisorAi.AI.AgentInstruction do
   """
   def get_active_instructions_by_user(user_id) do
     case Repo.all(
-      from i in __MODULE__,
-      where: i.user_id == ^user_id and i.is_active == true
-    ) do
+           from i in __MODULE__,
+             where: i.user_id == ^user_id and i.is_active == true
+         ) do
       instructions when is_list(instructions) -> {:ok, instructions}
       _ -> {:ok, []}
     end

@@ -57,7 +57,12 @@ defmodule AdvisorAiWeb.WebhookController do
   # Manual email processing endpoint
   def process_manual_email(conn, params) do
     case params do
-      %{"user_email" => user_email, "sender_email" => sender_email, "subject" => subject, "body" => body} ->
+      %{
+        "user_email" => user_email,
+        "sender_email" => sender_email,
+        "subject" => subject,
+        "body" => body
+      } ->
         case Accounts.get_user_by_email(user_email) do
           {:ok, user} ->
             # Create email data structure
@@ -119,7 +124,12 @@ defmodule AdvisorAiWeb.WebhookController do
   def test_email_automation(conn, params) do
     # Get user by email from params
     case params do
-      %{"user_email" => user_email, "sender_email" => sender_email, "subject" => subject, "body" => body} ->
+      %{
+        "user_email" => user_email,
+        "sender_email" => sender_email,
+        "subject" => subject,
+        "body" => body
+      } ->
         case Accounts.get_user_by_email(user_email) do
           {:ok, user} ->
             # Create a mock email message
@@ -176,7 +186,10 @@ defmodule AdvisorAiWeb.WebhookController do
     case get_user_from_message(message) do
       {:ok, user} ->
         # Get all active email instructions for this user
-        case AdvisorAi.AI.AgentInstruction.get_active_instructions_by_trigger(user.id, "email_received") do
+        case AdvisorAi.AI.AgentInstruction.get_active_instructions_by_trigger(
+               user.id,
+               "email_received"
+             ) do
           {:ok, instructions} when is_list(instructions) and length(instructions) > 0 ->
             # Process each instruction
             Enum.each(instructions, fn instruction ->
@@ -184,7 +197,11 @@ defmodule AdvisorAiWeb.WebhookController do
               email_data = extract_email_data_for_automation(message)
 
               # Execute the automation with the specific instruction
-              AdvisorAi.AI.Agent.handle_trigger(user, "email_received", Map.put(email_data, :instruction, instruction.instruction))
+              AdvisorAi.AI.Agent.handle_trigger(
+                user,
+                "email_received",
+                Map.put(email_data, :instruction, instruction.instruction)
+              )
             end)
 
           {:ok, _} ->
@@ -285,9 +302,10 @@ defmodule AdvisorAiWeb.WebhookController do
 
       %{"payload" => %{"parts" => parts}} when is_list(parts) ->
         # Handle multipart messages
-        text_part = Enum.find(parts, fn part ->
-          get_in(part, ["mimeType"]) == "text/plain"
-        end)
+        text_part =
+          Enum.find(parts, fn part ->
+            get_in(part, ["mimeType"]) == "text/plain"
+          end)
 
         case text_part do
           %{"body" => %{"data" => data}} when is_binary(data) ->

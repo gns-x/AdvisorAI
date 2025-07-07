@@ -95,7 +95,9 @@ defmodule AdvisorAi.Chat do
   # Update the context map for a conversation by id
   def update_conversation_context(conversation_id, new_context) do
     case Repo.get(Conversation, conversation_id) do
-      nil -> {:error, :not_found}
+      nil ->
+        {:error, :not_found}
+
       conversation ->
         conversation
         |> Conversation.changeset(%{context: new_context})
@@ -117,6 +119,7 @@ defmodule AdvisorAi.Chat do
         nil ->
           {:ok, new_convo} = create_conversation(user.id, %{title: "Automation Notification"})
           new_convo.id
+
         convo ->
           convo.id
       end

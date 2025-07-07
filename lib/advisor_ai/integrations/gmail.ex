@@ -1085,7 +1085,10 @@ defmodule AdvisorAi.Integrations.Gmail do
           {:ok, %{status_code: 200, body: body}} ->
             case Jason.decode(body) do
               {:ok, %{"historyId" => history_id, "expiration" => expiration}} ->
-                Logger.info("Gmail push notifications set up successfully. History ID: #{history_id}, Expires: #{expiration}")
+                Logger.info(
+                  "Gmail push notifications set up successfully. History ID: #{history_id}, Expires: #{expiration}"
+                )
+
                 {:ok, %{history_id: history_id, expiration: expiration}}
 
               {:ok, response} ->
@@ -1148,7 +1151,8 @@ defmodule AdvisorAi.Integrations.Gmail do
   def get_history(user, start_history_id) do
     case get_access_token(user) do
       {:ok, access_token} ->
-        url = "#{@gmail_api_url}/history?startHistoryId=#{start_history_id}&historyTypes=messageAdded"
+        url =
+          "#{@gmail_api_url}/history?startHistoryId=#{start_history_id}&historyTypes=messageAdded"
 
         case HTTPoison.get(url, [
                {"Authorization", "Bearer #{access_token}"},

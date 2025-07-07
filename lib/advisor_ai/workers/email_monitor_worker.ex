@@ -10,7 +10,8 @@ defmodule AdvisorAi.Workers.EmailMonitorWorker do
   alias AdvisorAi.Integrations.Gmail
   alias AdvisorAi.AI.Agent
 
-  @check_interval 86_400_000 # Check every 24 hours (1 day)
+  # Check every 24 hours (1 day)
+  @check_interval 86_400_000
 
   def start_link(_opts) do
     GenServer.start_link(__MODULE__, %{}, name: __MODULE__)
@@ -36,6 +37,7 @@ defmodule AdvisorAi.Workers.EmailMonitorWorker do
 
   defp check_all_users_emails() do
     users = get_users_with_gmail_tokens()
+
     Enum.each(users, fn user ->
       Task.start(fn -> check_user_emails(user) end)
     end)
@@ -46,11 +48,13 @@ defmodule AdvisorAi.Workers.EmailMonitorWorker do
     Accounts.list_users()
     |> Enum.filter(fn user ->
       case Accounts.get_user_google_account(user.id) do
-        nil -> false
+        nil ->
+          false
+
         account ->
           not is_nil(account.access_token) and
-          not is_nil(account.token_expires_at) and
-          DateTime.compare(account.token_expires_at, DateTime.utc_now()) == :gt
+            not is_nil(account.token_expires_at) and
+            DateTime.compare(account.token_expires_at, DateTime.utc_now()) == :gt
       end
     end)
   end
@@ -60,22 +64,29 @@ defmodule AdvisorAi.Workers.EmailMonitorWorker do
       case Gmail.get_recent_emails(user, 20) do
         {:ok, emails} ->
           recent_emails = filter_recent_emails(emails, 60)
+
           if length(recent_emails) > 0 do
             Enum.each(recent_emails, fn email ->
               process_new_email(user, email)
             end)
           end
+
         {:error, reason} ->
-          Logger.warning("Email Monitor Worker: Failed to get emails for user #{user.email}: #{reason}")
+          Logger.warning(
+            "Email Monitor Worker: Failed to get emails for user #{user.email}: #{reason}"
+          )
       end
     rescue
       e ->
-        Logger.error("Email Monitor Worker: Error checking emails for user #{user.email}: #{inspect(e)}")
+        Logger.error(
+          "Email Monitor Worker: Error checking emails for user #{user.email}: #{inspect(e)}"
+        )
     end
   end
 
   defp filter_recent_emails(emails, minutes_ago) do
     cutoff_time = DateTime.add(DateTime.utc_now(), -minutes_ago * 60, :second)
+
     Enum.filter(emails, fn email ->
       case email do
         %{internalDate: internal_date} when is_binary(internal_date) ->
@@ -83,16 +94,20 @@ defmodule AdvisorAi.Workers.EmailMonitorWorker do
             {timestamp, _} ->
               email_time = DateTime.from_unix!(timestamp, :millisecond)
               DateTime.compare(email_time, cutoff_time) == :gt
+
             _ ->
               false
           end
+
         %{date: date} when is_binary(date) ->
           case parse_date_header(date) do
             {:ok, email_time} ->
               DateTime.compare(email_time, cutoff_time) == :gt
+
             _ ->
               false
           end
+
         _ ->
           false
       end
@@ -101,19 +116,28 @@ defmodule AdvisorAi.Workers.EmailMonitorWorker do
 
   defp process_new_email(user, email) do
     email_data = extract_email_data(email)
+
     case Agent.handle_trigger(user, "email_received", email_data) do
       {:ok, _result} ->
         :ok
+
       {:error, reason} ->
         Logger.error("Email Monitor Worker: Email automation failed for #{user.email}: #{reason}")
     end
   end
 
   defp extract_email_data(email) do
-    raw_from = email[:from] || extract_header_value(get_in(email, ["payload", "headers"]) || [], "From")
+    raw_from =
+      email[:from] || extract_header_value(get_in(email, ["payload", "headers"]) || [], "From")
+
     from = extract_email_from_header(raw_from)
-    subject = email[:subject] || extract_header_value(get_in(email, ["payload", "headers"]) || [], "Subject")
+
+    subject =
+      email[:subject] ||
+        extract_header_value(get_in(email, ["payload", "headers"]) || [], "Subject")
+
     body = email[:body] || extract_email_body(email)
+
     %{
       from: from,
       subject: subject,
@@ -130,14 +154,18 @@ defmodule AdvisorAi.Workers.EmailMonitorWorker do
           "From" -> extract_email_from_header(value)
           _ -> value
         end
-      _ -> "Unknown #{header_name}"
+
+      _ ->
+        "Unknown #{header_name}"
     end
   end
 
   defp extract_email_from_header(from_header) do
     # Extract email from "Name <email@domain.com>" or just "email@domain.com"
     case Regex.run(~r/<([^>]+)>/, from_header) do
-      [_, email] -> email
+      [_, email] ->
+        email
+
       _ ->
         # Try to find email pattern in the header
         case Regex.run(~r/([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/, from_header) do
@@ -157,9 +185,10 @@ defmodule AdvisorAi.Workers.EmailMonitorWorker do
 
       %{"payload" => %{"parts" => parts}} when is_list(parts) ->
         # Handle multipart messages
-        text_part = Enum.find(parts, fn part ->
-          get_in(part, ["mimeType"]) == "text/plain"
-        end)
+        text_part =
+          Enum.find(parts, fn part ->
+            get_in(part, ["mimeType"]) == "text/plain"
+          end)
 
         case text_part do
           %{"body" => %{"data" => data}} when is_binary(data) ->
@@ -167,6 +196,7 @@ defmodule AdvisorAi.Workers.EmailMonitorWorker do
               {:ok, decoded} -> decoded
               _ -> "Unable to decode email body"
             end
+
           _ ->
             "No text content found"
         end
@@ -181,6 +211,7 @@ defmodule AdvisorAi.Workers.EmailMonitorWorker do
     case DateTime.from_iso8601(date_string) do
       {:ok, datetime, _offset} ->
         {:ok, datetime}
+
       _ ->
         # Try parsing RFC 2822 format (e.g., "Mon, 7 Jul 2025 01:58:38 +0100")
         case parse_rfc2822_date(date_string) do
@@ -193,24 +224,44 @@ defmodule AdvisorAi.Workers.EmailMonitorWorker do
   defp parse_rfc2822_date(date_string) do
     # Simple RFC 2822 date parser
     # Format: "Mon, 7 Jul 2025 01:58:38 +0100"
-    case Regex.run(~r/(\w{3}),\s+(\d{1,2})\s+(\w{3})\s+(\d{4})\s+(\d{2}):(\d{2}):(\d{2})\s+([+-]\d{4})/, date_string) do
+    case Regex.run(
+           ~r/(\w{3}),\s+(\d{1,2})\s+(\w{3})\s+(\d{4})\s+(\d{2}):(\d{2}):(\d{2})\s+([+-]\d{4})/,
+           date_string
+         ) do
       [_, _day_name, day, month_name, year, hour, minute, second, offset] ->
         month_map = %{
-          "Jan" => 1, "Feb" => 2, "Mar" => 3, "Apr" => 4, "May" => 5, "Jun" => 6,
-          "Jul" => 7, "Aug" => 8, "Sep" => 9, "Oct" => 10, "Nov" => 11, "Dec" => 12
+          "Jan" => 1,
+          "Feb" => 2,
+          "Mar" => 3,
+          "Apr" => 4,
+          "May" => 5,
+          "Jun" => 6,
+          "Jul" => 7,
+          "Aug" => 8,
+          "Sep" => 9,
+          "Oct" => 10,
+          "Nov" => 11,
+          "Dec" => 12
         }
 
         case Map.get(month_map, month_name) do
-          nil -> :error
+          nil ->
+            :error
+
           month ->
             case DateTime.new(
-              Date.new(String.to_integer(year), month, String.to_integer(day)),
-              Time.new(String.to_integer(hour), String.to_integer(minute), String.to_integer(second))
-            ) do
+                   Date.new(String.to_integer(year), month, String.to_integer(day)),
+                   Time.new(
+                     String.to_integer(hour),
+                     String.to_integer(minute),
+                     String.to_integer(second)
+                   )
+                 ) do
               {:ok, datetime} -> {:ok, datetime}
               _ -> :error
             end
         end
+
       _ ->
         :error
     end
@@ -221,10 +272,12 @@ defmodule AdvisorAi.Workers.EmailMonitorWorker do
     case Regex.run(~r/([+-])(\d{2})(\d{2})/, offset_string) do
       [_, sign, hours, minutes] ->
         total_minutes = String.to_integer(hours) * 60 + String.to_integer(minutes)
+
         case sign do
           "+" -> total_minutes
           "-" -> -total_minutes
         end
+
       _ ->
         0
     end

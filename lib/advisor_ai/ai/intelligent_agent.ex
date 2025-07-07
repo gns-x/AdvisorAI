@@ -30,6 +30,7 @@ defmodule AdvisorAi.AI.IntelligentAgent do
 
       {:error, reason} ->
         Logger.error("❌ IntelligentAgent: Failed to get AI response: #{reason}")
+
         create_agent_response(
           user,
           conversation_id,
@@ -75,7 +76,10 @@ defmodule AdvisorAi.AI.IntelligentAgent do
 
     case parse_hybrid_ai_response(ai_response) do
       {:action, action, params} ->
-        Logger.info("⚡ IntelligentAgent: Parsed action: #{action} with params: #{inspect(params)}")
+        Logger.info(
+          "⚡ IntelligentAgent: Parsed action: #{action} with params: #{inspect(params)}"
+        )
+
         execute_generic_action(user, conversation_id, action, params, context)
 
       {:response, response} ->
@@ -163,7 +167,9 @@ defmodule AdvisorAi.AI.IntelligentAgent do
               |> Enum.join("\n")
 
             response =
-              if email_list == "", do: "No emails found (API returned an empty list).", else: "Emails found:\n\n#{email_list}"
+              if email_list == "",
+                do: "No emails found (API returned an empty list).",
+                else: "Emails found:\n\n#{email_list}"
 
             create_agent_response(user, conversation_id, response, "action")
 

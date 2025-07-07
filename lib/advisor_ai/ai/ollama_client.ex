@@ -23,8 +23,10 @@ defmodule AdvisorAi.AI.OllamaClient do
     tool_instructions =
       if length(tools) > 0 do
         tools_json = Jason.encode!(tools)
-        "\n\nAvailable tools (respond with tool call in JSON):\n" <> tools_json <>
-        "\nIf you need to use a tool, respond ONLY with a JSON object: {\"tool_calls\": [...]}\n"
+
+        "\n\nAvailable tools (respond with tool call in JSON):\n" <>
+          tools_json <>
+          "\nIf you need to use a tool, respond ONLY with a JSON object: {\"tool_calls\": [...]}\n"
       else
         ""
       end
@@ -35,7 +37,9 @@ defmodule AdvisorAi.AI.OllamaClient do
         Enum.map(ollama_messages, fn
           %{role: "user", content: content} = msg ->
             %{msg | content: content <> tool_instructions}
-          msg -> msg
+
+          msg ->
+            msg
         end)
       else
         ollama_messages
