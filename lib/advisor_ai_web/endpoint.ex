@@ -27,7 +27,7 @@ defmodule AdvisorAiWeb.Endpoint do
 
   # Code reloading can be explicitly enabled under the
   # :code_reloader configuration of your endpoint.
-  if code_reloading? and Application.compile_env(:advisor_ai, :dev_routes, true) do
+  if Application.compile_env(:advisor_ai, :code_reloader, false) do
     socket "/phoenix/live_reload/socket", Phoenix.LiveReloader.Socket
     plug Phoenix.LiveReloader
     plug Phoenix.CodeReloader
