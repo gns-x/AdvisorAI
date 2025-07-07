@@ -148,21 +148,12 @@ defmodule AdvisorAiWeb.ChatLive.Index do
   def handle_event("quick_action", %{"action" => action}, socket) do
     message =
       case action do
-        "analyze_portfolio" ->
-          "Can you analyze my investment portfolio and provide recommendations for optimization?"
-
-        "financial_planning" ->
-          "I need help with financial planning. Can you create a comprehensive plan for my financial goals?"
-
-        "tax_advice" ->
-          "What are the best tax strategies for my situation? Can you provide tax planning advice?"
-
-        "schedule_followup" ->
-          "Can you help me schedule a follow-up meeting with my client?"
-
-        "send_notes" ->
-          "Can you help me draft and send meeting notes to the participants?"
-
+        "who_kid_baseball" ->
+          "Who mentioned their kid plays baseball?"
+        "why_greg_sell_aapl" ->
+          "Why did Greg say he wanted to sell AAPL stock?"
+        "schedule_appointment_sara" ->
+          "Schedule an appointment with Sara Smith"
         _ ->
           "How can you help me with my financial needs?"
       end
