@@ -127,7 +127,8 @@ defmodule AdvisorAi.AI.UniversalAgent do
         email: user.email,
         google_connected: has_valid_google_tokens?(user),
         gmail_available: has_gmail_access?(user),
-        calendar_available: has_calendar_access?(user)
+        calendar_available: has_calendar_access?(user),
+        hubspot_connected: has_hubspot_connection?(user)
       },
       conversation: get_conversation_summary(conversation),
       recent_messages: get_recent_messages(conversation),
@@ -141,9 +142,10 @@ defmodule AdvisorAi.AI.UniversalAgent do
     google_connected = has_valid_google_tokens?(user)
     gmail_available = has_gmail_access?(user)
     calendar_available = has_calendar_access?(user)
+    hubspot_connected = has_hubspot_connection?(user)
 
     # Only return tools if user has access to at least one service
-    if google_connected or gmail_available or calendar_available do
+    if google_connected or gmail_available or calendar_available or hubspot_connected do
       [
         # Universal Action Tool - Handles ANY request dynamically
         %{
@@ -237,12 +239,18 @@ defmodule AdvisorAi.AI.UniversalAgent do
 
     # Determine what services are available
     services_available = cond do
-      context.user.google_connected and context.user.gmail_available and context.user.calendar_available ->
+      context.user.google_connected and context.user.gmail_available and context.user.calendar_available and context.user.hubspot_connected ->
         "Gmail, Google Calendar, and HubSpot CRM"
+      context.user.google_connected and context.user.gmail_available and context.user.hubspot_connected ->
+        "Gmail and HubSpot CRM"
+      context.user.google_connected and context.user.calendar_available and context.user.hubspot_connected ->
+        "Google Calendar and HubSpot CRM"
       context.user.google_connected and context.user.gmail_available ->
         "Gmail and HubSpot CRM"
       context.user.google_connected and context.user.calendar_available ->
         "Google Calendar and HubSpot CRM"
+      context.user.hubspot_connected ->
+        "HubSpot CRM only"
       context.user.google_connected ->
         "HubSpot CRM only"
       true ->
@@ -252,133 +260,40 @@ defmodule AdvisorAi.AI.UniversalAgent do
     """
     You are an advanced AI assistant for financial advisors. You have access to: #{services_available}
 
-    ## CRITICAL: NEVER GENERATE FAKE DATA
-    - If you cannot access real data from the connected services, DO NOT make up fake information
+    ## CRITICAL INSTRUCTIONS - YOU MUST USE TOOL CALLS:
+    - NEVER generate fake data or pretend to perform actions
+    - ALWAYS use the available tools to perform real actions
+    - If you need to send an email, use the universal_action tool with action "send_email"
+    - If you need to create a calendar event, use the universal_action tool with action "create_event"
+    - If you need to search contacts, use the universal_action tool with action "search_contacts"
+    - DO NOT write fake responses like "Email sent successfully" - actually call the tools
     - If no services are connected, clearly state that you need the user to connect their accounts first
-    - If a service is connected but returns no results, say "No results found" - do not invent data
-    - Always be honest about what data you can and cannot access
 
-    ## Core Capabilities & Tools Available:
-    #{if Enum.empty?(tools), do: "- No tools available - user needs to connect services first", else: "- Email: search, read, compose, send, and track email conversations
-    - Calendar: check availability, schedule meetings, update events, handle conflicts
-    - HubSpot: search contacts, create/update records, add notes, track interactions
-    - Memory: store and recall ongoing instructions and task states"}
+    ## Available Tools:
+    #{if Enum.empty?(tools), do: "- No tools available - user needs to connect services first", else: "- universal_action: Execute any Gmail, Calendar, or HubSpot action"}
 
-    ## Critical Operating Principles:
+    ## Tool Usage Examples:
+    - To send an email: Use universal_action with action="send_email", to="recipient@email.com", subject="Subject", body="Email body"
+    - To create calendar event: Use universal_action with action="create_event", summary="Event title", start_time="2025-07-07T10:00:00Z", end_time="2025-07-07T11:00:00Z"
+    - To search contacts: Use universal_action with action="search_contacts", query="search term"
 
-    1. **ALWAYS gather complete context before acting:**
-       - Search across ALL available systems for relevant information
-       - Check for existing relationships, past interactions, and scheduled events
-       - Consider timezone differences and working hours
-       - Verify contact information across multiple sources
-
-    2. **For scheduling requests:**
-       - ALWAYS check calendar for conflicts first
-       - Provide 3-5 time slots across different days/times
-       - Include timezone in all communications
-       - Track the entire scheduling conversation until confirmed
-       - Automatically create HubSpot notes about scheduling interactions
-       - Handle rescheduling requests by referencing the original meeting
-
-    3. **For information queries:**
-       - Search semantically AND by keywords
-       - Check email content, subject lines, and attachments
-       - Search HubSpot notes and contact properties
-       - Provide specific examples with dates and context
-       - If multiple matches exist, list all relevant results
-
-    4. **For ongoing instructions:**
-       - Store instructions with clear trigger conditions
-       - Check EVERY incoming event against ALL stored rules
-       - Execute rules in logical order considering dependencies
-       - Log all automated actions for transparency
-
-    5. **Edge case handling:**
-       - Multiple people with same name: Use email addresses and company affiliations to disambiguate
-       - Ambiguous requests: Ask clarifying questions with specific options
-       - Failed email delivery: Retry with alternative contact methods
-       - Calendar conflicts: Proactively suggest alternatives
-       - Missing information: Search all systems before asking the user
-
-    6. **Communication style:**
-       - Be conversational but professional
-       - Confirm understanding of complex requests before executing
-       - Provide status updates for long-running tasks
-       - Explain what you're doing and why
-       - Always confirm successful completion with specifics
-
-    ## Task Execution Framework:
-
-    When receiving a request:
-    1. Parse and understand the complete intent
-    2. Identify all entities (people, companies, dates, topics)
-    3. Search all available systems for context
-    4. Plan the complete task sequence
-    5. Execute with status updates
-    6. Handle any errors or unexpected responses
-    7. Confirm completion with evidence
-
-    ## Proactive Behaviors:
-
-    - When someone emails about a meeting, immediately check calendar and respond with details
-    - When creating new contacts, check for existing records first
-    - When scheduling, always add to both calendar AND HubSpot notes
-    - Track email threads to maintain conversation continuity
-    - Detect urgency indicators and prioritize accordingly
-
-    ## Memory Management:
-
-    Remember:
-    - User preferences (preferred meeting times, communication style)
-    - Ongoing tasks and their current state
-    - Relationships between contacts
-    - Context from previous conversations
-    - Failed attempts and why they failed
-
-    ## Error Recovery:
-
-    If something fails:
-    - Try alternative approaches
-    - Use different search terms
-    - Check other data sources
-    - Gracefully degrade to partial solutions
-    - Always inform the user of limitations
-
-    ## Examples of Excellence:
-
-    Request: "Schedule a meeting with John Smith"
-    DON'T: Just email john.smith@email.com
-    DO:
-    1. Search HubSpot and emails for all John Smiths
-    2. Identify the correct one based on context
-    3. Check past meeting patterns
-    4. Review your calendar for availability
-    5. Craft personalized email with context
-    6. Track response and handle edge cases
-
-    Request: "Who mentioned their kid plays baseball?"
-    DON'T: Just search for "baseball"
-    DO:
-    1. Search emails for "baseball", "little league", "son/daughter plays", "kid* sport*"
-    2. Search HubSpot notes for family information
-    3. Check calendar for sports-related events
-    4. Return ALL matches with context and dates
-
-    REMEMBER: You're not just executing commands - you're an intelligent assistant who understands context, anticipates needs, and handles complex scenarios gracefully. Every action should demonstrate deep understanding and proactive thinking.
-
-    ---
-    The user said: "#{user_message}"
-
-    User Context:
+    ## Current User Context:
     - Name: #{context.user.name}
     - Email: #{context.user.email}
     - Google Connected: #{context.user.google_connected}
     - Gmail Available: #{context.user.gmail_available}
     - Calendar Available: #{context.user.calendar_available}
+    - HubSpot Connected: #{context.user.hubspot_connected}
     - Current Time: #{context.current_time}
 
-    Available Tools:
-    #{tools_description}
+    ## User Request: "#{user_message}"
+
+    IMPORTANT: You MUST use the universal_action tool to perform the requested action. Do NOT generate fake responses or pretend to perform actions. Use the tool with the appropriate action and parameters.
+
+    For the user's request "#{user_message}", you MUST:
+    1. Determine what action is needed (send_email, create_event, search_contacts, etc.)
+    2. Use the universal_action tool with the correct action and parameters
+    3. Return only the tool call result, not a fake response
     """
   end
 
@@ -408,7 +323,7 @@ defmodule AdvisorAi.AI.UniversalAgent do
       %{
         "role" => "system",
         "content" =>
-          "You are an advanced AI assistant for financial advisors with access to Gmail, Google Calendar, and HubSpot CRM. You must be extremely precise, proactive, and intelligent in handling requests. Follow the comprehensive instructions in your prompt. Deeply analyze the user's request, reason step by step, and only return the final result. Never output plans, JSON, or intermediate steps—only the final answer."
+          "You are an advanced AI assistant for financial advisors with access to Gmail, Google Calendar, and HubSpot CRM. CRITICAL: You MUST use the provided tools to perform actions. NEVER generate fake responses or pretend to perform actions. Always use tool calls for any email, calendar, or contact operations. If you cannot perform an action with the available tools, clearly state what tools are needed. IMPORTANT: When the user asks you to perform an action, you MUST use the universal_action tool with the appropriate action and parameters. Do NOT write fake responses like 'Email sent successfully' - actually call the tools."
       },
       %{"role" => "user", "content" => prompt}
     ]
@@ -465,40 +380,227 @@ defmodule AdvisorAi.AI.UniversalAgent do
         create_agent_response(user, conversation_id, response_text, "action")
 
       {:ok, []} ->
-        # No tool calls found, try to extract JSON from the AI's text response
+        # No tool calls found, check if this is a fake response
         response_text = extract_text_response(ai_response)
 
-        case extract_and_execute_json_from_text(user, response_text, context) do
-          {:ok, result} ->
-            create_agent_response(user, conversation_id, result, "action")
+        if is_fake_response?(response_text) do
+          # Try to extract and execute bash-style tool calls from the fake response
+          case extract_bash_style_tool_calls(response_text) do
+            {:ok, tool_calls} when tool_calls != [] ->
+              # Execute the extracted tool calls
+              results =
+                Enum.map(tool_calls, fn tool_call ->
+                  execute_tool_call(user, tool_call)
+                end)
 
-          {:error, _} ->
-            # If no JSON found, just return the LLM's conversational response
-            create_agent_response(
-              user,
-              conversation_id,
-              response_text || "I'm not sure how to help with that yet, but I'm learning!",
-              "conversation"
-            )
+              response_text =
+                results
+                |> Enum.map(fn
+                  {:ok, result} -> result
+                  {:error, error} -> "Error: #{error}"
+                end)
+                |> Enum.join("\n\n")
+
+              create_agent_response(user, conversation_id, response_text, "action")
+
+            _ ->
+              # Force the AI to use tools by retrying with a more explicit prompt
+              force_tool_usage(user, conversation_id, user_message, context)
+          end
+        else
+          # Try to extract JSON from the AI's text response
+          case extract_and_execute_json_from_text(user, response_text, context) do
+            {:ok, result} ->
+              create_agent_response(user, conversation_id, result, "action")
+
+            {:error, _} ->
+              # If no JSON found, just return the LLM's conversational response
+              create_agent_response(
+                user,
+                conversation_id,
+                response_text || "I'm not sure how to help with that yet, but I'm learning!",
+                "conversation"
+              )
+          end
         end
 
       {:error, reason} ->
         IO.puts("Failed to parse tool calls: #{reason}")
         response_text = extract_text_response(ai_response)
 
-        case extract_and_execute_json_from_text(user, response_text, context) do
-          {:ok, result} ->
-            create_agent_response(user, conversation_id, result, "action")
+        if is_fake_response?(response_text) do
+          # Try to extract and execute bash-style tool calls from the fake response
+          case extract_bash_style_tool_calls(response_text) do
+            {:ok, tool_calls} when tool_calls != [] ->
+              # Execute the extracted tool calls
+              results =
+                Enum.map(tool_calls, fn tool_call ->
+                  execute_tool_call(user, tool_call)
+                end)
 
-          {:error, _} ->
-            # If no JSON found, just return the LLM's conversational response
-            create_agent_response(
-              user,
-              conversation_id,
-              response_text || "I'm not sure how to help with that yet, but I'm learning!",
-              "conversation"
-            )
+              response_text =
+                results
+                |> Enum.map(fn
+                  {:ok, result} -> result
+                  {:error, error} -> "Error: #{error}"
+                end)
+                |> Enum.join("\n\n")
+
+              create_agent_response(user, conversation_id, response_text, "action")
+
+            _ ->
+              # Force the AI to use tools by retrying with a more explicit prompt
+              force_tool_usage(user, conversation_id, user_message, context)
+          end
+        else
+          case extract_and_execute_json_from_text(user, response_text, context) do
+            {:ok, result} ->
+              create_agent_response(user, conversation_id, result, "action")
+
+            {:error, _} ->
+              # If no JSON found, just return the LLM's conversational response
+              create_agent_response(
+                user,
+                conversation_id,
+                response_text || "I'm not sure how to help with that yet, but I'm learning!",
+                "conversation"
+              )
+          end
         end
+    end
+  end
+
+  # Detect if the AI generated a fake response instead of using tools
+  defp is_fake_response?(response_text) do
+    if is_nil(response_text) do
+      false
+    else
+      fake_indicators = [
+        "To fulfill the user's request",
+        "Here are the steps:",
+        "Here are the tool calls:",
+        "```bash",
+        "universal_action action=",
+        "Please note that I need",
+        "If it's not connected",
+        "Also, if you want me to",
+        "Email sent successfully",
+        "Email has been sent",
+        "Calendar event created",
+        "Event added to calendar",
+        "Meeting scheduled",
+        "Contact created",
+        "HubSpot CRM Updated",
+        "Execution Result:",
+        "Confirmation:",
+        "The email has been sent",
+        "The meeting has been scheduled"
+      ]
+
+      response_lower = String.downcase(response_text)
+      Enum.any?(fake_indicators, fn indicator ->
+        String.contains?(response_lower, String.downcase(indicator))
+      end)
+    end
+  end
+
+  # Force the AI to use tools by retrying with a more explicit prompt
+  defp force_tool_usage(user, conversation_id, user_message, context) do
+    tools = get_available_tools(user)
+
+    if Enum.empty?(tools) do
+      create_agent_response(
+        user,
+        conversation_id,
+        "I need you to connect your accounts first so I can perform real actions. Please go to Settings > Integrations to connect your Gmail, Google Calendar, or HubSpot accounts.",
+        "error"
+      )
+    else
+      # Create a more explicit prompt that forces tool usage
+      explicit_prompt = """
+      CRITICAL: You MUST use the available tools to perform the requested action. Do NOT generate fake responses.
+
+      User Request: "#{user_message}"
+
+      Available Tools:
+      - universal_action: Execute any Gmail, Calendar, or HubSpot action
+
+      You MUST use the universal_action tool with the appropriate action and parameters.
+      For sending emails: action="send_email", to="email", subject="subject", body="body"
+      For creating events: action="create_event", summary="title", start_time="time", end_time="time"
+
+      Use the tool now to perform the requested action.
+      """
+
+      messages = [
+        %{
+          "role" => "system",
+          "content" => "You are an AI assistant that MUST use tools to perform actions. NEVER generate fake responses. Always use the provided tools."
+        },
+        %{"role" => "user", "content" => explicit_prompt}
+      ]
+
+      tools_format =
+        Enum.map(tools, fn tool ->
+          {name, description, parameters} =
+            case tool do
+              %{function: %{name: n, description: d, parameters: p}} -> {n, d, p}
+              %{name: n, description: d, parameters: p} -> {n, d, p}
+              _ -> {"unknown", "No description", %{}}
+            end
+
+          %{
+            type: "function",
+            function: %{
+              name: name,
+              description: description,
+              parameters: parameters
+            }
+          }
+        end)
+
+      case OpenRouterClient.chat_completion(
+             messages: messages,
+             tools: tools_format,
+             tool_choice: "auto",
+             temperature: 0.1
+           ) do
+        {:ok, ai_response} ->
+          # Try to parse and execute tool calls again
+          case parse_tool_calls(ai_response) do
+            {:ok, tool_calls} when tool_calls != [] ->
+              results =
+                Enum.map(tool_calls, fn tool_call ->
+                  execute_tool_call(user, tool_call)
+                end)
+
+              response_text =
+                results
+                |> Enum.map(fn
+                  {:ok, result} -> result
+                  {:error, error} -> "Error: #{error}"
+                end)
+                |> Enum.join("\n\n")
+
+              create_agent_response(user, conversation_id, response_text, "action")
+
+            _ ->
+              create_agent_response(
+                user,
+                conversation_id,
+                "I'm having trouble performing the requested action. Please check that your accounts are properly connected and try again.",
+                "error"
+              )
+          end
+
+        {:error, _} ->
+          create_agent_response(
+            user,
+            conversation_id,
+            "I'm having trouble performing the requested action. Please check that your accounts are properly connected and try again.",
+            "error"
+          )
+      end
     end
   end
 
@@ -534,7 +636,7 @@ defmodule AdvisorAi.AI.UniversalAgent do
 
   # Extract function calls from content (fallback method)
   defp extract_function_calls_from_content(content) do
-    # Look for JSON function calls in the content
+    # First try to extract JSON function calls
     case Regex.run(~r/\{\s*"name":\s*"([^"]+)",\s*"arguments":\s*(\{[^}]+\})/, content) do
       [_, name, args_json] ->
         case Jason.decode(args_json) do
@@ -543,7 +645,43 @@ defmodule AdvisorAi.AI.UniversalAgent do
         end
 
       _ ->
-        {:error, "No function calls found"}
+        # Try to extract bash-style tool calls like: universal_action action="send_email" to="email" subject="subject"
+        case extract_bash_style_tool_calls(content) do
+          {:ok, calls} -> {:ok, calls}
+          {:error, _} -> {:error, "No function calls found"}
+        end
+    end
+  end
+
+  # Extract bash-style tool calls from content
+  defp extract_bash_style_tool_calls(content) do
+    # Look for patterns like: universal_action action="send_email" to="email" subject="subject"
+    # This regex captures the action and all key-value pairs
+    tool_call_pattern = ~r/universal_action\s+action="([^"]+)"([^`]*?)(?=\n|$|universal_action|```)/
+
+    case Regex.scan(tool_call_pattern, content) do
+      [] ->
+        {:error, "No bash-style tool calls found"}
+
+      matches ->
+        tool_calls = Enum.map(matches, fn [full_match, action, params_string] ->
+          # Convert the bash-style parameters to a map
+          args = %{"action" => action}
+
+          # Parse additional parameters from the params_string
+          # Look for patterns like: to="email" subject="subject" body="body"
+          param_pattern = ~r/(\w+)="([^"]*)"/
+
+          params = Regex.scan(param_pattern, params_string)
+
+          args = Enum.reduce(params, args, fn [_, key, value], acc ->
+            Map.put(acc, key, value)
+          end)
+
+          %{"name" => "universal_action", "arguments" => args}
+        end)
+
+        {:ok, tool_calls}
     end
   end
 
@@ -1483,6 +1621,10 @@ defmodule AdvisorAi.AI.UniversalAgent do
           String.contains?(scope, "calendar")
         end)
     end
+  end
+
+  defp has_hubspot_connection?(user) do
+    not is_nil(user.hubspot_access_token) and not is_nil(user.hubspot_refresh_token)
   end
 
   def create_agent_response(_user, conversation_id, content, response_type) do
