@@ -83,4 +83,49 @@ defmodule AdvisorAi.Chat do
 
     Repo.all(query)
   end
+
+  # Get the context map for a conversation by id
+  def get_conversation_context(conversation_id) do
+    case Repo.get(Conversation, conversation_id) do
+      %Conversation{context: context} -> context
+      _ -> %{}
+    end
+  end
+
+  # Update the context map for a conversation by id
+  def update_conversation_context(conversation_id, new_context) do
+    case Repo.get(Conversation, conversation_id) do
+      nil -> {:error, :not_found}
+      conversation ->
+        conversation
+        |> Conversation.changeset(%{context: new_context})
+        |> Repo.update()
+    end
+  end
+
+  def create_message_for_user(user, content) do
+    # Find the most recent conversation for the user
+    conversation =
+      Conversation
+      |> where([c], c.user_id == ^user.id)
+      |> order_by([c], desc: c.inserted_at)
+      |> limit(1)
+      |> Repo.one()
+
+    conversation_id =
+      case conversation do
+        nil ->
+          {:ok, new_convo} = create_conversation(user.id, %{title: "Automation Notification"})
+          new_convo.id
+        convo ->
+          convo.id
+      end
+
+    create_message(conversation_id, %{
+      user_id: user.id,
+      role: "assistant",
+      content: content,
+      metadata: %{response_type: "notification"}
+    })
+  end
 end

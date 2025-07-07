@@ -137,7 +137,7 @@ defmodule AdvisorAi.AI.IntelligentAgent do
 
             response =
               if contact_list == "",
-                do: "No HubSpot contacts found.",
+                do: "No HubSpot contacts found (API returned an empty list).",
                 else: "Your HubSpot contacts:\n\n#{contact_list}"
 
             create_agent_response(user, conversation_id, response, "action")
@@ -146,7 +146,7 @@ defmodule AdvisorAi.AI.IntelligentAgent do
             create_agent_response(
               user,
               conversation_id,
-              "Failed to get HubSpot contacts: #{reason}",
+              "HubSpot API error: #{reason}",
               "error"
             )
         end
@@ -163,7 +163,7 @@ defmodule AdvisorAi.AI.IntelligentAgent do
               |> Enum.join("\n")
 
             response =
-              if email_list == "", do: "No emails found.", else: "Emails found:\n\n#{email_list}"
+              if email_list == "", do: "No emails found (API returned an empty list).", else: "Emails found:\n\n#{email_list}"
 
             create_agent_response(user, conversation_id, response, "action")
 
@@ -171,7 +171,7 @@ defmodule AdvisorAi.AI.IntelligentAgent do
             create_agent_response(
               user,
               conversation_id,
-              "Failed to search emails: #{reason}",
+              "Gmail API error: #{reason}",
               "error"
             )
         end
