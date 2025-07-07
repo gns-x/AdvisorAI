@@ -6,25 +6,41 @@ defmodule AdvisorAi.Integrations.Calendar do
   @calendar_api_url "https://www.googleapis.com/calendar/v3"
 
   def create_event(user, event_data) do
+    # Fallback: auto-generate a title if missing or blank
+    title =
+      case String.trim(to_string(event_data["title"] || "")) do
+        "" ->
+          contact =
+            case event_data["attendees"] do
+              [first | _] ->
+                if String.contains?(first, "@"), do: first, else: "Attendee"
+              _ ->
+                "Attendee"
+            end
+          time = event_data["start_time"] || "(No time)"
+          "Meeting with #{contact} on #{time}"
+        t ->
+          t
+      end
+    event = %{
+      summary: title,
+      description: event_data["description"],
+      start: %{
+        dateTime: event_data["start_time"],
+        timeZone: "UTC"
+      },
+      end: %{
+        dateTime: event_data["end_time"],
+        timeZone: "UTC"
+      },
+      attendees:
+        Enum.map(event_data["attendees"] || [], fn email ->
+          %{email: email}
+        end)
+    }
+
     case get_access_token(user) do
       {:ok, access_token} ->
-        event = %{
-          summary: event_data["title"],
-          description: event_data["description"],
-          start: %{
-            dateTime: event_data["start_time"],
-            timeZone: "UTC"
-          },
-          end: %{
-            dateTime: event_data["end_time"],
-            timeZone: "UTC"
-          },
-          attendees:
-            Enum.map(event_data["attendees"] || [], fn email ->
-              %{email: email}
-            end)
-        }
-
         url = "#{@calendar_api_url}/calendars/primary/events"
 
         case HTTPoison.post(url, Jason.encode!(event), [
