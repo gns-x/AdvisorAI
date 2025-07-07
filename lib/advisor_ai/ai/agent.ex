@@ -189,36 +189,47 @@ defmodule AdvisorAi.AI.Agent do
 
     Logger.info("🔍 Agent: Checking if contact exists in HubSpot: #{sender_email}")
 
+    # Parse sender name and email
+    {parsed_name, parsed_email} =
+      case Regex.run(~r/^(.*)<(.+@.+)>$/, sender_email) do
+        [_, name, email] -> {String.trim(name), String.trim(email)}
+        nil -> {"", String.trim(sender_email)}
+      end
+    {first_name, last_name} =
+      case String.split(parsed_name || "", " ", parts: 2) do
+        [f, l] -> {f, l}
+        [f] when f != "" -> {f, ""}
+        _ -> {"", ""}
+      end
+
     # Step 1: Check if contact exists in HubSpot
-    case AdvisorAi.Integrations.HubSpot.get_contact_by_email(user, sender_email) do
+    case AdvisorAi.Integrations.HubSpot.get_contact_by_email(user, parsed_email) do
       {:ok, nil} ->
         Logger.info("👤 Contact not found in HubSpot. Creating new contact...")
         # Step 2: Create contact in HubSpot
-        case AdvisorAi.Integrations.HubSpot.create_contact(user, sender_email, subject, body) do
+        contact_data = %{
+          "email" => parsed_email,
+          "first_name" => first_name,
+          "last_name" => last_name,
+          "company" => "",
+          "notes" => if(Map.get(params, "add_note", false), do: body, else: nil)
+        }
+        case AdvisorAi.Integrations.HubSpot.create_contact(user, contact_data) do
           {:ok, contact} ->
             Logger.info("✅ Contact created in HubSpot: #{inspect(contact)}")
-            # Step 3: Add note if required
-            if Map.get(params, "add_note", false) do
-              AdvisorAi.Integrations.HubSpot.add_note_to_contact(user, contact, body)
-            end
-
             # Send notification to user in chat
             AdvisorAi.Chat.create_message_for_user(
               user,
-              "A new HubSpot contact was created for #{sender_email} with subject: '#{subject}'."
+              "A new HubSpot contact was created for #{parsed_email} with subject: '#{subject}'."
             )
-
             {:ok, "Contact created in HubSpot and user notified"}
-
           {:error, reason} ->
             Logger.error("❌ Failed to create contact in HubSpot: #{reason}")
             {:error, "Failed to create contact in HubSpot: #{reason}"}
         end
-
       {:ok, _contact} ->
-        Logger.info("👤 Contact already exists in HubSpot: #{sender_email}")
+        Logger.info("👤 Contact already exists in HubSpot: #{parsed_email}")
         {:ok, "Contact already exists in HubSpot"}
-
       {:error, reason} ->
         Logger.error("❌ Failed to check contact in HubSpot: #{reason}")
         {:error, "Failed to check contact in HubSpot: #{reason}"}
