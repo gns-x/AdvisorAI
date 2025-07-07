@@ -10,7 +10,7 @@ defmodule AdvisorAi.Workers.EmailMonitorWorker do
   alias AdvisorAi.Integrations.Gmail
   alias AdvisorAi.AI.Agent
 
-  @check_interval 10_000 # Check every 10 seconds
+  @check_interval 86_400_000 # Check every 24 hours (1 day)
 
   def start_link(_opts) do
     GenServer.start_link(__MODULE__, %{}, name: __MODULE__)
@@ -25,7 +25,6 @@ defmodule AdvisorAi.Workers.EmailMonitorWorker do
 
   @impl true
   def handle_info(:check_emails, state) do
-    Logger.info("🔄 Email Monitor Worker: Starting email check cycle")
     check_all_users_emails()
     schedule_check()
     {:noreply, state}
@@ -36,10 +35,7 @@ defmodule AdvisorAi.Workers.EmailMonitorWorker do
   end
 
   defp check_all_users_emails() do
-    # Get all users with Gmail tokens
     users = get_users_with_gmail_tokens()
-    Logger.info("📧 Email Monitor Worker: Found #{length(users)} users with Gmail tokens")
-
     Enum.each(users, fn user ->
       Task.start(fn -> check_user_emails(user) end)
     end)
@@ -60,111 +56,71 @@ defmodule AdvisorAi.Workers.EmailMonitorWorker do
   end
 
   defp check_user_emails(user) do
-    Logger.info("🔍 Email Monitor Worker: Checking emails for user #{user.email}")
     try do
-      # Get recent emails (last 1 hour)
       case Gmail.get_recent_emails(user, 20) do
         {:ok, emails} ->
-          Logger.info("📬 Email Monitor Worker: Retrieved #{length(emails)} emails for #{user.email}")
-
-          # Filter for emails received in the last 1 hour
-          recent_emails = filter_recent_emails(emails, 60) # 1 hour in minutes
-          Logger.info("🕒 Email Monitor Worker: Found #{length(recent_emails)} recent emails for #{user.email}")
-
+          recent_emails = filter_recent_emails(emails, 60)
           if length(recent_emails) > 0 do
-            Logger.info("✅ Email Monitor Worker: Processing #{length(recent_emails)} new emails for user #{user.email}")
-
-            # Process each new email
             Enum.each(recent_emails, fn email ->
               process_new_email(user, email)
             end)
-          else
-            Logger.info("⏭️ Email Monitor Worker: No recent emails found for #{user.email}")
           end
-
         {:error, reason} ->
-          Logger.warning("❌ Email Monitor Worker: Failed to get emails for user #{user.email}: #{reason}")
+          Logger.warning("Email Monitor Worker: Failed to get emails for user #{user.email}: #{reason}")
       end
     rescue
       e ->
-        Logger.error("💥 Email Monitor Worker: Error checking emails for user #{user.email}: #{inspect(e)}")
+        Logger.error("Email Monitor Worker: Error checking emails for user #{user.email}: #{inspect(e)}")
     end
   end
 
   defp filter_recent_emails(emails, minutes_ago) do
     cutoff_time = DateTime.add(DateTime.utc_now(), -minutes_ago * 60, :second)
-    Logger.info("🕐 Email Monitor Worker: Filtering emails since #{cutoff_time} (last #{minutes_ago} minutes)")
-
     Enum.filter(emails, fn email ->
       case email do
         %{internalDate: internal_date} when is_binary(internal_date) ->
           case Integer.parse(internal_date) do
             {timestamp, _} ->
               email_time = DateTime.from_unix!(timestamp, :millisecond)
-              is_recent = DateTime.compare(email_time, cutoff_time) == :gt
-              Logger.info("📅 Email Monitor Worker: Email from #{email.from} at #{email_time} - Recent: #{is_recent}")
-              is_recent
+              DateTime.compare(email_time, cutoff_time) == :gt
             _ ->
-              Logger.warning("⚠️ Email Monitor Worker: Could not parse internal date: #{internal_date}")
               false
           end
         %{date: date} when is_binary(date) ->
-          # Fallback to parsing the date header
           case parse_date_header(date) do
             {:ok, email_time} ->
-              is_recent = DateTime.compare(email_time, cutoff_time) == :gt
-              Logger.info("📅 Email Monitor Worker: Email from #{email.from} at #{email_time} (from date header) - Recent: #{is_recent}")
-              is_recent
+              DateTime.compare(email_time, cutoff_time) == :gt
             _ ->
-              Logger.warning("⚠️ Email Monitor Worker: Could not parse date header: #{date}")
               false
           end
         _ ->
-          Logger.warning("⚠️ Email Monitor Worker: Email missing both internalDate and date: #{inspect(email)}")
           false
       end
     end)
   end
 
   defp process_new_email(user, email) do
-    Logger.info("🚀 Email Monitor Worker: Processing new email for #{user.email}")
-
-    # Extract email data
     email_data = extract_email_data(email)
-    Logger.info("📝 Email Monitor Worker: Extracted email data: #{inspect(email_data)}")
-
-    # Trigger automation system
     case Agent.handle_trigger(user, "email_received", email_data) do
-      {:ok, result} ->
-        Logger.info("✅ Email Monitor Worker: Email automation triggered for #{user.email}: #{inspect(result)}")
-
+      {:ok, _result} ->
+        :ok
       {:error, reason} ->
-        Logger.error("❌ Email Monitor Worker: Email automation failed for #{user.email}: #{reason}")
+        Logger.error("Email Monitor Worker: Email automation failed for #{user.email}: #{reason}")
     end
   end
 
-    defp extract_email_data(email) do
-    Logger.info("🔍 Email Monitor Worker: Raw email data: #{inspect(email, pretty: true)}")
-    Logger.info("🔍 Email Monitor Worker: Email keys: #{inspect(Map.keys(email))}")
-    Logger.info("🔍 Email Monitor Worker: email[:from] = #{inspect(email[:from])}")
-    Logger.info("🔍 Email Monitor Worker: email[:subject] = #{inspect(email[:subject])}")
-
-    # Try to extract from flattened structure first (direct fields)
+  defp extract_email_data(email) do
     raw_from = email[:from] || extract_header_value(get_in(email, ["payload", "headers"]) || [], "From")
     from = extract_email_from_header(raw_from)
     subject = email[:subject] || extract_header_value(get_in(email, ["payload", "headers"]) || [], "Subject")
     body = email[:body] || extract_email_body(email)
-
-    email_data = %{
+    %{
       from: from,
       subject: subject,
       body: body,
       received_at: DateTime.utc_now(),
       message_id: email[:id]
     }
-
-    Logger.info("📝 Email Monitor Worker: Extracted email data: #{inspect(email_data)}")
-    email_data
   end
 
   defp extract_header_value(headers, header_name) do
