@@ -53,11 +53,13 @@ defmodule AdvisorAiWeb.ChatLive.Index do
   # Helper to insert a system message (step log) into the chat stream
   defp insert_system_message(socket, content) do
     conversation = socket.assigns.current_conversation
+
     {:ok, system_message} =
       AdvisorAi.Chat.create_message(conversation.id, %{
         role: "system",
         content: content
       })
+
     stream_insert(socket, :messages, system_message, at: -1)
   end
 
@@ -85,18 +87,19 @@ defmodule AdvisorAiWeb.ChatLive.Index do
       IO.puts("DEBUG: Loading state set to true")
 
       # Process with AI agent, streaming step logs
-      task = Task.async(fn ->
-        # Example: simulate step-by-step logging (replace with real steps in production)
-        send(self(), {:system_step, "Step 1: Checking HubSpot contacts..."})
-        Process.sleep(500)
-        send(self(), {:system_step, "Step 2: Creating new contact if not found..."})
-        Process.sleep(500)
-        send(self(), {:system_step, "Step 3: Adding note about the email..."})
-        Process.sleep(500)
-        result = Agent.process_user_message(user, conversation.id, message)
-        IO.puts("DEBUG: Agent result: #{inspect(result)}")
-        result
-      end)
+      task =
+        Task.async(fn ->
+          # Example: simulate step-by-step logging (replace with real steps in production)
+          send(self(), {:system_step, "Step 1: Checking HubSpot contacts..."})
+          Process.sleep(500)
+          send(self(), {:system_step, "Step 2: Creating new contact if not found..."})
+          Process.sleep(500)
+          send(self(), {:system_step, "Step 3: Adding note about the email..."})
+          Process.sleep(500)
+          result = Agent.process_user_message(user, conversation.id, message)
+          IO.puts("DEBUG: Agent result: #{inspect(result)}")
+          result
+        end)
 
       {:noreply,
        socket

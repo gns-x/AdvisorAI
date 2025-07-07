@@ -107,7 +107,7 @@ defmodule AdvisorAiWeb.SettingsLive.Instructions do
       <!-- Main Content -->
       <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div class="space-y-8">
-
+          
     <!-- Page Header -->
           <div class="text-center">
             <h2 class="text-3xl font-bold text-gray-900 mb-4">Ongoing Instructions</h2>
@@ -115,7 +115,7 @@ defmodule AdvisorAiWeb.SettingsLive.Instructions do
               Set up instructions for your AI assistant to follow automatically. These will be applied when relevant events occur.
             </p>
           </div>
-
+          
     <!-- Add New Instruction -->
           <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
             <h3 class="text-lg font-semibold text-gray-900 mb-4">Add New Instruction</h3>
@@ -188,7 +188,7 @@ defmodule AdvisorAiWeb.SettingsLive.Instructions do
               </button>
             </form>
           </div>
-
+          
     <!-- Existing Instructions -->
           <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
             <h3 class="text-lg font-semibold text-gray-900 mb-4">Your Instructions</h3>

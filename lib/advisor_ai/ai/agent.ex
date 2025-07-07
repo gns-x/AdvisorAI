@@ -89,14 +89,17 @@ defmodule AdvisorAi.AI.Agent do
 
     case AgentInstruction.get_active_instructions_by_trigger(user.id, trigger_type) do
       {:ok, instructions} ->
-        Logger.info("📋 Agent: Found #{length(instructions)} active instructions for trigger #{trigger_type}")
+        Logger.info(
+          "📋 Agent: Found #{length(instructions)} active instructions for trigger #{trigger_type}"
+        )
 
         if length(instructions) > 0 do
           # Execute automation rules for this trigger
-          results = Enum.map(instructions, fn instruction ->
-            Logger.info("⚡ Agent: Executing instruction: #{instruction.instruction}")
-            execute_automation_rule(user, instruction, trigger_type, trigger_data)
-          end)
+          results =
+            Enum.map(instructions, fn instruction ->
+              Logger.info("⚡ Agent: Executing instruction: #{instruction.instruction}")
+              execute_automation_rule(user, instruction, trigger_type, trigger_data)
+            end)
 
           Logger.info("✅ Agent: Executed #{length(results)} automation rules")
           {:ok, results}
@@ -198,16 +201,24 @@ defmodule AdvisorAi.AI.Agent do
             if Map.get(params, "add_note", false) do
               AdvisorAi.Integrations.HubSpot.add_note_to_contact(user, contact, body)
             end
+
             # Send notification to user in chat
-            AdvisorAi.Chat.create_message_for_user(user, "A new HubSpot contact was created for #{sender_email} with subject: '#{subject}'.")
+            AdvisorAi.Chat.create_message_for_user(
+              user,
+              "A new HubSpot contact was created for #{sender_email} with subject: '#{subject}'."
+            )
+
             {:ok, "Contact created in HubSpot and user notified"}
+
           {:error, reason} ->
             Logger.error("❌ Failed to create contact in HubSpot: #{reason}")
             {:error, "Failed to create contact in HubSpot: #{reason}"}
         end
+
       {:ok, _contact} ->
         Logger.info("👤 Contact already exists in HubSpot: #{sender_email}")
         {:ok, "Contact already exists in HubSpot"}
+
       {:error, reason} ->
         Logger.error("❌ Failed to check contact in HubSpot: #{reason}")
         {:error, "Failed to check contact in HubSpot: #{reason}"}
@@ -442,12 +453,14 @@ defmodule AdvisorAi.AI.Agent do
 
       String.contains?(instruction_lower, "send_email") or
           String.contains?(instruction_lower, "send an email") ->
-        {:ok, "send_email", %{"to" => "attendees", "subject" => "Meeting Notification", "body" => "Meeting details"}}
+        {:ok, "send_email",
+         %{"to" => "attendees", "subject" => "Meeting Notification", "body" => "Meeting details"}}
 
       # Calendar-related actions
       String.contains?(instruction_lower, "create_calendar_event") or
           String.contains?(instruction_lower, "add event") ->
-        {:ok, "create_calendar_event", %{"title" => "Auto-created event", "description" => "Automatically created"}}
+        {:ok, "create_calendar_event",
+         %{"title" => "Auto-created event", "description" => "Automatically created"}}
 
       # Note-related actions
       String.contains?(instruction_lower, "add_note") or
@@ -462,7 +475,8 @@ defmodule AdvisorAi.AI.Agent do
       # HubSpot actions
       String.contains?(instruction_lower, "add them to hubspot") or
           String.contains?(instruction_lower, "create contact") ->
-        {:ok, "email_received", %{"check_hubspot" => true, "create_contact_if_missing" => true, "add_note" => true}}
+        {:ok, "email_received",
+         %{"check_hubspot" => true, "create_contact_if_missing" => true, "add_note" => true}}
 
       true ->
         {:error, "Unknown action type in instruction"}
