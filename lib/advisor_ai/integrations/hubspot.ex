@@ -453,8 +453,8 @@ defmodule AdvisorAi.Integrations.HubSpot do
   end
 
   defp get_embedding(text) do
-    # Use local embedding server for RAG
-    case AdvisorAi.AI.LocalEmbeddingClient.embeddings(input: text) do
+    # Use OpenRouter for RAG
+    case AdvisorAi.AI.OpenRouterClient.embeddings(input: text) do
       {:ok, %{"data" => [%{"embedding" => embedding}]}} ->
         {:ok, embedding}
 
