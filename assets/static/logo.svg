@@ -1,1 +1,42 @@
-404: Not Found
+<svg width="120" height="120" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="logoGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#667eea;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#764ba2;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="accentGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#f093fb;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#f5576c;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  
+  <!-- Background circle with subtle gradient -->
+  <circle cx="60" cy="60" r="55" fill="url(#logoGradient)" opacity="0.1"/>
+  
+  <!-- Main letter A structure -->
+  <path d="M60 25 L35 85 L45 85 L50 70 L70 70 L75 85 L85 85 L60 25 Z" 
+        fill="url(#logoGradient)" 
+        stroke="none"/>
+  
+  <!-- Crossbar of A with accent -->
+  <rect x="52" y="60" width="16" height="4" fill="url(#accentGradient)" rx="2"/>
+  
+  <!-- Elegant accent elements -->
+  <circle cx="60" cy="25" r="3" fill="url(#accentGradient)" opacity="0.8"/>
+  
+  <!-- Subtle shadow/depth effect -->
+  <path d="M60 25 L35 85 L45 85 L50 70 L70 70 L75 85 L85 85 L60 25 Z" 
+        fill="url(#logoGradient)" 
+        opacity="0.3"
+        transform="translate(2, 2)"/>
+  
+  <!-- Main A letter (repeated for layering effect) -->
+  <path d="M60 25 L35 85 L45 85 L50 70 L70 70 L75 85 L85 85 L60 25 Z" 
+        fill="url(#logoGradient)"/>
+  
+  <!-- Inner triangle for negative space refinement -->
+  <path d="M54 58 L60 42 L66 58 Z" fill="white" opacity="0.15"/>
+  
+  <!-- Elegant border accent -->
+  <circle cx="60" cy="60" r="58" fill="none" stroke="url(#logoGradient)" stroke-width="0.5" opacity="0.3"/>
+</svg>
