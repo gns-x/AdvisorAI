@@ -50,6 +50,8 @@ if config_env() in [:dev, :prod] do
   config :advisor_ai, :ollama_client,
     ollama_url: "https://openrouter.ai/api/v1",
     api_key: System.get_env("OPENROUTER_API_KEY")
+
+  config :advisor_ai, :google_project_id, "advisor-465014"
 end
 
 # Production specific config
