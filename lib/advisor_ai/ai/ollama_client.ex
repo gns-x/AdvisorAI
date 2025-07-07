@@ -12,11 +12,34 @@ defmodule AdvisorAi.AI.OllamaClient do
     model = Keyword.get(opts, :model, "llama3.2:3b")
     messages = Keyword.get(opts, :messages, [])
     tools = Keyword.get(opts, :tools, [])
+    tool_choice = Keyword.get(opts, :tool_choice, nil)
     temperature = Keyword.get(opts, :temperature, 0.7)
     max_tokens = Keyword.get(opts, :max_tokens, 1000)
 
     # Convert messages to Ollama chat format
     ollama_messages = convert_messages_to_ollama_format(messages)
+
+    # Add tool instructions to the prompt if tools are provided
+    tool_instructions =
+      if length(tools) > 0 do
+        tools_json = Jason.encode!(tools)
+        "\n\nAvailable tools (respond with tool call in JSON):\n" <> tools_json <>
+        "\nIf you need to use a tool, respond ONLY with a JSON object: {\"tool_calls\": [...]}\n"
+      else
+        ""
+      end
+
+    # Append tool instructions to the last user message
+    ollama_messages =
+      if tool_instructions != "" do
+        Enum.map(ollama_messages, fn
+          %{role: "user", content: content} = msg ->
+            %{msg | content: content <> tool_instructions}
+          msg -> msg
+        end)
+      else
+        ollama_messages
+      end
 
     request_body = %{
       model: model,
@@ -27,6 +50,21 @@ defmodule AdvisorAi.AI.OllamaClient do
         num_predict: max_tokens
       }
     }
+
+    # Add tools and tool_choice to the request body if present
+    request_body =
+      if length(tools) > 0 do
+        Map.put(request_body, :tools, tools)
+      else
+        request_body
+      end
+
+    request_body =
+      if tool_choice do
+        Map.put(request_body, :tool_choice, tool_choice)
+      else
+        request_body
+      end
 
     http_opts = [timeout: 30_000, recv_timeout: 120_000]
 
