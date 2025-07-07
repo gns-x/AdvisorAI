@@ -102,7 +102,12 @@ defmodule AdvisorAi.AI.WorkflowGenerator do
         "api" => "hubspot",
         "params" => %{"query" => "extracted_name_or_email"},
         "description" => "Look up the contact in HubSpot by name or email.",
-        "fallback" => "search_emails"
+        "fallback" => "search_emails",
+        "extract_from" => %{
+          "contact_email" => "first_contact_email",
+          "contact_name" => "first_contact_name",
+          "contact_id" => "first_contact_id"
+        }
       },
       %{
         "step" => 2,
@@ -110,15 +115,22 @@ defmodule AdvisorAi.AI.WorkflowGenerator do
         "api" => "gmail",
         "params" => %{"query" => "extracted_name_or_email"},
         "description" => "If not found in HubSpot, search previous emails for the contact.",
-        "depends_on" => 1
+        "depends_on" => 1,
+        "extract_from" => %{
+          "contact_email" => "email_contact_email",
+          "contact_name" => "email_contact_name"
+        }
       },
       %{
         "step" => 3,
         "action" => "get_availability",
         "api" => "calendar",
-        "params" => %{"date" => "soonest_available", "duration_minutes" => 30},
-        "description" => "Get available times from Google Calendar.",
-        "depends_on" => 2
+        "params" => %{"date" => "next_3_days", "duration_minutes" => 30},
+        "description" => "Get available times from Google Calendar for the next 3 days.",
+        "depends_on" => 2,
+        "extract_from" => %{
+          "available_times" => "calendar_available_times"
+        }
       },
       %{
         "step" => 4,
@@ -127,8 +139,7 @@ defmodule AdvisorAi.AI.WorkflowGenerator do
         "params" => %{
           "to" => "contact_email",
           "subject" => "Let's set up an appointment",
-          "body" =>
-            "Here are my available times: {available_times}. Please reply with what works for you."
+          "body" => "Here are my available times: {available_times}. Please reply with what works for you."
         },
         "description" => "Send an email to the contact proposing available times.",
         "depends_on" => 3
@@ -137,45 +148,65 @@ defmodule AdvisorAi.AI.WorkflowGenerator do
         "step" => 5,
         "action" => "wait_for_reply",
         "api" => "gmail",
-        "params" => %{"from" => "contact_email"},
-        "description" => "Wait for the contact's reply and analyze the response.",
-        "depends_on" => 4
+        "params" => %{"from" => "contact_email", "timeout_hours" => 48},
+        "description" => "Wait for the contact's reply and analyze the response using LLM.",
+        "depends_on" => 4,
+        "extract_from" => %{
+          "response_type" => "reply_analysis",
+          "chosen_time" => "extracted_chosen_time",
+          "needs_new_times" => "needs_new_times"
+        }
       },
       %{
         "step" => 6,
-        "action" => "schedule_meeting",
+        "action" => "conditional_schedule",
         "api" => "calendar",
         "params" => %{
+          "condition" => "if_chosen_time_exists",
           "title" => "Appointment with {contact_name}",
           "attendees" => ["contact_email"],
-          "start_time" => "chosen_time"
+          "start_time" => "chosen_time",
+          "duration_minutes" => 30
         },
         "description" => "If a time is accepted, schedule the event in Google Calendar.",
         "depends_on" => 5
       },
       %{
         "step" => 7,
-        "action" => "add_note",
-        "api" => "hubspot",
+        "action" => "conditional_send_new_times",
+        "api" => "gmail",
         "params" => %{
-          "contact_email" => "contact_email",
-          "note_content" => "Appointment scheduled for {chosen_time}."
+          "condition" => "if_needs_new_times",
+          "to" => "contact_email",
+          "subject" => "Alternative appointment times",
+          "body" => "Here are some additional available times: {new_available_times}"
         },
-        "description" => "Add a note in HubSpot about the scheduled appointment.",
+        "description" => "If none of the times work, send new available times.",
         "depends_on" => 6
       },
       %{
         "step" => 8,
-        "action" => "send_email",
+        "action" => "add_note",
+        "api" => "hubspot",
+        "params" => %{
+          "contact_email" => "contact_email",
+          "note_content" => "Appointment scheduling initiated. {appointment_status}"
+        },
+        "description" => "Add a note in HubSpot about the appointment scheduling process.",
+        "depends_on" => 7
+      },
+      %{
+        "step" => 9,
+        "action" => "conditional_send_confirmation",
         "api" => "gmail",
         "params" => %{
+          "condition" => "if_appointment_scheduled",
           "to" => "contact_email",
           "subject" => "Appointment Confirmed",
-          "body" =>
-            "Your appointment is confirmed for {chosen_time}. Looking forward to speaking with you!"
+          "body" => "Your appointment is confirmed for {chosen_time}. Looking forward to speaking with you!"
         },
-        "description" => "Send a confirmation email to the contact.",
-        "depends_on" => 7
+        "description" => "Send a confirmation email to the contact if appointment was scheduled.",
+        "depends_on" => 8
       }
     ]
   }
@@ -186,8 +217,77 @@ defmodule AdvisorAi.AI.WorkflowGenerator do
     if String.contains?(message_lower, "schedule an appointment") or
          String.contains?(message_lower, "set up a meeting") or
          String.contains?(message_lower, "book a call") or
-         String.contains?(message_lower, "arrange a meeting") do
-      {:ok, Map.get(@workflow_templates, "advanced_appointment_scheduling")}
+         String.contains?(message_lower, "arrange a meeting") or
+         String.contains?(message_lower, "schedule with") or
+         String.contains?(message_lower, "meet with") do
+
+      # Use LLM to generate a more sophisticated workflow for appointment scheduling
+      system_prompt = """
+      You are an expert workflow generator for appointment scheduling. Generate a detailed, flexible workflow that can handle edge cases.
+
+      For appointment scheduling requests, create a workflow that:
+      1. Extracts contact information (name/email) from the request
+      2. Searches for the contact in HubSpot first, then falls back to email search
+      3. Gets available calendar times (next 3-7 days, 30-60 minute slots)
+      4. Sends a professional email with available times
+      5. Waits for and analyzes the contact's response using LLM
+      6. Handles multiple scenarios:
+         - Contact accepts a time → schedule meeting + send confirmation
+         - Contact rejects all times → get new times + send alternatives
+         - Contact suggests different time → check availability + respond
+         - Contact doesn't respond → send follow-up after 48 hours
+      7. Adds appropriate notes to HubSpot throughout the process
+      8. Uses conditional logic to handle different response types
+
+      Available APIs and actions:
+      - Gmail: search_emails, send_email, read_email, get_email_threads, wait_for_reply
+      - Calendar: get_availability, create_event, list_events, check_availability
+      - HubSpot: search_contacts, create_contact, add_note, update_contact
+
+      Generate a JSON workflow with:
+      1. "workflow_name": "Flexible Appointment Scheduling"
+      2. "extracted_data": What to extract from the user request
+      3. "steps": Array of workflow steps with:
+         - "step": Step number
+         - "action": Action to perform
+         - "api": Which API to use (gmail, calendar, hubspot)
+         - "params": Parameters (use placeholders like {contact_name}, {available_times})
+         - "description": What this step does
+         - "depends_on": Step number this depends on (optional)
+         - "fallback": Alternative action if this fails (optional)
+         - "condition": When to execute this step (optional)
+         - "extract_from": What data to extract from previous steps (optional)
+      4. "error_handling": How to handle failures and edge cases
+      5. "llm_analysis": Steps that require LLM analysis (like interpreting email responses)
+
+      User Request: "#{user_request}"
+      Context: #{context}
+
+      Respond with only the JSON workflow.
+      """
+
+      case OpenRouterClient.chat_completion(
+             messages: [
+               %{role: "system", content: system_prompt},
+               %{role: "user", content: user_request}
+             ]
+           ) do
+        {:ok, %{"choices" => [%{"message" => %{"content" => response}}]}} ->
+          case Jason.decode(response) do
+            {:ok, workflow} ->
+              # Validate and enhance the workflow
+              enhanced_workflow = enhance_appointment_workflow(workflow, user_request)
+              {:ok, enhanced_workflow}
+
+            {:error, _} ->
+              # Fallback to template
+              {:ok, Map.get(@workflow_templates, "advanced_appointment_scheduling")}
+          end
+
+        {:error, reason} ->
+          # Fallback to template
+          {:ok, Map.get(@workflow_templates, "advanced_appointment_scheduling")}
+      end
     else
       # Use AI to analyze the request and generate a workflow
       system_prompt = """
@@ -285,6 +385,50 @@ defmodule AdvisorAi.AI.WorkflowGenerator do
              "fallback" => "general_assistance"
            }
          ]}
+    end
+  end
+
+  defp enhance_appointment_workflow(workflow, user_request) do
+    # Extract contact name/email from the request
+    contact_info = extract_contact_from_request(user_request)
+
+    # Enhance the workflow with extracted data and better error handling
+    workflow
+    |> Map.put("extracted_data", contact_info)
+    |> Map.put("error_handling", %{
+      "contact_not_found" => "Create contact in HubSpot and continue",
+      "no_available_times" => "Get times for next week",
+      "no_response" => "Send follow-up after 48 hours",
+      "api_error" => "Retry with exponential backoff"
+    })
+    |> Map.put("llm_analysis", [
+      "analyze_email_response",
+      "extract_preferred_time",
+      "determine_response_type"
+    ])
+  end
+
+  defp extract_contact_from_request(request) do
+    # Simple extraction - in practice, this would use LLM
+    cond do
+      String.contains?(request, "with") ->
+        parts = String.split(request, "with")
+        if length(parts) > 1 do
+          contact_part = Enum.at(parts, 1) |> String.trim()
+          %{"contact_name_or_email" => contact_part}
+        else
+          %{}
+        end
+
+      String.contains?(request, "@") ->
+        # Extract email
+        case Regex.run(~r/\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/, request) do
+          [email] -> %{"contact_email" => email}
+          _ -> %{}
+        end
+
+      true ->
+        %{}
     end
   end
 
