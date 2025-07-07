@@ -363,7 +363,7 @@ defmodule AdvisorAiWeb.ChatLive.Index do
         |> put_flash(:error, "Your session has expired. Please log in again.")
         |> redirect(to: ~p"/")
 
-      {:halt, socket}
+      {:noreply, socket}
     else
       # Schedule next check (every 5 minutes)
       Process.send_after(self(), :check_token_expiration, 5 * 60 * 1000)
