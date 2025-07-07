@@ -1,4 +1,4 @@
-# <img src="priv/static/logo.svg" alt="AdvisorAI Logo" width="48" style="vertical-align:middle;"> AdvisorAI
+# <img src="/assets/logo.svg" alt="AdvisorAI Logo" width="48" style="vertical-align:middle;"> AdvisorAI
 
 [![Live Demo](https://img.shields.io/badge/Live%20Demo-Online-brightgreen?style=for-the-badge)](https://advisor-ai.onrender.com)
 [![Repo](https://img.shields.io/badge/GitHub-Repo-blue?style=for-the-badge)](https://github.com/your-username/advisor-ai)
@@ -27,7 +27,7 @@
 ## 🖼️ Screenshots
 
 ### Chat Interface
-<img src="priv/static/logo.svg" alt="AdvisorAI Chat UI" width="120" align="right">
+<img src="/assets/logo.svg" alt="AdvisorAI Chat UI" width="120" align="right">
 
 - **Clean, modern chat layout** with user and assistant messages
 - **Smart reply suggestions** for quick actions
