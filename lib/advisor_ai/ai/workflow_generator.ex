@@ -94,58 +94,161 @@ defmodule AdvisorAi.AI.WorkflowGenerator do
         "description" => "Send qualification email",
         "depends_on" => 2
       }
+    ],
+    "advanced_appointment_scheduling" => [
+      %{
+        "step" => 1,
+        "action" => "search_contacts",
+        "api" => "hubspot",
+        "params" => %{"query" => "extracted_name_or_email"},
+        "description" => "Look up the contact in HubSpot by name or email.",
+        "fallback" => "search_emails"
+      },
+      %{
+        "step" => 2,
+        "action" => "search_emails",
+        "api" => "gmail",
+        "params" => %{"query" => "extracted_name_or_email"},
+        "description" => "If not found in HubSpot, search previous emails for the contact.",
+        "depends_on" => 1
+      },
+      %{
+        "step" => 3,
+        "action" => "get_availability",
+        "api" => "calendar",
+        "params" => %{"date" => "soonest_available", "duration_minutes" => 30},
+        "description" => "Get available times from Google Calendar.",
+        "depends_on" => 2
+      },
+      %{
+        "step" => 4,
+        "action" => "send_email",
+        "api" => "gmail",
+        "params" => %{
+          "to" => "contact_email",
+          "subject" => "Let's set up an appointment",
+          "body" => "Here are my available times: {available_times}. Please reply with what works for you."
+        },
+        "description" => "Send an email to the contact proposing available times.",
+        "depends_on" => 3
+      },
+      %{
+        "step" => 5,
+        "action" => "wait_for_reply",
+        "api" => "gmail",
+        "params" => %{"from" => "contact_email"},
+        "description" => "Wait for the contact's reply and analyze the response.",
+        "depends_on" => 4
+      },
+      %{
+        "step" => 6,
+        "action" => "schedule_meeting",
+        "api" => "calendar",
+        "params" => %{
+          "title" => "Appointment with {contact_name}",
+          "attendees" => ["contact_email"],
+          "start_time" => "chosen_time"
+        },
+        "description" => "If a time is accepted, schedule the event in Google Calendar.",
+        "depends_on" => 5
+      },
+      %{
+        "step" => 7,
+        "action" => "add_note",
+        "api" => "hubspot",
+        "params" => %{"contact_email" => "contact_email", "note_content" => "Appointment scheduled for {chosen_time}."},
+        "description" => "Add a note in HubSpot about the scheduled appointment.",
+        "depends_on" => 6
+      },
+      %{
+        "step" => 8,
+        "action" => "send_email",
+        "api" => "gmail",
+        "params" => %{
+          "to" => "contact_email",
+          "subject" => "Appointment Confirmed",
+          "body" => "Your appointment is confirmed for {chosen_time}. Looking forward to speaking with you!"
+        },
+        "description" => "Send a confirmation email to the contact.",
+        "depends_on" => 7
+      }
     ]
   }
 
   def generate_workflow(user_request, context \\ "") do
-    # Use AI to analyze the request and generate a workflow
-    system_prompt = """
-    You are an expert workflow generator. Analyze the user's request and generate a detailed workflow.
+    message_lower = String.downcase(user_request)
 
-    Available actions:
-    - Gmail: search_emails, send_email, read_email, get_email_threads
-    - Calendar: get_availability, schedule_meeting, get_events, update_event, delete_event
-    - HubSpot: search_contacts, create_contact, update_contact, add_note, get_deals
+    if String.contains?(message_lower, "schedule an appointment") or
+       String.contains?(message_lower, "set up a meeting") or
+       String.contains?(message_lower, "book a call") or
+       String.contains?(message_lower, "arrange a meeting") do
+      {:ok, Map.get(@workflow_templates, "advanced_appointment_scheduling")}
+    else
+      # Use AI to analyze the request and generate a workflow
+      system_prompt = """
+      You are an expert workflow generator. Analyze the user's request and generate a detailed workflow.
 
-    Generate a JSON workflow with:
-    1. "workflow_name": Descriptive name
-    2. "steps": Array of workflow steps, each with:
-       - "step": Step number
-       - "action": Action to perform
-       - "api": Which API to use (gmail, calendar, hubspot)
-       - "params": Parameters for the action
-       - "description": What this step does
-       - "depends_on": Step number this depends on (optional)
-       - "fallback": Alternative action if this fails (optional)
-       - "extract_from": What data to extract from previous steps (optional)
+      For any request to schedule, set up, or arrange an appointment/meeting/call, you MUST generate a multi-step workflow that includes:
+      1. Contact lookup in HubSpot (by name/email)
+      2. If not found, search previous emails for the contact
+      3. Get available times from Google Calendar
+      4. Send an email to the contact proposing available times
+      5. Wait for a reply and, based on the response, either schedule the event, propose new times, or add a note in HubSpot
+      6. Add a note in HubSpot about the scheduled appointment
+      7. Send a confirmation email to the contact
+      8. Handle all steps with LLM-driven flexibility and fallback strategies
 
-    3. "extractions": What data to extract from the request
-    4. "error_handling": How to handle failures
+      Available actions:
+      - Gmail: search_emails, send_email, read_email, get_email_threads
+      - Calendar: get_availability, schedule_meeting, get_events, update_event, delete_event
+      - HubSpot: search_contacts, create_contact, update_contact, add_note, get_deals
 
-    Context: #{context}
-    Request: #{user_request}
+      CRITICAL: For any request about meetings, events, or calendar (e.g., 'list all my meetings', 'show my events', 'what meetings do I have', 'calendar for today'), you MUST use the Calendar API (get_events, schedule_meeting, etc.). Do NOT use HubSpot contacts for meetings or events.
 
-    Respond with only the JSON workflow.
-    """
+      Examples:
+      - 'list all my meetings' => use Calendar API get_events
+      - 'show my events today' => use Calendar API get_events
+      - 'schedule a meeting' => use Calendar API schedule_meeting
+      - 'get calendar for today' => use Calendar API get_events
 
-    case OpenRouterClient.chat_completion(
-           messages: [
-             %{role: "system", content: system_prompt},
-             %{role: "user", content: user_request}
-           ]
-         ) do
-      {:ok, %{"choices" => [%{"message" => %{"content" => response}}]}} ->
-        case Jason.decode(response) do
-          {:ok, workflow} ->
-            {:ok, workflow}
+      Generate a JSON workflow with:
+      1. \"workflow_name\": Descriptive name
+      2. \"steps\": Array of workflow steps, each with:
+         - \"step\": Step number
+         - \"action\": Action to perform
+         - \"api\": Which API to use (gmail, calendar, hubspot)
+         - \"params\": Parameters for the action
+         - \"description\": What this step does
+         - \"depends_on\": Step number this depends on (optional)
+         - \"fallback\": Alternative action if this fails (optional)
+         - \"extract_from\": What data to extract from previous steps (optional)
 
-          {:error, _} ->
-            # Fallback to template matching
-            fallback_workflow(user_request)
-        end
+      3. \"extractions\": What data to extract from the request
+      4. \"error_handling\": How to handle failures
 
-      {:error, reason} ->
-        {:error, "Failed to generate workflow: #{reason}"}
+      Context: #{context}
+      Request: #{user_request}
+
+      Respond with only the JSON workflow.
+      """
+
+      case OpenRouterClient.chat_completion(
+             messages: [
+               %{role: "system", content: system_prompt},
+               %{role: "user", content: user_request}
+             ]
+           ) do
+        {:ok, %{"choices" => [%{"message" => %{"content" => response}}]}} ->
+          case Jason.decode(response) do
+            {:ok, workflow} ->
+              {:ok, workflow}
+            {:error, _} ->
+              # Fallback to template matching
+              fallback_workflow(user_request)
+          end
+        {:error, reason} ->
+          {:error, "Failed to generate workflow: #{reason}"}
+      end
     end
   end
 
@@ -362,5 +465,25 @@ defmodule AdvisorAi.AI.WorkflowGenerator do
       _ ->
         {:error, "Unknown HubSpot action: #{action}"}
     end
+  end
+
+  # Use LLM to decide next action: continue, ask user, edge case, or done
+  def next_action_llm(workflow_state, recent_memories) do
+    # Call LLM with workflow_state and recent_memories to decide next step
+    # Placeholder: if last step result contains "need info", ask user
+    last_result = List.last(workflow_state["results"] || [])
+    if is_binary(last_result) and String.contains?(last_result, "need info") do
+      {:ask_user, "Can you provide more details or clarification?"}
+    else
+      {:next_step, nil}
+    end
+  end
+
+  # Use LLM/tool calling to resolve edge cases
+  def resolve_edge_case(edge_case_info, workflow_state) do
+    # Call LLM/tool with edge_case_info and workflow_state to resolve
+    # This is a placeholder for LLM/tool integration
+    # Example: {:ok, new_state} | {:done, result}
+    {:ok, workflow_state}
   end
 end

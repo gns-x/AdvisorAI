@@ -187,127 +187,30 @@ defmodule AdvisorAi.AI.Agent do
     Logger.info("🔍 Agent: Checking if contact exists in HubSpot: #{sender_email}")
 
     # Step 1: Check if contact exists in HubSpot
-    case HubSpot.search_contacts(user, sender_email) do
-      {:ok, contacts} when is_list(contacts) and length(contacts) > 0 ->
-        Logger.info("✅ Agent: Contact already exists in HubSpot: #{sender_email}")
-
-        # Contact exists - just add a note if requested
-        if Map.get(params, "add_note", false) do
-          contact = List.first(contacts)
-          contact_id = contact["id"]
-
-          note_content = """
-          Email received: #{subject}
-
-          #{body}
-
-          Received on: #{DateTime.utc_now()}
-          """
-
-          case HubSpot.add_note(user, sender_email, note_content) do
-            {:ok, _} -> {:ok, "Added note to existing contact #{sender_email}"}
-            {:error, reason} -> {:error, "Failed to add note: #{reason}"}
-          end
-        else
-          {:ok, "Contact #{sender_email} already exists in HubSpot"}
+    case AdvisorAi.Integrations.HubSpot.get_contact_by_email(user, sender_email) do
+      {:ok, nil} ->
+        Logger.info("👤 Contact not found in HubSpot. Creating new contact...")
+        # Step 2: Create contact in HubSpot
+        case AdvisorAi.Integrations.HubSpot.create_contact(user, sender_email, subject, body) do
+          {:ok, contact} ->
+            Logger.info("✅ Contact created in HubSpot: #{inspect(contact)}")
+            # Step 3: Add note if required
+            if Map.get(params, "add_note", false) do
+              AdvisorAi.Integrations.HubSpot.add_note_to_contact(user, contact, body)
+            end
+            # Send notification to user in chat
+            AdvisorAi.Chat.create_message_for_user(user, "A new HubSpot contact was created for #{sender_email} with subject: '#{subject}'.")
+            {:ok, "Contact created in HubSpot and user notified"}
+          {:error, reason} ->
+            Logger.error("❌ Failed to create contact in HubSpot: #{reason}")
+            {:error, "Failed to create contact in HubSpot: #{reason}"}
         end
-
-      {:ok, _} ->
-        Logger.info("📝 Agent: Contact not found in HubSpot, creating new contact: #{sender_email}")
-
-        # Contact doesn't exist - create it if requested
-        if Map.get(params, "create_contact_if_missing", false) do
-          create_contact_from_email(user, sender_email, subject, body)
-        else
-          {:ok, "Contact #{sender_email} not found in HubSpot"}
-        end
-
+      {:ok, _contact} ->
+        Logger.info("👤 Contact already exists in HubSpot: #{sender_email}")
+        {:ok, "Contact already exists in HubSpot"}
       {:error, reason} ->
-        Logger.error("❌ Agent: Failed to check HubSpot contacts: #{reason}")
-        {:error, "Failed to check HubSpot contacts: #{reason}"}
-    end
-  end
-
-  # Create a new contact from email data
-  defp create_contact_from_email(user, sender_email, subject, body) do
-    require Logger
-
-    Logger.info("👤 Agent: Creating new contact from email: #{sender_email}")
-
-    # Extract name from email (basic parsing)
-    name = extract_name_from_email(sender_email)
-
-    # Create contact in HubSpot
-    contact_data = %{
-      "email" => sender_email,
-      "first_name" => name.first,
-      "last_name" => name.last,
-      "company" => extract_company_from_email(sender_email)
-    }
-
-    Logger.info("📊 Agent: Contact data: #{inspect(contact_data)}")
-
-    case HubSpot.create_contact(user, contact_data) do
-      {:ok, result} ->
-        Logger.info("✅ Agent: Successfully created contact in HubSpot: #{inspect(result)}")
-
-        # Add note about the email if requested
-        note_content = """
-        Contact created from email: #{subject}
-
-        #{body}
-
-        Created on: #{DateTime.utc_now()}
-        """
-
-        case HubSpot.add_note(user, sender_email, note_content) do
-          {:ok, _} -> {:ok, "Created new contact #{sender_email} with email note"}
-          {:error, reason} -> {:ok, "Created new contact #{sender_email} but note failed: #{reason}"}
-        end
-
-      {:error, reason} ->
-        Logger.error("❌ Agent: Failed to create contact: #{reason}")
-        {:error, "Failed to create contact: #{reason}"}
-    end
-  end
-
-  # Extract name from email address
-  defp extract_name_from_email(email) do
-    # Basic name extraction from email
-    username = email |> String.split("@") |> List.first()
-
-    case String.split(username, ".") do
-      [first, last] ->
-        %{
-          first: String.capitalize(first),
-          last: String.capitalize(last)
-        }
-
-      [name] ->
-        %{
-          first: String.capitalize(name),
-          last: ""
-        }
-
-      _ ->
-        %{
-          first: "Unknown",
-          last: ""
-        }
-    end
-  end
-
-  # Extract company from email domain
-  defp extract_company_from_email(email) do
-    case String.split(email, "@") do
-      [_, domain] ->
-        domain
-        |> String.split(".")
-        |> List.first()
-        |> String.capitalize()
-
-      _ ->
-        "Unknown"
+        Logger.error("❌ Failed to check contact in HubSpot: #{reason}")
+        {:error, "Failed to check contact in HubSpot: #{reason}"}
     end
   end
 

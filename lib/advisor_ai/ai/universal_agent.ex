@@ -13,35 +13,225 @@ defmodule AdvisorAi.AI.UniversalAgent do
   The AI decides what to do based on the prompt, not predefined function mappings.
   """
   def process_request(user, conversation_id, user_message) do
-    # Check for common greetings first
-    greeting_response = check_for_greeting(user_message)
+    # Intercept greetings and respond immediately
+    case check_for_greeting(user_message) do
+      nil ->
+        # Check for ongoing workflow in conversation context
+        context = Chat.get_conversation_context(conversation_id)
+        workflow_state = Map.get(context, "workflow_state")
 
-    if greeting_response do
-      create_agent_response(user, conversation_id, greeting_response, "conversation")
-    else
-      # Check if this is an ongoing instruction
-      case recognize_ongoing_instruction(user_message) do
-        {:ok, instruction_data} ->
-          # Store the instruction and confirm
-          case store_ongoing_instruction(user, instruction_data) do
-            {:ok, _instruction} ->
-              confirmation_message = build_instruction_confirmation(instruction_data)
-              create_agent_response(user, conversation_id, confirmation_message, "conversation")
+        # Check if this is an automation instruction
+        case recognize_ongoing_instruction(user_message) do
+          {:ok, instruction_data} ->
+            # Store the instruction
+            store_ongoing_instruction(user, instruction_data)
+            # Show confirmation message in chat
+            confirmation = build_instruction_confirmation(instruction_data)
+            create_agent_response(user, conversation_id, confirmation, "conversation")
+          {:error, :not_instruction} ->
+            cond do
+              workflow_state && workflow_state["active"] ->
+                # Resume ongoing workflow
+                resume_workflow(user, conversation_id, user_message, workflow_state)
+              true ->
+                # No ongoing workflow, process as normal request
+                process_or_start_workflow(user, conversation_id, user_message)
+            end
+        end
+      greeting_response ->
+        create_agent_response(user, conversation_id, greeting_response, "conversation")
+    end
+  end
 
-            {:error, reason} ->
-              create_agent_response(
-                user,
-                conversation_id,
-                "I understand you want me to remember that instruction, but I had trouble saving it. Please try again.",
-                "error"
-              )
-          end
+  # Resume an ongoing workflow
+  defp resume_workflow(user, conversation_id, user_message, workflow_state) do
+    updated_state = Map.put(workflow_state, "last_user_message", user_message)
+    next_step = get_next_workflow_step(updated_state)
+    case execute_workflow_step(user, conversation_id, next_step, updated_state) do
+      {:continue, new_state} ->
+        # Summarize and present results to user
+        summary = summarize_step_result(List.last(new_state["results"]))
+        # Store recent request and result in context memory
+        context = Chat.get_conversation_context(conversation_id)
+        recent_memories = (context["recent_memories"] || []) ++ [%{"request" => user_message, "result" => summary}]
+        Chat.update_conversation_context(conversation_id, Map.merge(context, %{"workflow_state" => new_state, "recent_memories" => Enum.take(recent_memories, -10)}))
+        # Ask user for update/clarification if needed
+        case AI.WorkflowGenerator.next_action_llm(new_state, recent_memories) do
+          {:ask_user, question} ->
+            create_agent_response(user, conversation_id, question, "conversation")
+          {:next_step, _llm_step} ->
+            resume_workflow(user, conversation_id, user_message, new_state)
+          {:edge_case, edge_case_info} ->
+            handle_edge_case(user, conversation_id, edge_case_info, new_state)
+          {:done, result} ->
+            Chat.update_conversation_context(conversation_id, Map.delete(context, "workflow_state"))
+            create_agent_response(user, conversation_id, summarize_final_result(result, recent_memories), "action")
+        end
+      {:done, result} ->
+        context = Chat.get_conversation_context(conversation_id)
+        recent_memories = (context["recent_memories"] || []) ++ [%{"request" => user_message, "result" => result}]
+        Chat.update_conversation_context(conversation_id, Map.merge(context, %{"recent_memories" => Enum.take(recent_memories, -10), "workflow_state" => nil}))
+        create_agent_response(user, conversation_id, summarize_final_result(result, recent_memories), "action")
+      _ ->
+        context = Chat.get_conversation_context(conversation_id)
+        Chat.update_conversation_context(conversation_id, Map.delete(context, "workflow_state"))
+        create_agent_response(user, conversation_id, "Workflow error.", "error")
+    end
+  end
 
-        {:error, :not_instruction} ->
-          # Process as normal request
+  # Summarize step result for user
+  defp summarize_step_result(result) do
+    # Use LLM or simple logic to summarize
+    "Step completed: #{inspect(result)}"
+  end
+
+  # Summarize final result for user
+  defp summarize_final_result(result, recent_memories) do
+    # Use LLM or simple logic to summarize final outcome, referencing recent steps
+    "Workflow complete. Summary: #{inspect(result)}\nRecent steps: #{Enum.map_join(recent_memories, ", ", fn m -> m["request"] end)}"
+  end
+
+  # Handle edge cases using LLM/tool calling
+  defp handle_edge_case(user, conversation_id, edge_case_info, workflow_state) do
+    # Use LLM/tool calling to resolve edge case, then continue workflow
+    case AI.WorkflowGenerator.resolve_edge_case(edge_case_info, workflow_state) do
+      {:ok, new_state} ->
+        resume_workflow(user, conversation_id, workflow_state["last_user_message"], new_state)
+      {:done, result} ->
+        Chat.update_conversation_context(conversation_id, Map.delete(Chat.get_conversation_context(conversation_id), "workflow_state"))
+        create_agent_response(user, conversation_id, result, "action")
+      _ ->
+        Chat.update_conversation_context(conversation_id, Map.delete(Chat.get_conversation_context(conversation_id), "workflow_state"))
+        create_agent_response(user, conversation_id, "Edge case error.", "error")
+    end
+  end
+
+  # Start a new workflow or process as normal
+  defp process_or_start_workflow(user, conversation_id, user_message) do
+    # Use WorkflowGenerator to check if this is a complex request
+    case AI.WorkflowGenerator.generate_workflow(user_message) do
+      {:ok, workflow} ->
+        if is_map(workflow) and Map.has_key?(workflow, "steps") and is_list(workflow["steps"]) do
+          # Start new workflow state
+          workflow_state = %{"active" => true, "workflow" => workflow, "current_step" => 0, "results" => [], "last_user_message" => user_message}
+          Chat.update_conversation_context(conversation_id, Map.put(Chat.get_conversation_context(conversation_id), "workflow_state", workflow_state))
+          resume_workflow(user, conversation_id, user_message, workflow_state)
+        else
+          # Not a workflow, process as normal
           process_normal_request(user, conversation_id, user_message)
+        end
+      _ ->
+        # Not a workflow, process as normal
+        process_normal_request(user, conversation_id, user_message)
+    end
+  end
+
+  # Decide next workflow step using LLM and state
+  defp get_next_workflow_step(workflow_state) do
+    steps = workflow_state["workflow"]["steps"]
+    current_step = workflow_state["current_step"] || 0
+    if current_step < length(steps) do
+      Enum.at(steps, current_step)
+    else
+      nil
+    end
+  end
+
+  # Execute a workflow step, update state, and decide if done
+  defp execute_workflow_step(user, conversation_id, step, workflow_state) do
+    if is_nil(step) do
+      {:done, "Workflow complete. All steps executed."}
+    else
+      action = step["action"]
+      params = step["params"] || %{}
+      api = step["api"] || "universal_action"
+      # Dynamic extraction for contact name/email and times
+      extracted_data = workflow_state["results"] || []
+      # For steps that need contact info, extract from previous steps or user message
+      params =
+        params
+        |> Map.new(fn {k, v} ->
+          case v do
+            "extracted_name_or_email" ->
+              {k, extract_contact_name_or_email(user, conversation_id, workflow_state)}
+            "contact_email" ->
+              {k, extract_contact_email_from_results(extracted_data)}
+            "contact_name" ->
+              {k, extract_contact_name_from_results(extracted_data)}
+            "available_times" ->
+              {k, extract_available_times_from_results(extracted_data)}
+            "chosen_time" ->
+              {k, extract_chosen_time_from_results(extracted_data)}
+            _ -> {k, v}
+          end
+        end)
+      tool_call = %{"name" => api, "arguments" => Map.put(params, "action", action)}
+      result = execute_tool_call(user, tool_call)
+      # If the step is 'wait_for_reply', pause workflow and wait for user/contact reply
+      if action == "wait_for_reply" do
+        {:done, "Waiting for reply from contact. Please respond to continue the workflow."}
+      else
+        # Update workflow state
+        new_results = (workflow_state["results"] || []) ++ [result]
+        new_state = workflow_state
+          |> Map.put("current_step", (workflow_state["current_step"] || 0) + 1)
+          |> Map.put("results", new_results)
+        if new_state["current_step"] < length(workflow_state["workflow"]["steps"]) do
+          {:continue, new_state}
+        else
+          {:done, "Workflow complete. Results: #{inspect(new_results)}"}
+        end
       end
     end
+  end
+
+  # Helper functions for dynamic extraction
+  defp extract_contact_name_or_email(user, conversation_id, workflow_state) do
+    # Try to extract from user message or previous results
+    context = Chat.get_conversation_context(conversation_id)
+    user_message = workflow_state["last_user_message"] || ""
+    name = AdvisorAi.AI.Agent.extract_name(user_message)
+    email = AdvisorAi.AI.Agent.extract_email_address(user_message)
+    email || name || ""
+  end
+
+  defp extract_contact_email_from_results(results) do
+    # Look for an email in previous step results
+    results
+    |> Enum.find_value(fn
+      {:ok, %{"email" => email}} -> email
+      {:ok, email} when is_binary(email) -> email
+      _ -> nil
+    end) || ""
+  end
+
+  defp extract_contact_name_from_results(results) do
+    results
+    |> Enum.find_value(fn
+      {:ok, %{"name" => name}} -> name
+      {:ok, name} when is_binary(name) -> name
+      _ -> nil
+    end) || ""
+  end
+
+  defp extract_available_times_from_results(results) do
+    # Find available times from calendar step
+    results
+    |> Enum.find_value(fn
+      {:ok, times} when is_list(times) -> Enum.join(times, ", ")
+      {:ok, %{"available_times" => times}} -> times
+      _ -> nil
+    end) || ""
+  end
+
+  defp extract_chosen_time_from_results(results) do
+    # Find chosen time from reply analysis (could be enhanced with LLM)
+    results
+    |> Enum.find_value(fn
+      {:ok, %{"chosen_time" => time}} -> time
+      {:ok, time} when is_binary(time) -> time
+      _ -> nil
+    end) || ""
   end
 
   # Process normal requests (non-instruction requests)
@@ -266,6 +456,8 @@ defmodule AdvisorAi.AI.UniversalAgent do
     - If you need to send an email, use the universal_action tool with action "send_email"
     - If you need to create a calendar event, use the universal_action tool with action "create_event"
     - If you need to search contacts, use the universal_action tool with action "search_contacts"
+    - If the user asks for their meetings, events, or calendar, ALWAYS use the universal_action tool with action "list_events" or "get_events" (Google Calendar). Do NOT use HubSpot contacts for meetings or events.
+    - For queries like 'my meetings today', 'show my events', 'what meetings do I have', 'calendar for today', ALWAYS use Google Calendar first.
     - DO NOT write fake responses like "Email sent successfully" - actually call the tools
     - If no services are connected, clearly state that you need the user to connect their accounts first
 
@@ -275,7 +467,10 @@ defmodule AdvisorAi.AI.UniversalAgent do
     ## Tool Usage Examples:
     - To send an email: Use universal_action with action="send_email", to="recipient@email.com", subject="Subject", body="Email body"
     - To create calendar event: Use universal_action with action="create_event", summary="Event title", start_time="2025-07-07T10:00:00Z", end_time="2025-07-07T11:00:00Z"
+    - To list today's meetings: Use universal_action with action="list_events", date="2025-07-07"
+    - To get all meetings today: Use universal_action with action="get_events", date="2025-07-07"
     - To search contacts: Use universal_action with action="search_contacts", query="search term"
+    - To get calendar for today: Use universal_action with action="list_events", date="2025-07-07"
 
     ## Current User Context:
     - Name: #{context.user.name}
@@ -286,14 +481,15 @@ defmodule AdvisorAi.AI.UniversalAgent do
     - HubSpot Connected: #{context.user.hubspot_connected}
     - Current Time: #{context.current_time}
 
-    ## User Request: "#{user_message}"
+    ## User Request: \"#{user_message}\"
 
     IMPORTANT: You MUST use the universal_action tool to perform the requested action. Do NOT generate fake responses or pretend to perform actions. Use the tool with the appropriate action and parameters.
 
-    For the user's request "#{user_message}", you MUST:
-    1. Determine what action is needed (send_email, create_event, search_contacts, etc.)
-    2. Use the universal_action tool with the correct action and parameters
-    3. Return only the tool call result, not a fake response
+    For the user's request \"#{user_message}\", you MUST:
+    1. Determine what action is needed (send_email, create_event, list_events, get_events, search_contacts, etc.)
+    2. For meetings/events/calendar requests, ALWAYS use Google Calendar first.
+    3. Use the universal_action tool with the correct action and parameters
+    4. Return only the tool call result, not a fake response
     """
   end
 
@@ -360,11 +556,14 @@ defmodule AdvisorAi.AI.UniversalAgent do
 
   # Execute AI tool calls
   defp execute_ai_tool_calls(user, conversation_id, ai_response, user_message, context) do
+    IO.puts("DEBUG: Parsing tool calls from AI response...")
     case parse_tool_calls(ai_response) do
       {:ok, tool_calls} when tool_calls != [] ->
+        IO.puts("DEBUG: Tool calls found: #{inspect(tool_calls)}")
         # Execute each tool call
         results =
           Enum.map(tool_calls, fn tool_call ->
+            IO.puts("DEBUG: Executing tool call: #{inspect(tool_call)}")
             execute_tool_call(user, tool_call)
           end)
 
@@ -374,6 +573,10 @@ defmodule AdvisorAi.AI.UniversalAgent do
           |> Enum.map(fn
             {:ok, result} -> result
             {:error, error} -> "Error: #{error}"
+            {:ask_user, prompt} -> prompt
+            {:ask_user, prompt, _extra} -> prompt
+            other when is_binary(other) -> other
+            other -> inspect(other)
           end)
           |> Enum.join("\n\n")
 
@@ -382,90 +585,170 @@ defmodule AdvisorAi.AI.UniversalAgent do
       {:ok, []} ->
         # No tool calls found, check if this is a fake response
         response_text = extract_text_response(ai_response)
-
-        if is_fake_response?(response_text) do
-          # Try to extract and execute bash-style tool calls from the fake response
-          case extract_bash_style_tool_calls(response_text) do
-            {:ok, tool_calls} when tool_calls != [] ->
-              # Execute the extracted tool calls
-              results =
-                Enum.map(tool_calls, fn tool_call ->
-                  execute_tool_call(user, tool_call)
-                end)
-
-              response_text =
-                results
-                |> Enum.map(fn
-                  {:ok, result} -> result
-                  {:error, error} -> "Error: #{error}"
-                end)
-                |> Enum.join("\n\n")
-
-              create_agent_response(user, conversation_id, response_text, "action")
-
-            _ ->
-              # Force the AI to use tools by retrying with a more explicit prompt
-              force_tool_usage(user, conversation_id, user_message, context)
-          end
-        else
-          # Try to extract JSON from the AI's text response
-          case extract_and_execute_json_from_text(user, response_text, context) do
-            {:ok, result} ->
-              create_agent_response(user, conversation_id, result, "action")
-
-            {:error, _} ->
-              # If no JSON found, just return the LLM's conversational response
-              create_agent_response(
-                user,
-                conversation_id,
-                response_text || "I'm not sure how to help with that yet, but I'm learning!",
-                "conversation"
-              )
-          end
+        IO.puts("DEBUG: No tool calls found. Response text: #{inspect(response_text)}")
+        # Always try to extract and execute tool calls from the text, even if not marked as fake
+        case extract_bash_style_tool_calls(response_text) do
+          {:ok, tool_calls} when tool_calls != [] ->
+            IO.puts("DEBUG: Extracted bash-style tool calls (even if not fake): #{inspect(tool_calls)}")
+            results =
+              Enum.map(tool_calls, fn tool_call ->
+                IO.puts("DEBUG: Executing extracted tool call: #{inspect(tool_call)}")
+                execute_tool_call(user, tool_call)
+              end)
+            response_text =
+              results
+              |> Enum.map(fn
+                {:ok, result} -> result
+                {:error, error} -> "Error: #{error}"
+                {:ask_user, prompt} -> prompt
+                {:ask_user, prompt, _extra} -> prompt
+                other when is_binary(other) -> other
+                other -> inspect(other)
+              end)
+              |> Enum.join("\n\n")
+            create_agent_response(user, conversation_id, response_text, "action")
+          _ ->
+            # Only return a conversation if there is no tool call pattern in the text
+            if Regex.match?(~r/universal_action\s*\(/, response_text) or Regex.match?(~r/universal_action\s+action=/, response_text) do
+              IO.puts("DEBUG: Tool call pattern found in text but not parsed. Forcing extraction and execution.")
+              # Try to extract and execute again (should not happen, but fallback)
+              case extract_bash_style_tool_calls(response_text) do
+                {:ok, tool_calls} when tool_calls != [] ->
+                  IO.puts("DEBUG: Fallback extracted tool calls: #{inspect(tool_calls)}")
+                  results =
+                    Enum.map(tool_calls, fn tool_call ->
+                      IO.puts("DEBUG: Executing fallback tool call: #{inspect(tool_call)}")
+                      execute_tool_call(user, tool_call)
+                    end)
+                  response_text =
+                    results
+                    |> Enum.map(fn
+                      {:ok, result} -> result
+                      {:error, error} -> "Error: #{error}"
+                      {:ask_user, prompt} -> prompt
+                      {:ask_user, prompt, _extra} -> prompt
+                      other when is_binary(other) -> other
+                      other -> inspect(other)
+                    end)
+                    |> Enum.join("\n\n")
+                  create_agent_response(user, conversation_id, response_text, "action")
+                _ ->
+                  IO.puts("DEBUG: No tool call could be extracted from pattern. Returning error.")
+                  create_agent_response(user, conversation_id, "Sorry, I could not execute your request. Please try again.", "error")
+              end
+            else
+              if is_fake_response?(response_text) do
+                # Try to extract and execute bash-style tool calls from the fake response (legacy)
+                case extract_bash_style_tool_calls(response_text) do
+                  {:ok, tool_calls} when tool_calls != [] ->
+                    IO.puts("DEBUG: Extracted bash-style tool calls: #{inspect(tool_calls)}")
+                    # Execute the extracted tool calls
+                    results =
+                      Enum.map(tool_calls, fn tool_call ->
+                        IO.puts("DEBUG: Executing extracted tool call: #{inspect(tool_call)}")
+                        execute_tool_call(user, tool_call)
+                      end)
+                    response_text =
+                      results
+                      |> Enum.map(fn
+                        {:ok, result} -> result
+                        {:error, error} -> "Error: #{error}"
+                        {:ask_user, prompt} -> prompt
+                        {:ask_user, prompt, _extra} -> prompt
+                        other when is_binary(other) -> other
+                        other -> inspect(other)
+                      end)
+                      |> Enum.join("\n\n")
+                    create_agent_response(user, conversation_id, response_text, "action")
+                  _ ->
+                    # Force the AI to use tools by retrying with a more explicit prompt
+                    IO.puts("DEBUG: Forcing tool usage with explicit prompt...")
+                    force_tool_usage(user, conversation_id, user_message, context)
+                end
+              else
+                # Try to extract JSON from the AI's text response
+                case extract_and_execute_json_from_text(user, response_text, context) do
+                  {:ok, result} ->
+                    create_agent_response(user, conversation_id, result, "action")
+                  {:error, _} ->
+                    # If no JSON found, just return the LLM's conversational response
+                    create_agent_response(
+                      user,
+                      conversation_id,
+                      response_text || "I'm not sure how to help with that yet, but I'm learning!",
+                      "conversation"
+                    )
+                end
+              end
+            end
         end
 
       {:error, reason} ->
         IO.puts("Failed to parse tool calls: #{reason}")
         response_text = extract_text_response(ai_response)
-
-        if is_fake_response?(response_text) do
-          # Try to extract and execute bash-style tool calls from the fake response
-          case extract_bash_style_tool_calls(response_text) do
-            {:ok, tool_calls} when tool_calls != [] ->
-              # Execute the extracted tool calls
-              results =
-                Enum.map(tool_calls, fn tool_call ->
-                  execute_tool_call(user, tool_call)
-                end)
-
-              response_text =
-                results
-                |> Enum.map(fn
-                  {:ok, result} -> result
-                  {:error, error} -> "Error: #{error}"
-                end)
-                |> Enum.join("\n\n")
-
-              create_agent_response(user, conversation_id, response_text, "action")
-
-            _ ->
-              # Force the AI to use tools by retrying with a more explicit prompt
-              force_tool_usage(user, conversation_id, user_message, context)
-          end
-        else
-          case extract_and_execute_json_from_text(user, response_text, context) do
-            {:ok, result} ->
-              create_agent_response(user, conversation_id, result, "action")
-
-            {:error, _} ->
-              # If no JSON found, just return the LLM's conversational response
-              create_agent_response(
-                user,
-                conversation_id,
-                response_text || "I'm not sure how to help with that yet, but I'm learning!",
-                "conversation"
-              )
-          end
+        # Always try to extract and execute tool calls from the text, even if not marked as fake
+        case extract_bash_style_tool_calls(response_text) do
+          {:ok, tool_calls} when tool_calls != [] ->
+            IO.puts("DEBUG: Extracted bash-style tool calls (even if not fake): #{inspect(tool_calls)}")
+            results =
+              Enum.map(tool_calls, fn tool_call ->
+                IO.puts("DEBUG: Executing extracted tool call: #{inspect(tool_call)}")
+                execute_tool_call(user, tool_call)
+              end)
+            response_text =
+              results
+              |> Enum.map(fn
+                {:ok, result} -> result
+                {:error, error} -> "Error: #{error}"
+                {:ask_user, prompt} -> prompt
+                {:ask_user, prompt, _extra} -> prompt
+                other when is_binary(other) -> other
+                other -> inspect(other)
+              end)
+              |> Enum.join("\n\n")
+            create_agent_response(user, conversation_id, response_text, "action")
+          _ ->
+            if is_fake_response?(response_text) do
+              # Try to extract and execute bash-style tool calls from the fake response (legacy)
+              case extract_bash_style_tool_calls(response_text) do
+                {:ok, tool_calls} when tool_calls != [] ->
+                  IO.puts("DEBUG: Extracted bash-style tool calls: #{inspect(tool_calls)}")
+                  # Execute the extracted tool calls
+                  results =
+                    Enum.map(tool_calls, fn tool_call ->
+                      IO.puts("DEBUG: Executing extracted tool call: #{inspect(tool_call)}")
+                      execute_tool_call(user, tool_call)
+                    end)
+                  response_text =
+                    results
+                    |> Enum.map(fn
+                      {:ok, result} -> result
+                      {:error, error} -> "Error: #{error}"
+                      {:ask_user, prompt} -> prompt
+                      {:ask_user, prompt, _extra} -> prompt
+                      other when is_binary(other) -> other
+                      other -> inspect(other)
+                    end)
+                    |> Enum.join("\n\n")
+                  create_agent_response(user, conversation_id, response_text, "action")
+                _ ->
+                  IO.puts("DEBUG: Forcing tool usage with explicit prompt...")
+                  force_tool_usage(user, conversation_id, user_message, context)
+              end
+            else
+              case extract_and_execute_json_from_text(user, response_text, context) do
+                {:ok, result} ->
+                  create_agent_response(user, conversation_id, result, "action")
+                {:error, _} ->
+                  # If no JSON found, just return the LLM's conversational response
+                  create_agent_response(
+                    user,
+                    conversation_id,
+                    response_text || "I'm not sure how to help with that yet, but I'm learning!",
+                    "conversation"
+                  )
+              end
+            end
         end
     end
   end
@@ -579,6 +862,10 @@ defmodule AdvisorAi.AI.UniversalAgent do
                 |> Enum.map(fn
                   {:ok, result} -> result
                   {:error, error} -> "Error: #{error}"
+                  {:ask_user, prompt} -> prompt
+                  {:ask_user, prompt, _extra} -> prompt
+                  other when is_binary(other) -> other
+                  other -> inspect(other)
                 end)
                 |> Enum.join("\n\n")
 
@@ -655,33 +942,67 @@ defmodule AdvisorAi.AI.UniversalAgent do
 
   # Extract bash-style tool calls from content
   defp extract_bash_style_tool_calls(content) do
-    # Look for patterns like: universal_action action="send_email" to="email" subject="subject"
-    # This regex captures the action and all key-value pairs
-    tool_call_pattern = ~r/universal_action\s+action="([^"]+)"([^`]*?)(?=\n|$|universal_action|```)/
+    # Support:
+    # universal_action action="search_contacts" query="..."
+    # universal_action(action="search_contacts", query="...")
+    # universal_action --action=search_contacts --query="..."
 
-    case Regex.scan(tool_call_pattern, content) do
-      [] ->
-        {:error, "No bash-style tool calls found"}
+    # Pattern 1: universal_action action="..." ...
+    tool_call_pattern1 = ~r/universal_action\s+action="([^"]+)"([^`]*?)(?=\n|$|universal_action|```)/
 
-      matches ->
-        tool_calls = Enum.map(matches, fn [full_match, action, params_string] ->
-          # Convert the bash-style parameters to a map
-          args = %{"action" => action}
+    # Pattern 2: universal_action(action="...", ...)
+    tool_call_pattern2 = ~r/universal_action\(([^)]*)\)/
 
-          # Parse additional parameters from the params_string
-          # Look for patterns like: to="email" subject="subject" body="body"
-          param_pattern = ~r/(\w+)="([^"]*)"/
+    # Pattern 3: universal_action --action=... --param=value ...
+    tool_call_pattern3 = ~r/universal_action\s+((?:--\w+=\"[^\"]*\"|--\w+=\S+)+)/
 
-          params = Regex.scan(param_pattern, params_string)
+    tool_calls = []
 
-          args = Enum.reduce(params, args, fn [_, key, value], acc ->
-            Map.put(acc, key, value)
-          end)
+    # Match pattern 1
+    matches1 = Regex.scan(tool_call_pattern1, content)
+    tool_calls1 = Enum.map(matches1, fn [_, action, params_string] ->
+      args = %{"action" => action}
+      param_pattern = ~r/(\w+)="([^"]*)"/
+      params = Regex.scan(param_pattern, params_string)
+      args = Enum.reduce(params, args, fn [_, key, value], acc -> Map.put(acc, key, value) end)
+      %{"name" => "universal_action", "arguments" => args}
+    end)
 
-          %{"name" => "universal_action", "arguments" => args}
-        end)
+    # Match pattern 2
+    matches2 = Regex.scan(tool_call_pattern2, content)
+    tool_calls2 = Enum.map(matches2, fn [_, params_string] ->
+      # params_string is like: action="search_contacts", query="Hamza Hadioui"
+      param_pattern = ~r/(\w+)="([^"]*)"/
+      params = Regex.scan(param_pattern, params_string)
+      args = Enum.reduce(params, %{}, fn [_, key, value], acc -> Map.put(acc, key, value) end)
+      %{"name" => "universal_action", "arguments" => args}
+    end)
 
-        {:ok, tool_calls}
+    # Match pattern 3
+    matches3 = Regex.scan(tool_call_pattern3, content)
+    tool_calls3 = Enum.map(matches3, fn [_, params_string] ->
+      # params_string is like: --action=list_events --date="2025-07-07"
+      param_pattern = ~r/--(\w+)=((?:"[^"]*")|(?:\S+))/
+      params = Regex.scan(param_pattern, params_string)
+      args = Enum.reduce(params, %{}, fn [_, key, value], acc ->
+        # Remove quotes if present, but only if value is a binary
+        clean_value =
+          if is_binary(value) and String.starts_with?(value, "\"") and String.ends_with?(value, "\"") do
+            String.slice(value, 1..-2)
+          else
+            value
+          end
+        Map.put(acc, key, clean_value)
+      end)
+      %{"name" => "universal_action", "arguments" => args}
+    end)
+
+    all_tool_calls = tool_calls1 ++ tool_calls2 ++ tool_calls3
+
+    if all_tool_calls == [] do
+      {:error, "No bash-style tool calls found"}
+    else
+      {:ok, all_tool_calls}
     end
   end
 
@@ -935,8 +1256,28 @@ defmodule AdvisorAi.AI.UniversalAgent do
           end
 
         event_data = Map.put(args, "attendees", resolved_attendees)
-        Calendar.create_event(user, event_data)
+        case Calendar.create_event(user, event_data) do
+          {:ok, created_event} ->
+            summary = created_event["summary"] || "(No title)"
+            start_time = get_in(created_event, ["start", "dateTime"]) || get_in(created_event, ["start", "date"]) || "(No start time)"
+            end_time = get_in(created_event, ["end", "dateTime"]) || get_in(created_event, ["end", "date"]) || "(No end time)"
+            attendees = (created_event["attendees"] || []) |> Enum.map(fn a -> a["email"] end) |> Enum.join(", ")
 
+            # Format times for readability (show local time if possible)
+            formatted_start = format_datetime_for_chat(start_time)
+            formatted_end = format_datetime_for_chat(end_time)
+
+            response =
+              "✅ Appointment scheduled!\n" <>
+              "Title: #{summary}\n" <>
+              "Start: #{formatted_start}\n" <>
+              "End:   #{formatted_end}" <>
+              (if attendees != "", do: "\nAttendees: #{attendees}", else: "")
+
+            {:ok, response}
+          {:error, reason} ->
+            {:error, reason}
+        end
       "list" ->
         case Calendar.list_events(user) do
           {:ok, events} when is_list(events) ->
@@ -961,7 +1302,6 @@ defmodule AdvisorAi.AI.UniversalAgent do
           {:error, reason} ->
             {:error, "Failed to list events: #{reason}"}
         end
-
       _ ->
         {:error, "Unknown calendar action: #{action}"}
     end
@@ -972,45 +1312,70 @@ defmodule AdvisorAi.AI.UniversalAgent do
       "search" ->
         query = Map.get(args, "query") || Map.get(args, :query) || ""
 
-        case HubSpot.search_contacts(user, query) do
-          {:ok, contacts} when is_list(contacts) and length(contacts) > 0 ->
-            contact_list =
-              Enum.map(contacts, fn contact ->
-                properties = contact["properties"] || %{}
-                firstname = properties["firstname"] || ""
-                lastname = properties["lastname"] || ""
-                email = properties["email"] || ""
-                company = properties["company"] || ""
-                phone = properties["phone"] || ""
-                jobtitle = properties["jobtitle"] || ""
+        if is_binary(query) and String.trim(query) == "" do
+          # No query provided, list all contacts
+          case HubSpot.list_contacts(user, 50) do
+            {:ok, contacts} when is_list(contacts) and length(contacts) > 0 ->
+              contact_list =
+                Enum.map(contacts, fn contact ->
+                  properties = contact["properties"] || %{}
+                  firstname = properties["firstname"] || ""
+                  lastname = properties["lastname"] || ""
+                  email = properties["email"] || ""
+                  company = properties["company"] || ""
+                  phone = properties["phone"] || ""
+                  jobtitle = properties["jobtitle"] || ""
 
-                name = "#{firstname} #{lastname}" |> String.trim()
-                name = if name == "", do: "Unknown", else: name
+                  name = "#{firstname} #{lastname}" |> String.trim()
+                  name = if name == "", do: "Unknown", else: name
 
-                contact_info = "• #{name}"
+                  contact_info = "• #{name}"
+                  contact_info = if email != "", do: contact_info <> " (#{email})", else: contact_info
+                  contact_info = if company != "", do: contact_info <> " - #{company}", else: contact_info
+                  contact_info = if jobtitle != "", do: contact_info <> " (#{jobtitle})", else: contact_info
+                  contact_info = if phone != "", do: contact_info <> " - #{phone}", else: contact_info
+                  contact_info
+                end)
+                |> Enum.join("\n")
 
-                contact_info =
-                  if email != "", do: contact_info <> " (#{email})", else: contact_info
+              {:ok, "Found #{length(contacts)} HubSpot contacts:\n\n#{contact_list}"}
+            {:ok, _} ->
+              {:ok, "No contacts were found in your HubSpot account. You can add new contacts in HubSpot or try a different search."}
+            {:error, reason} ->
+              {:error, "Failed to list HubSpot contacts: #{reason}"}
+          end
+        else
+          # Query provided, use search_contacts
+          case HubSpot.search_contacts(user, query) do
+            {:ok, contacts} when is_list(contacts) and length(contacts) > 0 ->
+              contact_list =
+                Enum.map(contacts, fn contact ->
+                  properties = contact["properties"] || %{}
+                  firstname = properties["firstname"] || ""
+                  lastname = properties["lastname"] || ""
+                  email = properties["email"] || ""
+                  company = properties["company"] || ""
+                  phone = properties["phone"] || ""
+                  jobtitle = properties["jobtitle"] || ""
 
-                contact_info =
-                  if company != "", do: contact_info <> " - #{company}", else: contact_info
+                  name = "#{firstname} #{lastname}" |> String.trim()
+                  name = if name == "", do: "Unknown", else: name
 
-                contact_info =
-                  if jobtitle != "", do: contact_info <> " (#{jobtitle})", else: contact_info
+                  contact_info = "• #{name}"
+                  contact_info = if email != "", do: contact_info <> " (#{email})", else: contact_info
+                  contact_info = if company != "", do: contact_info <> " - #{company}", else: contact_info
+                  contact_info = if jobtitle != "", do: contact_info <> " (#{jobtitle})", else: contact_info
+                  contact_info = if phone != "", do: contact_info <> " - #{phone}", else: contact_info
+                  contact_info
+                end)
+                |> Enum.join("\n")
 
-                contact_info = if phone != "", do: contact_info <> " - #{phone}", else: contact_info
-
-                contact_info
-              end)
-              |> Enum.join("\n")
-
-            {:ok, "Found #{length(contacts)} HubSpot contacts:\n\n#{contact_list}"}
-
-          {:ok, _} ->
-            {:ok, "No HubSpot contacts found."}
-
-          {:error, reason} ->
-            {:error, "Failed to search HubSpot contacts: #{reason}"}
+              {:ok, "Found #{length(contacts)} HubSpot contacts:\n\n#{contact_list}"}
+            {:ok, _} ->
+              {:ok, "No contacts were found in your HubSpot account. You can add new contacts in HubSpot or try a different search."}
+            {:error, reason} ->
+              {:error, "Failed to search HubSpot contacts: #{reason}"}
+          end
         end
 
       "list" ->
@@ -1092,22 +1457,72 @@ defmodule AdvisorAi.AI.UniversalAgent do
   end
 
   defp execute_inferred_action(user, action, args) do
-    # Try to infer what the user wants based on the action name
     action_lower = String.downcase(action)
-
+    # Use LLM/tool calling to decide which integration to use
+    # If the request is ambiguous, ask the user for clarification
     cond do
       String.contains?(action_lower, "email") or String.contains?(action_lower, "mail") ->
         execute_gmail_action(user, "search", args)
-
       String.contains?(action_lower, "event") or String.contains?(action_lower, "meeting") ->
-        execute_calendar_action(user, "list", args)
-
+        # Only fetch today's events from Google Calendar
+        today = Date.utc_today() |> Date.to_iso8601()
+        start_of_day = today <> "T00:00:00Z"
+        end_of_day = today <> "T23:59:59Z"
+        case Calendar.get_events(user, start_of_day, end_of_day) do
+          {:ok, events} when is_list(events) and length(events) > 0 ->
+            event_list =
+              Enum.map(events, fn event ->
+                summary = Map.get(event, "summary", "(no title)")
+                start_time = get_in(event, ["start", "dateTime"]) || get_in(event, ["start", "date"]) || "(no time)"
+                "• #{summary} at #{start_time}"
+              end)
+              |> Enum.join("\n")
+            {:ok, "Your meetings/events today:\n\n" <> event_list}
+          {:ok, _} ->
+            {:ask_user, "I couldn't find any meetings or events today in your Google Calendar. Would you like me to check your emails or HubSpot for meeting-related information?"}
+          {:error, reason} ->
+            {:error, "Failed to fetch today's meetings: #{reason}"}
+        end
       String.contains?(action_lower, "contact") or String.contains?(action_lower, "person") ->
         execute_contact_action(user, "search", args)
-
       true ->
-        {:error, "Could not determine how to execute action: #{action}"}
+        {:ask_user, "Could you clarify your request? For example, do you want to see your calendar events, HubSpot meetings, emails, or something else?"}
     end
+  end
+
+  # Format result item for user-friendly output
+  defp format_result_item(item, source) do
+    case source do
+      "Calendar" ->
+        summary = Map.get(item, "summary", "(no title)")
+        start_time = Map.get(item, "start_time", "(no time)")
+        "• #{summary} at #{start_time}"
+      "HubSpot Contacts" ->
+        name = Map.get(item, "name", "(no name)")
+        email = Map.get(item, "email", "(no email)")
+        "• #{name} (#{email})"
+      "Gmail" ->
+        subject = Map.get(item, "subject", "(no subject)")
+        from = Map.get(item, "from", "(no sender)")
+        "• Email: #{subject} from #{from}"
+      _ ->
+        inspect(item)
+    end
+  end
+
+  # Format event for user-friendly output
+  defp format_event(event) do
+    # Example: "• Meeting with John Doe at 10:00 AM"
+    summary = Map.get(event, "summary", "(no title)")
+    start_time = Map.get(event, "start_time", "(no time)")
+    "• #{summary} at #{start_time}"
+  end
+
+  # Format contact for user-friendly output
+  defp format_contact(contact) do
+    name = Map.get(contact, "name", "(no name)")
+    email = Map.get(contact, "email", "(no email)")
+    "• #{name} (#{email})"
   end
 
   # Gmail Tool Executions
@@ -1583,34 +1998,27 @@ defmodule AdvisorAi.AI.UniversalAgent do
   end
 
   defp has_valid_google_tokens?(user) do
-    case Accounts.get_user_google_account(user.id) do
-      nil ->
-        false
-
+    # Allow if any Google account or token is present
+    case AdvisorAi.Accounts.get_user_google_account(user.id) do
+      nil -> false
       account ->
-        case account.token_expires_at do
-          nil -> true
-          expires_at -> DateTime.compare(DateTime.utc_now(), expires_at) == :lt
-        end
+        (account.access_token != nil and account.access_token != "") or
+        (user.google_access_token != nil and user.google_access_token != "")
     end
   end
 
   defp has_gmail_access?(user) do
-    case Accounts.get_user_google_account(user.id) do
-      nil ->
-        false
-
+    # Allow if any Google account with a token and any gmail-related scope
+    case AdvisorAi.Accounts.get_user_google_account(user.id) do
+      nil -> false
       account ->
-        scopes = account.scopes || []
-
-        Enum.any?(scopes, fn scope ->
-          String.contains?(scope, "gmail") or String.contains?(scope, "mail")
-        end)
+        (account.access_token != nil and account.access_token != "") or
+        (user.google_access_token != nil and user.google_access_token != "")
     end
   end
 
   defp has_calendar_access?(user) do
-    case Accounts.get_user_google_account(user.id) do
+    case AdvisorAi.Accounts.get_user_google_account(user.id) do
       nil ->
         false
 
@@ -1624,7 +2032,15 @@ defmodule AdvisorAi.AI.UniversalAgent do
   end
 
   defp has_hubspot_connection?(user) do
-    not is_nil(user.hubspot_access_token) and not is_nil(user.hubspot_refresh_token)
+    # Allow if any HubSpot token is present on user or account
+    (user.hubspot_access_token != nil and user.hubspot_access_token != "") or
+    (user.hubspot_refresh_token != nil and user.hubspot_refresh_token != "") or
+    case AdvisorAi.Accounts.get_user_hubspot_account(user.id) do
+      nil -> false
+      account ->
+        (account.access_token != nil and account.access_token != "") or
+        (account.refresh_token != nil and account.refresh_token != "")
+    end
   end
 
   def create_agent_response(_user, conversation_id, content, response_type) do
@@ -1902,5 +2318,16 @@ defmodule AdvisorAi.AI.UniversalAgent do
     end
 
     "Perfect! I've saved your instruction and will remember to #{instruction_data.instruction} #{trigger_description}. You can manage all your automated instructions in Settings > Instructions."
+  end
+
+  defp format_datetime_for_chat(nil), do: "(No time)"
+  defp format_datetime_for_chat(dt) do
+    case DateTime.from_iso8601(dt) do
+      {:ok, dt, _} ->
+        # Format as local time string
+        Calendar.strftime(dt, "%A, %B %d, %Y at %I:%M %p %Z")
+      _ ->
+        dt
+    end
   end
 end

@@ -65,35 +65,45 @@
                   </div>
                 </div>
               <% else %>
-                <!-- Bot Response -->
-                <div class="w-full">
-                  <div class="max-w-4xl">
-                    <div class="bot-message text-sm whitespace-pre-wrap break-words">
-                      {message.content}
-                    </div>
-                    <div class="mt-2 text-xs text-gray-500">
-                      {Calendar.strftime(message.inserted_at, "%I:%M %p")}
-                    </div>
-                    
-<!-- Message Reactions -->
-                    <div
-                      id={"message-reactions-#{message.id}"}
-                      phx-hook="MessageReactions"
-                      class="message-reactions flex gap-1 mt-2"
-                      data-message-id={message.id}
-                    >
-                      <button class="reaction-btn px-2 py-1 rounded-full bg-gray-100 hover:bg-gray-200 text-xs transition-colors">
-                        👍 <span class="count">2</span>
-                      </button>
-                      <button class="reaction-btn px-2 py-1 rounded-full bg-gray-100 hover:bg-gray-200 text-xs transition-colors">
-                        👎 <span class="count">0</span>
-                      </button>
-                      <button class="reaction-btn px-2 py-1 rounded-full bg-gray-100 hover:bg-gray-200 text-xs transition-colors">
-                        💡 <span class="count">1</span>
-                      </button>
+                <%= if message.role == "system" do %>
+                  <!-- System/Step Log Message -->
+                  <div class="w-full flex justify-center">
+                    <div class="system-message flex items-center gap-2">
+                      <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01"/></svg>
+                      <span class="italic">{message.content}</span>
                     </div>
                   </div>
-                </div>
+                <% else %>
+                  <!-- Bot Response -->
+                  <div class="w-full">
+                    <div class="max-w-4xl">
+                      <div class="bot-message text-sm whitespace-pre-wrap break-words">
+                        {message.content}
+                      </div>
+                      <div class="mt-2 text-xs text-gray-500">
+                        {Calendar.strftime(message.inserted_at, "%I:%M %p")}
+                      </div>
+                      
+<!-- Message Reactions -->
+                      <div
+                        id={"message-reactions-#{message.id}"}
+                        phx-hook="MessageReactions"
+                        class="message-reactions flex gap-1 mt-2"
+                        data-message-id={message.id}
+                      >
+                        <button class="reaction-btn px-2 py-1 rounded-full bg-gray-100 hover:bg-gray-200 text-xs transition-colors">
+                          👍 <span class="count">2</span>
+                        </button>
+                        <button class="reaction-btn px-2 py-1 rounded-full bg-gray-100 hover:bg-gray-200 text-xs transition-colors">
+                          👎 <span class="count">0</span>
+                        </button>
+                        <button class="reaction-btn px-2 py-1 rounded-full bg-gray-100 hover:bg-gray-200 text-xs transition-colors">
+                          💡 <span class="count">1</span>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                <% end %>
               <% end %>
             </div>
           <% end %>
@@ -202,8 +212,7 @@
                   id="message-input"
                   name="message"
                   value={@new_message}
-                  phx-keyup="update_message"
-                  phx-hook="CursorStyleAutoResize TypingIndicator"
+                  phx-hook="CursorStyleAutoResize"
                   rows="1"
                   class="w-full bg-transparent border-0 px-4 py-3 text-gray-900 placeholder-gray-400 focus:outline-none resize-none min-h-[44px] overflow-y-auto"
                   placeholder="Ask anything... (Enter to send, Shift+Enter for new line)"

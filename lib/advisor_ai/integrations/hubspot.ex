@@ -10,10 +10,10 @@ defmodule AdvisorAi.Integrations.HubSpot do
   # OpenAI client will be configured at runtime
 
   def search_contacts(user, query) do
+    require Logger
     case get_access_token(user) do
       {:ok, access_token} ->
         url = "#{@hubspot_api_url}/crm/v3/objects/contacts/search"
-
         request_body =
           if is_binary(query) and String.trim(query) != "" do
             %{
@@ -39,70 +39,84 @@ defmodule AdvisorAi.Integrations.HubSpot do
               after: 0
             }
           end
-
+        File.write("/private/tmp/hubspot_debug.log", "[HubSpot.search_contacts] Query: #{query}\n", [:append])
         case HTTPoison.post(url, Jason.encode!(request_body), [
                {"Authorization", "Bearer #{access_token}"},
                {"Content-Type", "application/json"}
              ]) do
           {:ok, %{status_code: 200, body: body}} ->
+            Logger.info("[HubSpot.search_contacts] Raw response: #{body}")
+            File.write("/private/tmp/hubspot_debug.log", "[HubSpot.search_contacts] Raw response: #{body}\n", [:append])
             case Jason.decode(body) do
               {:ok, %{"results" => contacts}} ->
+                Logger.info("[HubSpot.search_contacts] Contacts found: #{length(contacts)}")
+                File.write("/private/tmp/hubspot_debug.log", "[HubSpot.search_contacts] Contacts found: #{length(contacts)}\n", [:append])
                 {:ok, contacts}
-
               {:ok, _} ->
+                Logger.info("[HubSpot.search_contacts] No contacts found in response.")
+                File.write("/private/tmp/hubspot_debug.log", "[HubSpot.search_contacts] No contacts found in response.\n", [:append])
                 {:ok, []}
-
               {:error, reason} ->
+                Logger.error("[HubSpot.search_contacts] Failed to parse response: #{reason}")
+                File.write("/private/tmp/hubspot_debug.log", "[HubSpot.search_contacts] Failed to parse response: #{reason}\n", [:append])
                 {:error, "Failed to parse response: #{reason}"}
             end
-
           {:ok, %{status_code: status_code, body: body}} ->
+            Logger.error("[HubSpot.search_contacts] HubSpot API error: #{status_code} - #{body}")
+            File.write("/private/tmp/hubspot_debug.log", "[HubSpot.search_contacts] HubSpot API error: #{status_code} - #{body}\n", [:append])
             {:error, "HubSpot API error: #{status_code} - #{body}"}
-
           {:error, reason} ->
+            Logger.error("[HubSpot.search_contacts] HTTP error: #{inspect(reason)}")
+            File.write("/private/tmp/hubspot_debug.log", "[HubSpot.search_contacts] HTTP error: #{inspect(reason)}\n", [:append])
             {:error, "HTTP error: #{reason}"}
         end
-
       {:error, reason} ->
+        Logger.error("[HubSpot.search_contacts] Access token error: #{reason}")
+        File.write("/private/tmp/hubspot_debug.log", "[HubSpot.search_contacts] Access token error: #{reason}\n", [:append])
         {:error, reason}
     end
   end
 
   def list_contacts(user, limit \\ 50) do
+    require Logger
     case get_access_token(user) do
       {:ok, access_token} ->
         url = "#{@hubspot_api_url}/crm/v3/objects/contacts"
-
         params =
           URI.encode_query(%{
             limit: limit,
             properties: "email,firstname,lastname,company,phone,jobtitle"
           })
-
         case HTTPoison.get("#{url}?#{params}", [
                {"Authorization", "Bearer #{access_token}"},
                {"Content-Type", "application/json"}
              ]) do
           {:ok, %{status_code: 200, body: body}} ->
+            Logger.info("[HubSpot.list_contacts] Raw response: #{body}")
+            File.write("/private/tmp/hubspot_debug.log", "[HubSpot.list_contacts] Raw response: #{body}\n", [:append])
             case Jason.decode(body) do
               {:ok, %{"results" => contacts}} ->
+                Logger.info("[HubSpot.list_contacts] Contacts found: #{length(contacts)}")
+                File.write("/private/tmp/hubspot_debug.log", "[HubSpot.list_contacts] Contacts found: #{length(contacts)}\n", [:append])
                 {:ok, contacts}
-
               {:ok, _} ->
+                Logger.info("[HubSpot.list_contacts] No contacts found in response.")
+                File.write("/private/tmp/hubspot_debug.log", "[HubSpot.list_contacts] No contacts found in response.\n", [:append])
                 {:ok, []}
-
               {:error, reason} ->
+                Logger.error("[HubSpot.list_contacts] Failed to parse response: #{reason}")
+                File.write("/private/tmp/hubspot_debug.log", "[HubSpot.list_contacts] Failed to parse response: #{reason}\n", [:append])
                 {:error, "Failed to parse response: #{reason}"}
             end
-
           {:ok, %{status_code: status_code, body: body}} ->
+            Logger.error("[HubSpot.list_contacts] HubSpot API error: #{status_code} - #{body}")
             {:error, "HubSpot API error: #{status_code} - #{body}"}
-
           {:error, reason} ->
+            Logger.error("[HubSpot.list_contacts] HTTP error: #{inspect(reason)}")
             {:error, "HTTP error: #{reason}"}
         end
-
       {:error, reason} ->
+        Logger.error("[HubSpot.list_contacts] Access token error: #{reason}")
         {:error, reason}
     end
   end
@@ -402,10 +416,55 @@ defmodule AdvisorAi.Integrations.HubSpot do
   end
 
   defp refresh_user_access_token(user) do
+    require Logger
     if user.hubspot_refresh_token do
-      # Implement token refresh logic for user tokens
-      # This would use the refresh_token to get a new access_token
-      {:error, "Token refresh not implemented yet"}
+      client_id = System.get_env("HUBSPOT_CLIENT_ID")
+      client_secret = System.get_env("HUBSPOT_CLIENT_SECRET")
+      refresh_token = user.hubspot_refresh_token
+      url = "https://api.hubapi.com/oauth/v1/token"
+      body = URI.encode_query(%{
+        grant_type: "refresh_token",
+        client_id: client_id,
+        client_secret: client_secret,
+        refresh_token: refresh_token
+      })
+      headers = [
+        {"Content-Type", "application/x-www-form-urlencoded"}
+      ]
+      case HTTPoison.post(url, body, headers) do
+        {:ok, %{status_code: 200, body: resp_body}} ->
+          case Jason.decode(resp_body) do
+            {:ok, %{"access_token" => new_token, "expires_in" => expires_in, "refresh_token" => new_refresh_token}} ->
+              expires_at = DateTime.add(DateTime.utc_now(), expires_in)
+              # Update user tokens in DB
+              case AdvisorAi.Accounts.update_user_hubspot_tokens(user, new_token, new_refresh_token, expires_at) do
+                {:ok, _} -> {:ok, new_token}
+                {:error, reason} ->
+                  Logger.error("[HubSpot.refresh_user_access_token] Failed to update user tokens: #{inspect(reason)}")
+                  {:error, "Failed to update user tokens"}
+              end
+            {:ok, %{"access_token" => new_token, "expires_in" => expires_in}} ->
+              expires_at = DateTime.add(DateTime.utc_now(), expires_in)
+              case AdvisorAi.Accounts.update_user_hubspot_tokens(user, new_token, refresh_token, expires_at) do
+                {:ok, _} -> {:ok, new_token}
+                {:error, reason} ->
+                  Logger.error("[HubSpot.refresh_user_access_token] Failed to update user tokens: #{inspect(reason)}")
+                  {:error, "Failed to update user tokens"}
+              end
+            {:ok, %{"error" => error}} ->
+              Logger.error("[HubSpot.refresh_user_access_token] Token refresh failed: #{error}")
+              {:error, "Token refresh failed: #{error}"}
+            _ ->
+              Logger.error("[HubSpot.refresh_user_access_token] Invalid response format: #{resp_body}")
+              {:error, "Invalid response format"}
+          end
+        {:ok, %{status_code: code, body: resp_body}} ->
+          Logger.error("[HubSpot.refresh_user_access_token] HubSpot token refresh failed: #{code} #{resp_body}")
+          {:error, "HubSpot token refresh failed: #{code} #{resp_body}"}
+        {:error, reason} ->
+          Logger.error("[HubSpot.refresh_user_access_token] HTTP error refreshing token: #{inspect(reason)}")
+          {:error, "HTTP error refreshing token: #{inspect(reason)}"}
+      end
     else
       {:error, "No refresh token available"}
     end
