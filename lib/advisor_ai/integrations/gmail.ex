@@ -683,14 +683,14 @@ defmodule AdvisorAi.Integrations.Gmail do
   end
 
   defp get_embedding(text) do
-    # Use local embedding server for RAG
-    case AdvisorAi.AI.LocalEmbeddingClient.embeddings(input: text) do
+    # Use OpenRouter for RAG
+    case AdvisorAi.AI.OpenRouterClient.embeddings(input: text) do
       {:ok, %{"data" => [%{"embedding" => embedding}]}} ->
         {:ok, embedding}
 
       {:error, reason} ->
         require Logger
-        Logger.error("Failed to generate embedding with local server: #{inspect(reason)}")
+        Logger.error("Failed to generate embedding with OpenRouter: #{inspect(reason)}")
         {:error, "Failed to generate embedding: #{inspect(reason)}"}
     end
   end
