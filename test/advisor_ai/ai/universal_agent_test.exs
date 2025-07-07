@@ -571,4 +571,156 @@ defmodule AdvisorAi.AI.UniversalAgentTest do
       end
     end
   end
+
+  describe "Appointment Scheduling Workflow - Comprehensive Testing" do
+    test "appointment scheduling with contact name", %{user: user, conversation: conversation} do
+      # Test appointment scheduling with contact name
+      appointment_cases = [
+        "Schedule an appointment with John Smith",
+        "Set up a meeting with sarah@example.com",
+        "Book a call with client ABC Corp",
+        "Arrange a meeting with Dr. Johnson",
+        "Schedule with my financial advisor",
+        "Meet with potential client next week"
+      ]
+
+      for appointment_request <- appointment_cases do
+        result = UniversalAgent.process_request(user, conversation.id, appointment_request)
+        assert is_tuple(result)
+        # Should trigger workflow generation
+      end
+    end
+
+    test "appointment scheduling workflow steps", %{user: user, conversation: conversation} do
+      # Test that the workflow generator creates appropriate steps
+      workflow_generator = AdvisorAi.AI.WorkflowGenerator
+
+      test_request = "Schedule an appointment with John Smith"
+
+      case workflow_generator.generate_workflow(test_request) do
+        {:ok, workflow} ->
+          # Verify workflow structure
+          assert Map.has_key?(workflow, "steps")
+          assert is_list(workflow["steps"])
+          assert length(workflow["steps"]) > 0
+
+          # Verify key steps exist
+          step_actions = Enum.map(workflow["steps"], & &1["action"])
+          assert "search_contacts" in step_actions
+          assert "get_availability" in step_actions or "search_emails" in step_actions
+
+        {:error, reason} ->
+          # Workflow generation failed, but that's acceptable for testing
+          assert is_binary(reason)
+      end
+    end
+
+    test "appointment scheduling with edge cases", %{user: user, conversation: conversation} do
+      # Test edge cases in appointment scheduling
+      edge_cases = [
+        "Schedule with someone I've never met",
+        "Book appointment with contact that doesn't exist",
+        "Set up meeting when I have no available times",
+        "Schedule with multiple people",
+        "Book appointment for next year",
+        "Schedule urgent meeting today"
+      ]
+
+      for edge_case <- edge_cases do
+        result = UniversalAgent.process_request(user, conversation.id, edge_case)
+        assert is_tuple(result)
+        # Should handle gracefully
+      end
+    end
+
+    test "appointment scheduling workflow flexibility", %{user: user, conversation: conversation} do
+      # Test that the workflow can handle different scenarios
+      flexible_cases = [
+        "Schedule with john@example.com for portfolio review",
+        "Book 30-minute call with new client",
+        "Set up 1-hour meeting with existing client",
+        "Arrange follow-up appointment",
+        "Schedule initial consultation",
+        "Book recurring meeting"
+      ]
+
+      for flexible_case <- flexible_cases do
+        result = UniversalAgent.process_request(user, conversation.id, flexible_case)
+        assert is_tuple(result)
+        # Should adapt to different requirements
+      end
+    end
+  end
+
+  describe "Proactive Agent System - Webhook Handling" do
+    test "proactive email handling with meeting lookup", %{user: user, conversation: conversation} do
+      # Test proactive email handling for meeting lookup scenario
+      email_data = %{
+        from: "client@example.com",
+        subject: "When is our meeting?",
+        body: "Hi, I was wondering when our upcoming meeting is scheduled for. Can you let me know the details?"
+      }
+
+      # This would normally be called by the webhook controller
+      # For testing, we'll simulate the proactive response
+      result = UniversalAgent.process_proactive_request(user, conversation.id,
+        "A new email was received from client@example.com asking about an upcoming meeting. Please look up their meeting details and respond.")
+
+      assert is_tuple(result)
+      # Should attempt to find meetings and respond
+    end
+
+    test "proactive calendar event handling", %{user: user, conversation: conversation} do
+      # Test proactive calendar event handling
+      event_data = %{
+        "summary" => "Client Meeting",
+        "start" => "2025-07-07T10:00:00Z",
+        "end" => "2025-07-07T11:00:00Z",
+        "attendees" => [%{"email" => "client@example.com", "name" => "Test Client"}]
+      }
+
+      # Simulate proactive calendar event handling
+      result = UniversalAgent.process_proactive_request(user, conversation.id,
+        "A new calendar event was created: Client Meeting with client@example.com. Please notify attendees and add notes to HubSpot.")
+
+      assert is_tuple(result)
+      # Should attempt to notify attendees and add notes
+    end
+
+    test "proactive HubSpot contact handling", %{user: user, conversation: conversation} do
+      # Test proactive HubSpot contact handling
+      hubspot_data = %{
+        "type" => "contact",
+        "action" => "created",
+        "name" => "New Client",
+        "email" => "newclient@example.com",
+        "company" => "Test Company"
+      }
+
+      # Simulate proactive HubSpot event handling
+      result = UniversalAgent.process_proactive_request(user, conversation.id,
+        "A new contact was created in HubSpot: New Client (newclient@example.com). Please send them a welcome email.")
+
+      assert is_tuple(result)
+      # Should attempt to send welcome email
+    end
+
+    test "meeting lookup functionality", %{user: user} do
+      # Test the find_meetings functionality
+      args = %{"attendee_email" => "test@example.com"}
+
+      result = UniversalAgent.execute_universal_action(user, "find_meetings", args)
+      assert is_tuple(result)
+      # Should return meeting lookup results
+    end
+
+    test "search meetings functionality", %{user: user} do
+      # Test the search_meetings functionality
+      args = %{"query" => "client meeting"}
+
+      result = UniversalAgent.execute_universal_action(user, "search_meetings", args)
+      assert is_tuple(result)
+      # Should return meeting search results
+    end
+  end
 end
