@@ -4,21 +4,20 @@ defmodule AdvisorAiWeb.HubspotOauthController do
 
   plug :fetch_session
 
-  @hubspot_client_id System.get_env("HUBSPOT_CLIENT_ID")
-  @hubspot_client_secret System.get_env("HUBSPOT_CLIENT_SECRET")
-  @redirect_uri System.get_env("HUBSPOT_REDIRECT_URI") ||
-                  "http://localhost:4000/hubspot/oauth/callback"
+  defp hubspot_client_id, do: System.get_env("HUBSPOT_CLIENT_ID")
+  defp hubspot_client_secret, do: System.get_env("HUBSPOT_CLIENT_SECRET")
+  defp redirect_uri, do: System.get_env("HUBSPOT_REDIRECT_URI") || "https://advisorai-production.up.railway.app/hubspot/oauth/callback"
 
   def debug(conn, _params) do
     config = %{
-      client_id: @hubspot_client_id,
-      client_secret: if(@hubspot_client_secret, do: "SET", else: "NOT SET"),
-      redirect_uri: @redirect_uri,
+      client_id: hubspot_client_id(),
+      client_secret: if(hubspot_client_secret(), do: "SET", else: "NOT SET"),
+      redirect_uri: redirect_uri(),
       test_url:
-        "https://app-eu1.hubspot.com/oauth/authorize?client_id=#{@hubspot_client_id}&redirect_uri=#{URI.encode(@redirect_uri)}&scope=crm.objects.contacts.write%20crm.schemas.contacts.write%20oauth%20crm.schemas.contacts.read%20crm.objects.contacts.read&response_type=code&state=test123",
+        "https://app-eu1.hubspot.com/oauth/authorize?client_id=#{hubspot_client_id()}&redirect_uri=#{URI.encode(redirect_uri())}&scope=crm.objects.contacts.write%20crm.schemas.contacts.write%20oauth%20crm.schemas.contacts.read%20crm.objects.contacts.read&response_type=code&state=test123",
       instructions: [
         "1. Go to https://developers.hubspot.com/",
-        "2. Find app with ID: #{@hubspot_client_id}",
+        "2. Find app with ID: #{hubspot_client_id()}",
         "3. Look for 'App Status', 'Development Mode', or 'Publish' options",
         "4. Make sure OAuth is enabled",
         "5. Verify redirect URI is listed",
@@ -72,7 +71,7 @@ defmodule AdvisorAiWeb.HubspotOauthController do
             "1. Go to https://developers.hubspot.com/",
             "2. Create or configure your app",
             "3. Enable OAuth 2.0",
-            "4. Add redirect URI: http://localhost:4000/hubspot/oauth/callback",
+            "4. Add redirect URI: https://advisorai-production.up.railway.app/hubspot/oauth/callback",
             "5. Set required scopes",
             "6. Use the 'Connect with OAuth' button above"
           ],
@@ -104,8 +103,8 @@ defmodule AdvisorAiWeb.HubspotOauthController do
 
     # Build the OAuth URL manually to ensure proper formatting
     params = %{
-      client_id: @hubspot_client_id,
-      redirect_uri: @redirect_uri,
+      client_id: hubspot_client_id(),
+      redirect_uri: redirect_uri(),
       scope: scopes,
       response_type: "code",
       state: state
@@ -113,6 +112,7 @@ defmodule AdvisorAiWeb.HubspotOauthController do
 
     query_string =
       params
+      |> Enum.filter(fn {_k, v} -> not is_nil(v) end)
       |> Enum.map(fn {k, v} -> "#{k}=#{URI.encode(v)}" end)
       |> Enum.join("&")
 
@@ -120,8 +120,8 @@ defmodule AdvisorAiWeb.HubspotOauthController do
 
     # Log for debugging
     IO.puts("HubSpot OAuth URL: #{url}")
-    IO.puts("Client ID: #{@hubspot_client_id}")
-    IO.puts("Redirect URI: #{@redirect_uri}")
+    IO.puts("Client ID: #{hubspot_client_id()}")
+    IO.puts("Redirect URI: #{redirect_uri()}")
     IO.puts("Scopes: #{scopes}")
 
     redirect(conn, external: url)
@@ -140,9 +140,9 @@ defmodule AdvisorAiWeb.HubspotOauthController do
       body =
         URI.encode_query(%{
           grant_type: "authorization_code",
-          client_id: @hubspot_client_id,
-          client_secret: @hubspot_client_secret,
-          redirect_uri: @redirect_uri,
+          client_id: hubspot_client_id(),
+          client_secret: hubspot_client_secret(),
+          redirect_uri: redirect_uri(),
           code: code
         })
 
