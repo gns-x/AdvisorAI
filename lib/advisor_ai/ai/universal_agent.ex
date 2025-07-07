@@ -616,6 +616,9 @@ defmodule AdvisorAi.AI.UniversalAgent do
       %{"role" => "user", "content" => prompt}
     ]
 
+    IO.inspect(messages, label: "DEBUG: OpenRouter messages")
+    IO.inspect(tools_format, label: "DEBUG: OpenRouter tools_format")
+
     case OpenRouterClient.chat_completion(
            messages: messages,
            tools: tools_format,
@@ -623,9 +626,11 @@ defmodule AdvisorAi.AI.UniversalAgent do
            temperature: 0.1
          ) do
       {:ok, response} ->
+        IO.inspect(response, label: "DEBUG: OpenRouter raw response")
         {:ok, response}
 
-      {:error, _} ->
+      {:error, err} ->
+        IO.inspect(err, label: "DEBUG: OpenRouter error")
         # Fallback to Together AI
         case TogetherClient.chat_completion(
                messages: messages,
