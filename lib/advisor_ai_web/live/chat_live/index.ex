@@ -79,9 +79,6 @@ defmodule AdvisorAiWeb.ChatLive.Index do
       # Add user message to stream
       socket = stream_insert(socket, :messages, user_message, at: -1)
 
-      # Insert system message: AI is thinking
-      socket = insert_system_message(socket, "Thinking...")
-
       # Set loading state
       socket = assign(socket, :loading, true)
       IO.puts("DEBUG: Loading state set to true")
