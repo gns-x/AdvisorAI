@@ -34,13 +34,7 @@ config :advisor_ai, AdvisorAiWeb.Endpoint,
   check_origin: false,
   code_reloader: true,
   debug_errors: true,
-  secret_key_base: System.get_env("SECRET_KEY_BASE", "your-secret-key-base-here"),
-  watchers: [
-    esbuild:
-      {Esbuild, :install_and_run,
-       [:advisor_ai, ~w(--watch=advisor_ai=js/advisor_ai.js --minify=js.min.js --sourcemap=js)]},
-    tailwind: {Tailwind, :install_and_run, [:advisor_ai, ~w(--watch)]}
-  ]
+  secret_key_base: System.get_env("SECRET_KEY_BASE", "your-secret-key-base-here")
 
 # ## SSL Support
 #
