@@ -358,6 +358,10 @@ textarea[data-auto-resize] {
   }
 }
 
+.animate-fadeIn {
+  animation: fadeIn 0.3s ease-out;
+}
+
 .conversation-menu button {
   transition: all 0.15s ease-out;
 }
