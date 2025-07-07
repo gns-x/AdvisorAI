@@ -9,7 +9,7 @@ defmodule AdvisorAi.AI.OpenRouterClient do
   Generate a chat completion using OpenRouter.
   """
   def chat_completion(opts) do
-    model = Keyword.get(opts, :model, "openai/gpt-4o-mini")
+    model = Keyword.get(opts, :model, "openai/gpt-4o")
     messages = Keyword.get(opts, :messages, [])
     functions = Keyword.get(opts, :functions, [])
     function_call = Keyword.get(opts, :function_call, nil)
