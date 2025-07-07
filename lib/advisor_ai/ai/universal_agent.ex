@@ -2100,9 +2100,31 @@ defmodule AdvisorAi.AI.UniversalAgent do
 
               {:ok, "Found #{length(contacts)} HubSpot contacts:\n\n#{contact_list}"}
 
-            {:ok, _} ->
-              {:ok,
-               "No contacts were found in your HubSpot account. You can add new contacts in HubSpot or try a different search."}
+                        {:ok, _} ->
+              # Try to extract email from query for proactive contact creation
+              email = extract_email_from_query(query)
+              name = extract_name_from_query(query)
+
+              if email do
+                # Automatically create the contact if email is found
+                {first_name, last_name} = parse_name(name)
+                contact_data = %{
+                  "email" => email,
+                  "first_name" => first_name,
+                  "last_name" => last_name,
+                  "company" => ""
+                }
+
+                case HubSpot.create_contact(user, contact_data) do
+                  {:ok, _message} ->
+                    {:ok, "I've automatically created a new HubSpot contact for #{name} (#{email}). The contact has been added to your HubSpot account."}
+                  {:error, reason} ->
+                    {:ok, "I found an email address (#{email}) but couldn't create the contact automatically: #{reason}. You can try creating it manually in HubSpot."}
+                end
+              else
+                {:ok,
+                 "No contacts were found for '#{query}'. If you have an email address for this person, I can create a new contact for them. Just provide the email address."}
+              end
 
             {:error, reason} ->
               {:error, "Failed to search HubSpot contacts: #{reason}"}
@@ -3146,6 +3168,42 @@ defmodule AdvisorAi.AI.UniversalAgent do
 
       _ ->
         "No available times found for the requested period."
+    end
+  end
+
+  # Helper functions for contact creation
+  defp extract_email_from_query(query) do
+    # Look for email pattern in the query
+    case Regex.run(~r/\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/, query) do
+      [email | _] -> email
+      nil -> nil
+    end
+  end
+
+    defp extract_name_from_query(query) do
+    # Remove email from query to get name
+    name = Regex.replace(~r/\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/, query, "")
+    name = String.trim(name)
+
+    if name == "" do
+      # If no name found, try to extract from email
+      case extract_email_from_query(query) do
+        email when is_binary(email) ->
+          email |> String.split("@") |> List.first() |> String.replace(".", " ") |> String.replace("_", " ")
+        nil ->
+          "Unknown"
+      end
+    else
+      name
+    end
+  end
+
+  defp parse_name(name) do
+    # Split name into first and last name
+    case String.split(name, " ", parts: 2) do
+      [first, last] -> {first, last}
+      [first] when first != "" -> {first, ""}
+      _ -> {"", ""}
     end
   end
 end
