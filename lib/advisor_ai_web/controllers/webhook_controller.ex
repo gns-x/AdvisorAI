@@ -3,7 +3,7 @@ defmodule AdvisorAiWeb.WebhookController do
 
   alias AdvisorAi.Accounts
   alias AdvisorAi.AI.Agent
-  alias AdvisorAi.Logger
+  require Logger
 
   def gmail(conn, _params) do
     # Verify the webhook is from Gmail
