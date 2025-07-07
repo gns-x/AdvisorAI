@@ -131,8 +131,18 @@ defmodule AdvisorAi.AI.UniversalAgent do
 
   # Summarize final result for user
   defp summarize_final_result(result, recent_memories) do
-    # Use LLM or simple logic to summarize final outcome, referencing recent steps
-    "Workflow complete. Summary: #{inspect(result)}\nRecent steps: #{Enum.map_join(recent_memories, ", ", fn m -> m["request"] end)}"
+    case result do
+      {:ask_user, prompt} ->
+        prompt
+      {:ok, message} when is_binary(message) ->
+        message
+      message when is_binary(message) ->
+        message
+      _ ->
+        # Fallback: summarize recent steps in a friendly way
+        steps = Enum.map_join(recent_memories, ", ", fn m -> m["request"] end)
+        "I've completed your request. If you need more details or want to clarify, just ask! (Recent steps: #{steps})"
+    end
   end
 
   # Handle edge cases using LLM/tool calling
@@ -476,6 +486,10 @@ defmodule AdvisorAi.AI.UniversalAgent do
               event_id: %{
                 type: "string",
                 description: "Calendar event ID for operations on specific events"
+              },
+              check_ongoing_instructions: %{
+                type: "boolean",
+                description: "Set to true to check for active ongoing instructions for the user."
               }
             },
             required: ["action"]
@@ -563,6 +577,7 @@ defmodule AdvisorAi.AI.UniversalAgent do
     - To get all meetings today: Use universal_action with action="get_events", date="2025-07-07"
     - To search contacts: Use universal_action with action="search_contacts", query="search term"
     - To get calendar for today: Use universal_action with action="list_events", date="2025-07-07"
+    - To check ongoing instructions: Use universal_action with action="check_ongoing_instructions"
 
     ## Current User Context:
     - Name: #{context.user.name}
@@ -1251,11 +1266,9 @@ defmodule AdvisorAi.AI.UniversalAgent do
         execute_oauth_action(user, args)
 
       # Instruction management actions
-      (String.contains?(action_lower, "check") and String.contains?(action_lower, "ongoing") and
-         String.contains?(action_lower, "instruction")) or
-        String.contains?(action_lower, "search_instructions") or
-        String.contains?(action_lower, "search_ongoing_instructions") or
-          String.contains?(action_lower, "search_memory") ->
+      (String.contains?(action_lower, "check_ongoing_instructions")) or
+        (action_lower == "check_ongoing_instructions") or
+        (Map.get(args, "check_ongoing_instructions", false) == true) ->
         execute_check_ongoing_instructions(user, args)
 
       # Default - try to infer from action name
