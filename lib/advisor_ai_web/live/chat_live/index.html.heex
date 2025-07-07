@@ -1,171 +1,157 @@
-<div class="flex flex-col h-screen bg-white">
-  <!-- Header -->
-  <div class="flex-shrink-0 border-b border-gray-200 bg-white px-4 py-3">
-    <div class="flex items-center justify-between max-w-4xl mx-auto">
-      <h1 class="text-lg font-semibold text-gray-900">
-        <%= if @current_conversation && @current_conversation.title do %>
-          <%= @current_conversation.title %>
-        <% else %>
-          New conversation
-        <% end %>
-      </h1>
-      <button phx-click="new_conversation" class="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors">
-        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
-        </svg>
-      </button>
-    </div>
+<div class="h-screen bg-white flex flex-col font-sans">
+  <!-- Header Section -->
+  <div class="flex items-center justify-between px-8 py-5 border-b border-gray-100 bg-white shadow-sm">
+    <h1 class="text-2xl font-extrabold tracking-tight text-gray-900">AdvisorAI</h1>
+    <button class="text-gray-400 hover:text-gray-600 text-2xl font-light transition-colors">×</button>
   </div>
 
-  <!-- Messages Container -->
-  <div class="flex-1 overflow-y-auto bg-white" id="messages" phx-update="stream">
-    <div class="max-w-4xl mx-auto">
-      <%= for {dom_id, message} <- @streams.messages do %>
-        <div id={dom_id} class="group px-4 py-6 hover:bg-gray-50 transition-colors">
-          <div class="flex items-start space-x-4 max-w-4xl mx-auto">
-            <!-- Avatar -->
-            <div class="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-medium">
+  <!-- Navigation Tabs -->
+  <div class="flex items-center justify-between px-8 py-3 border-b border-gray-50 bg-white">
+    <div class="flex space-x-8">
+      <button phx-click="show_chat" class={if @view_mode == "chat", do: "text-base font-semibold text-gray-900 border-b-2 border-blue-500 pb-2 transition-all", else: "text-base text-gray-400 hover:text-gray-700 transition-all"}>Chat</button>
+      <button phx-click="show_history" class={if @view_mode == "history", do: "text-base font-semibold text-gray-900 border-b-2 border-blue-500 pb-2 transition-all", else: "text-base text-gray-400 hover:text-gray-700 transition-all"}>History</button>
+    </div>
+    <button phx-click="new_conversation" class="flex items-center space-x-2 px-4 py-1.5 text-base text-gray-600 hover:text-blue-600 hover:bg-gray-50 rounded-lg transition-colors shadow-sm border border-gray-200">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+      <span>New thread</span>
+    </button>
+  </div>
+
+  <!-- Main Content Area -->
+  <div id="chat-layout" class="flex-1 flex flex-col min-h-0 bg-gray-50">
+    <%= if @view_mode == "chat" do %>
+      <div class="flex-1 flex flex-col min-h-0">
+        <!-- Messages Container -->
+        <div class="flex-1 overflow-y-auto px-8 py-6 space-y-6 min-h-0" id="messages" phx-update="stream">
+          <%= for {dom_id, message} <- @streams.messages do %>
+            <div id={dom_id} class="w-full">
               <%= if message.role == "user" do %>
-                <div class="w-8 h-8 bg-gray-800 rounded-full flex items-center justify-center">
-                  <span class="text-white text-sm font-medium">U</span>
+                <div class="flex justify-end">
+                  <div class="user-message bg-blue-50 border border-blue-100 rounded-2xl px-5 py-3 shadow-sm max-w-xl text-gray-900">
+                    <div class="text-base whitespace-pre-wrap break-words">{message.content}</div>
+                    <div class="mt-1 text-xs text-gray-400 text-right">{Calendar.strftime(message.inserted_at, "%I:%M %p")}</div>
+                  </div>
                 </div>
               <% else %>
                 <%= if message.role == "system" do %>
-                  <div class="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
-                    <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01"/>
-                    </svg>
+                  <div class="w-full flex justify-center">
+                    <div class="system-message flex items-center gap-2 bg-gray-100 border-l-4 border-blue-200 px-4 py-2 rounded-lg shadow-sm text-gray-500 text-sm italic">
+                      <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01"/></svg>
+                      <span>{message.content}</span>
+                    </div>
                   </div>
                 <% else %>
-                  <div class="w-8 h-8 bg-green-600 rounded-full flex items-center justify-center">
-                    <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
-                    </svg>
+                  <div class="w-full flex">
+                    <div class="bot-message bg-white border border-gray-200 rounded-2xl px-5 py-3 shadow max-w-xl text-gray-900">
+                      <div class="text-base whitespace-pre-wrap break-words">{message.content}</div>
+                      <div class="mt-2 text-xs text-gray-400">{Calendar.strftime(message.inserted_at, "%I:%M %p")}</div>
+                      <div id={"message-reactions-#{message.id}"} phx-hook="MessageReactions" class="message-reactions flex gap-1 mt-2 opacity-80" data-message-id={message.id}>
+                        <button class="reaction-btn px-2 py-1 rounded-full bg-gray-100 hover:bg-blue-100 text-xs transition-colors">👍</button>
+                        <button class="reaction-btn px-2 py-1 rounded-full bg-gray-100 hover:bg-blue-100 text-xs transition-colors">👎</button>
+                        <button class="reaction-btn px-2 py-1 rounded-full bg-gray-100 hover:bg-blue-100 text-xs transition-colors">💡</button>
+                      </div>
+                    </div>
                   </div>
                 <% end %>
               <% end %>
             </div>
-            
-            <!-- Message Content -->
-            <div class="flex-1 min-w-0">
-              <div class="text-gray-900 whitespace-pre-wrap break-words leading-relaxed">
-                <%= if message.role == "system" do %>
-                  <div class="text-blue-600 text-sm italic">
-                    <%= message.content %>
-                  </div>
-                <% else %>
-                  <%= message.content %>
-                <% end %>
-              </div>
-              <%= if message.role != "system" do %>
-                <div class="mt-2 text-xs text-gray-500">
-                  <%= Calendar.strftime(message.inserted_at, "%I:%M %p") %>
-                </div>
-              <% end %>
-            </div>
-          </div>
+          <% end %>
         </div>
-      <% end %>
-    </div>
 
-    <!-- Loading Indicator -->
-    <%= if @loading do %>
-      <div class="px-4 py-6 hover:bg-gray-50">
-        <div class="flex items-start space-x-4 max-w-4xl mx-auto">
-          <div class="flex-shrink-0 w-8 h-8 bg-green-600 rounded-full flex items-center justify-center">
-            <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
-            </svg>
-          </div>
-          <div class="flex-1 min-w-0">
-            <div class="flex items-center space-x-2">
+        <!-- Loading Indicator -->
+        <%= if @loading do %>
+          <div id="thinking-indicator" class="w-full flex justify-center py-2">
+            <div class="flex items-center space-x-2 bg-white px-4 py-2 rounded-xl shadow border border-gray-100">
               <div class="flex space-x-1">
-                <div class="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
-                <div class="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style="animation-delay: 0.1s"></div>
-                <div class="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style="animation-delay: 0.2s"></div>
+                <div class="w-2 h-2 bg-blue-400 rounded-full animate-bounce"></div>
+                <div class="w-2 h-2 bg-blue-300 rounded-full animate-bounce" style="animation-delay: 0.1s"></div>
+                <div class="w-2 h-2 bg-blue-200 rounded-full animate-bounce" style="animation-delay: 0.2s"></div>
               </div>
-              <span class="text-sm text-gray-500">Thinking...</span>
+              <span class="text-sm text-gray-400">Thinking...</span>
             </div>
           </div>
+        <% end %>
+
+        <div style="display: none;" data-update={@last_update}></div>
+
+        <%= if length(@streams.messages.inserts) == 0 do %>
+          <div class="w-full flex justify-center items-center h-96">
+            <div class="max-w-xl text-center">
+              <h3 class="text-2xl font-bold text-gray-900 mb-2">Welcome to AdvisorAI</h3>
+              <p class="text-gray-500 mb-6">Ask anything about your portfolio, financial planning, or any other questions you have.</p>
+            </div>
+          </div>
+        <% end %>
+      </div>
+
+      <!-- Smart Reply Suggestions -->
+      <div id="smart-replies" phx-hook="SmartReplies" class="smart-replies flex gap-2 px-8 py-3 border-t border-gray-100 bg-white shadow-sm">
+        <button phx-click="quick_action" phx-value-action="who_kid_baseball" class="smart-reply px-4 py-1.5 text-base bg-white border border-gray-200 rounded-full hover:bg-blue-50 transition-colors">Who mentioned their kid plays baseball?</button>
+        <button phx-click="quick_action" phx-value-action="why_greg_sell_aapl" class="smart-reply px-4 py-1.5 text-base bg-white border border-gray-200 rounded-full hover:bg-blue-50 transition-colors">Why did Greg say he wanted to sell AAPL stock?</button>
+        <button phx-click="quick_action" phx-value-action="schedule_appointment_sara" class="smart-reply px-4 py-1.5 text-base bg-white border border-gray-200 rounded-full hover:bg-blue-50 transition-colors">Schedule an appointment with Sara Smith</button>
+      </div>
+
+      <!-- Input Section -->
+      <div class="border-t border-gray-100 bg-white px-8 py-5 flex-shrink-0 shadow-sm">
+        <div class="max-w-xl mx-auto">
+          <form phx-submit="send_message" class="relative">
+            <div class="flex bg-gray-50 rounded-2xl border border-gray-200 focus-within:border-blue-400 focus-within:ring-2 focus-within:ring-blue-100 transition-all shadow-sm cursor-input-container">
+              <div class="flex-1 min-w-0 flex items-center">
+                <textarea id="message-input" name="message" value={@new_message} phx-hook="CursorStyleAutoResize" rows="1" class="w-full bg-transparent border-0 px-4 py-3 text-gray-900 placeholder-gray-400 focus:outline-none resize-none min-h-[44px] overflow-y-auto text-base" placeholder="Ask anything... (Enter to send, Shift+Enter for new line)" autocomplete="off" disabled={@loading} data-auto-resize style="height: auto;"></textarea>
+              </div>
+              <div class="flex items-center pr-3 space-x-1 flex-shrink-0">
+                <button type="submit" disabled={@loading || String.trim(@new_message) == ""} class="cursor-send-button p-2 text-gray-400 hover:text-blue-600 disabled:text-gray-300 disabled:cursor-not-allowed rounded-lg transition-colors">
+                  <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" /></svg>
+                </button>
+              </div>
+            </div>
+          </form>
+        </div>
+      </div>
+    <% else %>
+      <!-- History View -->
+      <div class="flex-1 overflow-y-auto px-8 py-6 bg-white">
+        <div class="max-w-xl mx-auto">
+          <div class="mb-4 flex justify-between items-center">
+            <h3 class="text-xl font-bold text-gray-800">Chat History</h3>
+            <%= if length(@conversations) > 0 do %>
+              <button phx-click="clear_all_conversations" class="text-sm text-red-600 hover:text-red-800 hover:bg-red-50 px-3 py-1 rounded transition-colors">Clear All</button>
+            <% end %>
+          </div>
+          <div class="space-y-6">
+            <%= for conversation <- @conversations do %>
+              <div class="bg-white border border-gray-100 rounded-xl p-4 hover:shadow-md transition-shadow relative">
+                <div class="flex items-start justify-between">
+                  <div class="flex-1">
+                    <h3 class="text-lg font-semibold text-gray-900 mb-2">{conversation.title || "New Chat"}</h3>
+                    <p class="text-sm text-gray-500 mb-3">{Calendar.strftime(conversation.inserted_at, "%B %d, %Y at %I:%M %p")}</p>
+                    <div class="flex items-center space-x-2">
+                      <button phx-click="continue_conversation" phx-value-id={conversation.id} class="text-sm text-blue-600 hover:text-blue-800 font-medium transition-colors">Continue conversation</button>
+                      <span class="text-gray-300">•</span>
+                      <button class="text-sm text-gray-500 hover:text-gray-700 transition-colors">View details</button>
+                    </div>
+                  </div>
+                  <div class="flex items-center space-x-2">
+                    <div id={"conversation-menu-#{conversation.id}"} class="relative" phx-hook="ConversationMenu" data-conversation-id={conversation.id}>
+                      <button class="p-2 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100 transition-colors">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z"/></svg>
+                      </button>
+                      <div class="conversation-menu absolute right-0 top-full mt-1 w-48 bg-white rounded-md shadow-lg border border-gray-100 z-10 hidden">
+                        <div class="py-1">
+                          <button phx-click="delete_conversation" phx-value-id={conversation.id} class="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors flex items-center">
+                            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                            Delete conversation
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            <% end %>
+          </div>
         </div>
       </div>
     <% end %>
-
-    <!-- Welcome Message -->
-    <%= if length(@streams.messages.inserts) == 0 and not @loading do %>
-      <div class="flex items-center justify-center h-full">
-        <div class="text-center max-w-md mx-auto px-4">
-          <div class="w-16 h-16 bg-green-600 rounded-full flex items-center justify-center mx-auto mb-4">
-            <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
-            </svg>
-          </div>
-          <h3 class="text-xl font-semibold text-gray-900 mb-2">How can I help you today?</h3>
-          <p class="text-gray-600">Ask me anything about your emails, calendar, or contacts. I can help you manage your financial advisory practice.</p>
-        </div>
-      </div>
-    <% end %>
-
-    <!-- Hidden element for tracking updates -->
-    <div style="display: none;" data-update={@last_update}></div>
-  </div>
-
-  <!-- Input Area -->
-  <div class="flex-shrink-0 border-t border-gray-200 bg-white">
-    <div class="max-w-4xl mx-auto px-4 py-4">
-      <form phx-submit="send_message" class="relative">
-        <div class="flex items-end space-x-3">
-          <div class="flex-1 relative">
-            <textarea
-              id="message-input"
-              name="message"
-              value={@new_message}
-              phx-hook="CursorStyleAutoResize"
-              rows="1"
-              class="w-full resize-none border border-gray-300 rounded-xl px-4 py-3 pr-12 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
-              placeholder="Message AdvisorAI..."
-              disabled={@loading}
-              style="min-height: 48px; max-height: 200px;"
-            ></textarea>
-            <button
-              type="submit"
-              disabled={@loading || String.trim(@new_message) == ""}
-              class="absolute right-2 bottom-2 p-2 text-gray-400 hover:text-green-600 disabled:text-gray-300 disabled:cursor-not-allowed transition-colors rounded-lg hover:bg-gray-100"
-            >
-              <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
-              </svg>
-            </button>
-          </div>
-        </div>
-      </form>
-      
-      <!-- Quick Actions -->
-      <%= if length(@streams.messages.inserts) == 0 do %>
-        <div class="mt-4 flex flex-wrap gap-2">
-          <button
-            phx-click="quick_action"
-            phx-value-action="who_kid_baseball"
-            class="px-3 py-2 text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition-colors"
-          >
-            Who mentioned their kid plays baseball?
-          </button>
-          <button
-            phx-click="quick_action"
-            phx-value-action="why_greg_sell_aapl"
-            class="px-3 py-2 text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition-colors"
-          >
-            Why did Greg say he wanted to sell AAPL stock?
-          </button>
-          <button
-            phx-click="quick_action"
-            phx-value-action="schedule_appointment_sara"
-            class="px-3 py-2 text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition-colors"
-          >
-            Schedule an appointment with Sara Smith
-          </button>
-        </div>
-      <% end %>
-    </div>
   </div>
 </div>
