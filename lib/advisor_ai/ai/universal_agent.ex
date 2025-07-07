@@ -46,6 +46,251 @@ defmodule AdvisorAi.AI.UniversalAgent do
     end
   end
 
+  # Enhanced process request with memory and RAG for proactive responses
+  def process_proactive_request(user, conversation_id, user_message) do
+    # Get conversation context
+    context = Chat.get_conversation_context(conversation_id)
+
+    # Get relevant context from RAG
+    rag_context = get_relevant_context(user.id, user_message)
+
+    # Get active instructions for memory
+    active_instructions = get_active_instructions(user.id)
+
+    # Build enhanced context with memory and RAG
+    enhanced_context = build_enhanced_context(user, context, rag_context, active_instructions)
+
+    # Process with enhanced context
+    process_with_enhanced_context(user, conversation_id, user_message, enhanced_context)
+  end
+
+  defp get_relevant_context(user_id, message) do
+    # Get embedding for the message
+    case get_embedding(message) do
+      {:ok, query_embedding} ->
+        AdvisorAi.AI.VectorEmbedding.find_similar(user_id, query_embedding, 5)
+        |> AdvisorAi.Repo.all()
+        |> Enum.map(& &1.content)
+        |> Enum.join("\n")
+
+      {:error, _} ->
+        ""
+    end
+  end
+
+  defp get_embedding(text) do
+    # Use OpenRouter for RAG
+    case OpenRouterClient.embeddings(input: text) do
+      {:ok, %{"data" => [%{"embedding" => embedding}]}} ->
+        {:ok, embedding}
+
+      {:error, reason} ->
+        {:error, "Failed to get embedding: #{reason}"}
+    end
+  end
+
+  defp get_active_instructions(user_id) do
+    case AgentInstruction.get_active_instructions_by_user(user_id) do
+      {:ok, instructions} -> instructions
+      _ -> []
+    end
+  end
+
+  defp build_enhanced_context(user, conversation_context, rag_context, active_instructions) do
+    # Build instruction memory
+    instruction_memory = build_instruction_memory(active_instructions)
+
+    # Build recent conversation memory
+    conversation_memory = build_conversation_memory(conversation_context)
+
+    %{
+      user: user,
+      rag_context: rag_context,
+      instruction_memory: instruction_memory,
+      conversation_memory: conversation_memory,
+      current_time: DateTime.utc_now() |> DateTime.to_iso8601()
+    }
+  end
+
+  defp build_instruction_memory(instructions) do
+    if Enum.empty?(instructions) do
+      "No active ongoing instructions."
+    else
+      instruction_list =
+        instructions
+        |> Enum.map(fn instruction ->
+          trigger_desc =
+            case instruction.trigger_type do
+              "email_received" -> "when emails are received"
+              "calendar_event_created" -> "when calendar events are created"
+              "hubspot_contact_created" -> "when HubSpot contacts are created"
+              _ -> "when triggered"
+            end
+
+          "• #{instruction.instruction} (#{trigger_desc})"
+        end)
+        |> Enum.join("\n")
+
+      "Active ongoing instructions:\n#{instruction_list}"
+    end
+  end
+
+  defp build_conversation_memory(conversation_context) do
+    case conversation_context do
+      %{recent_memories: memories} when is_list(memories) and length(memories) > 0 ->
+        memory_list =
+          memories
+          |> Enum.map(fn memory ->
+            "Request: #{memory["request"]}\nResult: #{memory["result"]}"
+          end)
+          |> Enum.join("\n\n")
+
+        "Recent interactions:\n#{memory_list}"
+
+      _ ->
+        "No recent conversation memory."
+    end
+  end
+
+  defp process_with_enhanced_context(user, conversation_id, user_message, enhanced_context) do
+    # Get available tools
+    tools = get_available_tools(user)
+
+    if Enum.empty?(tools) do
+      create_agent_response(
+        user,
+        conversation_id,
+        "I need you to connect your accounts first so I can perform real actions. Please go to Settings > Integrations to connect your Gmail, Google Calendar, or HubSpot accounts.",
+        "error"
+      )
+    else
+      # Create AI prompt with enhanced context
+      prompt = build_enhanced_prompt(user_message, enhanced_context, tools)
+
+      # Get AI response with tool calls
+      case get_ai_response_with_tools(prompt, tools) do
+        {:ok, ai_response} ->
+          execute_ai_tool_calls(user, conversation_id, ai_response, user_message, enhanced_context)
+
+        {:error, reason} ->
+          create_agent_response(
+            user,
+            conversation_id,
+            "I'm having trouble understanding your request. Please try rephrasing it.",
+            "error"
+          )
+      end
+    end
+  end
+
+  defp build_enhanced_prompt(user_message, enhanced_context, tools) do
+    tools_description =
+      if Enum.empty?(tools) do
+        "No tools available - user has not connected any services (Gmail, Calendar, HubSpot)"
+      else
+        Enum.map_join(tools, "\n", fn tool ->
+          {name, description, parameters} =
+            case tool do
+              %{function: %{name: n, description: d, parameters: p}} -> {n, d, p}
+              %{name: n, description: d, parameters: p} -> {n, d, p}
+              _ -> {"unknown", "No description", %{}}
+            end
+
+          """
+          - #{name}: #{description}
+            Parameters: #{Jason.encode!(parameters)}
+          """
+        end)
+      end
+
+    # Determine what services are available
+    services_available =
+      cond do
+        enhanced_context.user.google_connected and enhanced_context.user.gmail_available and
+          enhanced_context.user.calendar_available and enhanced_context.user.hubspot_connected ->
+          "Gmail, Google Calendar, and HubSpot CRM"
+
+        enhanced_context.user.google_connected and enhanced_context.user.gmail_available and
+            enhanced_context.user.hubspot_connected ->
+          "Gmail and HubSpot CRM"
+
+        enhanced_context.user.google_connected and enhanced_context.user.calendar_available and
+            enhanced_context.user.hubspot_connected ->
+          "Google Calendar and HubSpot CRM"
+
+        enhanced_context.user.google_connected and enhanced_context.user.gmail_available ->
+          "Gmail and HubSpot CRM"
+
+        enhanced_context.user.google_connected and enhanced_context.user.calendar_available ->
+          "Google Calendar and HubSpot CRM"
+
+        enhanced_context.user.hubspot_connected ->
+          "HubSpot CRM only"
+
+        enhanced_context.user.google_connected ->
+          "HubSpot CRM only"
+
+        true ->
+          "No services connected"
+      end
+
+    """
+    You are an advanced AI assistant for financial advisors. You have access to: #{services_available}
+
+    ## CRITICAL INSTRUCTIONS - YOU MUST USE TOOL CALLS:
+    - NEVER generate fake data or pretend to perform actions
+    - ALWAYS use the available tools to perform real actions
+    - If you need to send an email, use the universal_action tool with action "send_email"
+    - If you need to create a calendar event, use the universal_action tool with action "create_event"
+    - If you need to search contacts, use the universal_action tool with action "search_contacts"
+    - If the user asks for their meetings, events, or calendar, ALWAYS use the universal_action tool with action "list_events" or "get_events" (Google Calendar). Do NOT use HubSpot contacts for meetings or events.
+    - For queries like 'my meetings today', 'show my events', 'what meetings do I have', 'calendar for today', ALWAYS use Google Calendar first.
+    - DO NOT write fake responses like "Email sent successfully" - actually call the tools
+    - If no services are connected, clearly state that you need the user to connect their accounts first
+
+    ## MEMORY AND CONTEXT:
+    #{enhanced_context.instruction_memory}
+
+    ## RELEVANT CONTEXT FROM PREVIOUS INTERACTIONS:
+    #{enhanced_context.rag_context}
+
+    ## RECENT CONVERSATION MEMORY:
+    #{enhanced_context.conversation_memory}
+
+    ## Available Tools:
+    #{if Enum.empty?(tools), do: "- No tools available - user needs to connect services first", else: "- universal_action: Execute any Gmail, Calendar, or HubSpot action"}
+
+    ## Tool Usage Examples:
+    - To send an email: Use universal_action with action="send_email", to="recipient@email.com", subject="Subject", body="Email body"
+    - To create calendar event: Use universal_action with action="create_event", summary="Event title", start_time="2025-07-07T10:00:00Z", end_time="2025-07-07T11:00:00Z"
+    - To list today's meetings: Use universal_action with action="list_events", date="2025-07-07"
+    - To get all meetings today: Use universal_action with action="get_events", date="2025-07-07"
+    - To search contacts: Use universal_action with action="search_contacts", query="search term"
+    - To get calendar for today: Use universal_action with action="list_events", date="2025-07-07"
+    - To check ongoing instructions: Use universal_action with action="check_ongoing_instructions"
+
+    ## Current User Context:
+    - Name: #{enhanced_context.user.name}
+    - Email: #{enhanced_context.user.email}
+    - Google Connected: #{enhanced_context.user.google_connected}
+    - Gmail Available: #{enhanced_context.user.gmail_available}
+    - Calendar Available: #{enhanced_context.user.calendar_available}
+    - HubSpot Connected: #{enhanced_context.user.hubspot_connected}
+    - Current Time: #{enhanced_context.current_time}
+
+    ## User Request: "#{user_message}"
+
+    IMPORTANT: You MUST use the universal_action tool to perform the requested action. Do NOT generate fake responses or pretend to perform actions. Use the tool with the appropriate action and parameters.
+
+    For the user's request "#{user_message}", you MUST:
+    1. Consider the ongoing instructions and previous context
+    2. Determine what action is needed (send_email, create_event, list_events, get_events, search_contacts, etc.)
+    3. For meetings/events/calendar requests, ALWAYS use Google Calendar first.
+    4. Use the universal_action tool with the correct action and parameters
+    5. Return only the tool call result, not a fake response
+    """
+  end
+
   # Resume an ongoing workflow
   defp resume_workflow(user, conversation_id, user_message, workflow_state) do
     updated_state = Map.put(workflow_state, "last_user_message", user_message)
@@ -248,31 +493,160 @@ defmodule AdvisorAi.AI.UniversalAgent do
             "chosen_time" ->
               {k, extract_chosen_time_from_results(extracted_data)}
 
+            "new_available_times" ->
+              {k, extract_new_available_times_from_results(extracted_data)}
+
             _ ->
               {k, v}
           end
         end)
 
-      tool_call = %{"name" => api, "arguments" => Map.put(params, "action", action)}
-      result = execute_tool_call(user, tool_call)
-      # If the step is 'wait_for_reply', pause workflow and wait for user/contact reply
-      if action == "wait_for_reply" do
-        {:done, "Waiting for reply from contact. Please respond to continue the workflow."}
-      else
-        # Update workflow state
-        new_results = (workflow_state["results"] || []) ++ [result]
+      # Handle special workflow actions
+      case action do
+        "wait_for_reply" ->
+          # This is a pause point - wait for user/contact response
+          {:done, "Waiting for reply from contact. Please respond to continue the workflow."}
 
-        new_state =
-          workflow_state
-          |> Map.put("current_step", (workflow_state["current_step"] || 0) + 1)
-          |> Map.put("results", new_results)
+        "conditional_schedule" ->
+          # Check condition and schedule if met
+          condition = Map.get(params, "condition")
+          if evaluate_condition(condition, workflow_state) do
+            tool_call = %{"name" => "universal_action", "arguments" => Map.put(params, "action", "create_event")}
+            result = execute_tool_call(user, tool_call)
+            update_workflow_state(workflow_state, result)
+          else
+            update_workflow_state(workflow_state, {:ok, "Condition not met, skipping scheduling"})
+          end
 
-        if new_state["current_step"] < length(workflow_state["workflow"]["steps"]) do
-          {:continue, new_state}
-        else
-          {:done, "Workflow complete. Results: #{inspect(new_results)}"}
-        end
+        "conditional_send_new_times" ->
+          # Check condition and send new times if needed
+          condition = Map.get(params, "condition")
+          if evaluate_condition(condition, workflow_state) do
+            tool_call = %{"name" => "universal_action", "arguments" => Map.put(params, "action", "send_email")}
+            result = execute_tool_call(user, tool_call)
+            update_workflow_state(workflow_state, result)
+          else
+            update_workflow_state(workflow_state, {:ok, "Condition not met, skipping new times"})
+          end
+
+        "conditional_send_confirmation" ->
+          # Check condition and send confirmation if appointment was scheduled
+          condition = Map.get(params, "condition")
+          if evaluate_condition(condition, workflow_state) do
+            tool_call = %{"name" => "universal_action", "arguments" => Map.put(params, "action", "send_email")}
+            result = execute_tool_call(user, tool_call)
+            update_workflow_state(workflow_state, result)
+          else
+            update_workflow_state(workflow_state, {:ok, "Condition not met, skipping confirmation"})
+          end
+
+        "analyze_email_response" ->
+          # Use LLM to analyze email response
+          result = analyze_email_response_with_llm(user, conversation_id, workflow_state)
+          update_workflow_state(workflow_state, result)
+
+        _ ->
+          # Standard tool call execution
+          tool_call = %{"name" => api, "arguments" => Map.put(params, "action", action)}
+          result = execute_tool_call(user, tool_call)
+          update_workflow_state(workflow_state, result)
       end
+    end
+  end
+
+  defp update_workflow_state(workflow_state, result) do
+    new_results = (workflow_state["results"] || []) ++ [result]
+
+    new_state =
+      workflow_state
+      |> Map.put("current_step", (workflow_state["current_step"] || 0) + 1)
+      |> Map.put("results", new_results)
+
+    if new_state["current_step"] < length(workflow_state["workflow"]["steps"]) do
+      {:continue, new_state}
+    else
+      {:done, "Workflow complete. Results: #{inspect(new_results)}"}
+    end
+  end
+
+  defp evaluate_condition(condition, workflow_state) do
+    case condition do
+      "if_chosen_time_exists" ->
+        extract_chosen_time_from_results(workflow_state["results"] || []) != ""
+
+      "if_needs_new_times" ->
+        needs_new_times = extract_needs_new_times_from_results(workflow_state["results"] || [])
+        needs_new_times == true
+
+      "if_appointment_scheduled" ->
+        # Check if any result indicates successful scheduling
+        results = workflow_state["results"] || []
+        Enum.any?(results, fn
+          {:ok, result} when is_binary(result) -> String.contains?(result, "scheduled") or String.contains?(result, "Appointment")
+          _ -> false
+        end)
+
+      _ ->
+        true  # Default to executing
+    end
+  end
+
+  defp analyze_email_response_with_llm(user, conversation_id, workflow_state) do
+    # Get the last email response from the contact
+    contact_email = extract_contact_email_from_results(workflow_state["results"] || [])
+
+    if contact_email != "" do
+      # Search for recent emails from this contact
+      case Gmail.search_emails(user, "from:#{contact_email}") do
+        {:ok, emails} when length(emails) > 0 ->
+          latest_email = List.first(emails)
+
+          # Use LLM to analyze the response
+          analysis_prompt = """
+          Analyze this email response for appointment scheduling:
+
+          From: #{latest_email.from}
+          Subject: #{latest_email.subject}
+          Body: #{latest_email.body}
+
+          Determine:
+          1. Did they accept any of the proposed times?
+          2. Did they reject all times and need alternatives?
+          3. Did they suggest a different time?
+          4. What is their preferred time (if any)?
+
+          Respond with JSON:
+          {
+            "response_type": "accepted|rejected|suggested|unclear",
+            "chosen_time": "extracted time or empty string",
+            "needs_new_times": true/false,
+            "suggested_time": "their suggested time or empty string"
+          }
+          """
+
+          case OpenRouterClient.chat_completion(
+                 messages: [
+                   %{role: "system", content: "You are an expert at analyzing email responses for appointment scheduling."},
+                   %{role: "user", content: analysis_prompt}
+                 ]
+               ) do
+            {:ok, %{"choices" => [%{"message" => %{"content" => response}}]}} ->
+              case Jason.decode(response) do
+                {:ok, analysis} ->
+                  {:ok, analysis}
+                {:error, _} ->
+                  {:ok, %{"response_type" => "unclear", "chosen_time" => "", "needs_new_times" => false}}
+              end
+
+            {:error, _} ->
+              {:ok, %{"response_type" => "unclear", "chosen_time" => "", "needs_new_times" => false}}
+          end
+
+        _ ->
+          {:ok, %{"response_type" => "no_response", "chosen_time" => "", "needs_new_times" => false}}
+      end
+    else
+      {:ok, %{"response_type" => "no_contact", "chosen_time" => "", "needs_new_times" => false}}
     end
   end
 
@@ -323,6 +697,25 @@ defmodule AdvisorAi.AI.UniversalAgent do
       {:ok, time} when is_binary(time) -> time
       _ -> nil
     end) || ""
+  end
+
+  defp extract_new_available_times_from_results(results) do
+    # Find new available times from calendar step
+    results
+    |> Enum.find_value(fn
+      {:ok, times} when is_list(times) -> Enum.join(times, ", ")
+      {:ok, %{"new_available_times" => times}} -> times
+      _ -> nil
+    end) || ""
+  end
+
+  defp extract_needs_new_times_from_results(results) do
+    # Find needs_new_times from LLM analysis results
+    results
+    |> Enum.find_value(fn
+      {:ok, %{"needs_new_times" => needs}} -> needs
+      _ -> nil
+    end) || false
   end
 
   # Process normal requests (non-instruction requests)
@@ -1252,12 +1645,27 @@ defmodule AdvisorAi.AI.UniversalAgent do
           (String.contains?(action_lower, "event") or String.contains?(action_lower, "calendar")) ->
         execute_calendar_action(user, "delete", args)
 
+      String.contains?(action_lower, "get") and
+          (String.contains?(action_lower, "availability") or String.contains?(action_lower, "available")) ->
+        execute_calendar_action(user, "get_availability", args)
+
+      String.contains?(action_lower, "find") and
+          (String.contains?(action_lower, "meeting") or String.contains?(action_lower, "event")) ->
+        execute_calendar_action(user, "find_meetings", args)
+
+      String.contains?(action_lower, "search") and
+          (String.contains?(action_lower, "meeting") or String.contains?(action_lower, "event")) ->
+        execute_calendar_action(user, "search_meetings", args)
+
       # Contact actions
       String.contains?(action_lower, "search") and String.contains?(action_lower, "contact") ->
         execute_contact_action(user, "search", args)
 
       String.contains?(action_lower, "create") and String.contains?(action_lower, "contact") ->
         execute_contact_action(user, "create", args)
+
+      String.contains?(action_lower, "add") and String.contains?(action_lower, "note") ->
+        execute_contact_action(user, "add_note", args)
 
       # OAuth actions
       String.contains?(action_lower, "check") and
@@ -1308,6 +1716,9 @@ defmodule AdvisorAi.AI.UniversalAgent do
 
       String.contains?(action_lower, "contact") and String.contains?(action_lower, "create") ->
         execute_contact_action(user, "create", args)
+
+      String.contains?(action_lower, "add") and String.contains?(action_lower, "note") ->
+        execute_contact_action(user, "add_note", args)
 
       # OAuth actions
       String.contains?(action_lower, "oauth") or String.contains?(action_lower, "scope") ->
@@ -1478,6 +1889,126 @@ defmodule AdvisorAi.AI.UniversalAgent do
             {:error, "Failed to list events: #{reason}"}
         end
 
+      "get_availability" ->
+        date = Map.get(args, "date") || Map.get(args, :date) || Date.utc_today() |> Date.to_string()
+        duration_minutes = Map.get(args, "duration_minutes") || Map.get(args, :duration_minutes) || 30
+
+        case Calendar.get_availability(user, date, duration_minutes) do
+          {:ok, availability} ->
+            # Format availability for display
+            formatted_times = format_availability_times(availability)
+            {:ok, formatted_times}
+          {:error, reason} ->
+            {:error, "Failed to get calendar availability: #{reason}"}
+        end
+
+      "find_meetings" ->
+        # Find meetings by attendee email or other criteria
+        attendee_email = Map.get(args, "attendee_email") || Map.get(args, :attendee_email)
+        query = Map.get(args, "query") || Map.get(args, :query)
+
+        if attendee_email do
+          # Search for meetings with this attendee
+          case Calendar.list_events(user, time_min: DateTime.utc_now() |> DateTime.to_iso8601()) do
+            {:ok, events} when is_list(events) and length(events) > 0 ->
+              # Filter events that have this attendee
+              matching_events =
+                events
+                |> Enum.filter(fn event ->
+                  attendees = event["attendees"] || []
+                  Enum.any?(attendees, fn attendee ->
+                    attendee["email"] == attendee_email
+                  end)
+                end)
+                |> Enum.take(5)  # Limit to 5 most recent
+
+              if length(matching_events) > 0 do
+                event_list =
+                  Enum.map(matching_events, fn event ->
+                    start_time = get_in(event, ["start", "dateTime"]) || get_in(event, ["start", "date"])
+                    end_time = get_in(event, ["end", "dateTime"]) || get_in(event, ["end", "date"])
+                    summary = event["summary"] || "Untitled Event"
+
+                    "• #{summary} (#{format_datetime_for_chat(start_time)} - #{format_datetime_for_chat(end_time)})"
+                  end)
+                  |> Enum.join("\n")
+
+                {:ok, "Found #{length(matching_events)} upcoming meetings with #{attendee_email}:\n\n#{event_list}"}
+              else
+                {:ok, "No upcoming meetings found with #{attendee_email}"}
+              end
+
+            {:ok, _} ->
+              {:ok, "No upcoming meetings found with #{attendee_email}"}
+
+            {:error, reason} ->
+              {:error, "Failed to search meetings: #{reason}"}
+          end
+        else
+          # General meeting search
+          case Calendar.list_events(user, time_min: DateTime.utc_now() |> DateTime.to_iso8601()) do
+            {:ok, events} when is_list(events) and length(events) > 0 ->
+              event_list =
+                events
+                |> Enum.take(5)
+                |> Enum.map(fn event ->
+                  start_time = get_in(event, ["start", "dateTime"]) || get_in(event, ["start", "date"])
+                  summary = event["summary"] || "Untitled Event"
+
+                  "• #{summary} (#{format_datetime_for_chat(start_time)})"
+                end)
+                |> Enum.join("\n")
+
+              {:ok, "Found #{length(events)} upcoming meetings:\n\n#{event_list}"}
+
+            {:ok, _} ->
+              {:ok, "No upcoming meetings found"}
+
+            {:error, reason} ->
+              {:error, "Failed to search meetings: #{reason}"}
+          end
+        end
+
+      "search_meetings" ->
+        # Search meetings by query (title, description, etc.)
+        query = Map.get(args, "query") || Map.get(args, :query) || ""
+
+        case Calendar.list_events(user, time_min: DateTime.utc_now() |> DateTime.to_iso8601()) do
+          {:ok, events} when is_list(events) and length(events) > 0 ->
+            # Filter events that match the query
+            matching_events =
+              events
+              |> Enum.filter(fn event ->
+                summary = String.downcase(event["summary"] || "")
+                description = String.downcase(event["description"] || "")
+                query_lower = String.downcase(query)
+
+                String.contains?(summary, query_lower) or String.contains?(description, query_lower)
+              end)
+              |> Enum.take(5)
+
+            if length(matching_events) > 0 do
+              event_list =
+                Enum.map(matching_events, fn event ->
+                  start_time = get_in(event, ["start", "dateTime"]) || get_in(event, ["start", "date"])
+                  summary = event["summary"] || "Untitled Event"
+
+                  "• #{summary} (#{format_datetime_for_chat(start_time)})"
+                end)
+                |> Enum.join("\n")
+
+              {:ok, "Found #{length(matching_events)} meetings matching '#{query}':\n\n#{event_list}"}
+            else
+              {:ok, "No meetings found matching '#{query}'"}
+            end
+
+          {:ok, _} ->
+            {:ok, "No meetings found matching '#{query}'"}
+
+          {:error, reason} ->
+            {:error, "Failed to search meetings: #{reason}"}
+        end
+
       _ ->
         {:error, "Unknown calendar action: #{action}"}
     end
@@ -1624,7 +2155,31 @@ defmodule AdvisorAi.AI.UniversalAgent do
         end
 
       "create" ->
-        {:ok, "Contact creation not yet implemented"}
+        email = Map.get(args, "email") || Map.get(args, :email)
+        first_name = Map.get(args, "first_name") || Map.get(args, :first_name) || ""
+        last_name = Map.get(args, "last_name") || Map.get(args, :last_name) || ""
+        company = Map.get(args, "company") || Map.get(args, :company) || ""
+
+        contact_data = %{
+          "email" => email,
+          "first_name" => first_name,
+          "last_name" => last_name,
+          "company" => company
+        }
+
+        case HubSpot.create_contact(user, contact_data) do
+          {:ok, message} -> {:ok, message}
+          {:error, reason} -> {:error, "Failed to create contact: #{reason}"}
+        end
+
+      "add_note" ->
+        contact_email = Map.get(args, "contact_email") || Map.get(args, :contact_email)
+        note_content = Map.get(args, "note_content") || Map.get(args, :note_content)
+
+        case HubSpot.add_note(user, contact_email, note_content) do
+          {:ok, message} -> {:ok, message}
+          {:error, reason} -> {:error, "Failed to add note: #{reason}"}
+        end
     end
   end
 
@@ -2563,14 +3118,34 @@ defmodule AdvisorAi.AI.UniversalAgent do
 
   defp format_datetime_for_chat(nil), do: "(No time)"
 
-  defp format_datetime_for_chat(dt) do
-    case DateTime.from_iso8601(dt) do
-      {:ok, dt, _} ->
-        # Format as local time string
-        Calendar.strftime(dt, "%A, %B %d, %Y at %I:%M %p %Z")
+  defp format_datetime_for_chat(datetime_string) do
+    case DateTime.from_iso8601(datetime_string) do
+      {:ok, datetime, _} ->
+        # Format as local time for better readability
+        datetime
+        |> DateTime.shift_zone!("America/New_York")
+        |> Calendar.strftime("%B %d, %Y at %I:%M %p")
 
       _ ->
-        dt
+        datetime_string
+    end
+  end
+
+  defp format_availability_times(availability) do
+    case availability do
+      times when is_list(times) and length(times) > 0 ->
+        formatted_times =
+          Enum.map(times, fn slot ->
+            start_time = format_datetime_for_chat(slot["start"])
+            end_time = format_datetime_for_chat(slot["end"])
+            "• #{start_time} - #{end_time}"
+          end)
+          |> Enum.join("\n")
+
+        "Available times:\n#{formatted_times}"
+
+      _ ->
+        "No available times found for the requested period."
     end
   end
 end
