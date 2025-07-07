@@ -261,7 +261,6 @@ dmypy.json
 
 # Deployment specific
 fly.toml
-Dockerfile
 .dockerignore
 docker-compose.yml
 docker-compose.override.yml

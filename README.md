@@ -116,4 +116,8 @@ MIT License. See [LICENSE](LICENSE) for details.
 
 ---
 
+<<<<<<< HEAD
 **AdvisorAI: The intelligent, secure, and elegant AI assistant for financial professionals.**
+=======
+**AdvisorAI: The intelligent, secure, and elegant AI assistant for financial professionals.**
+>>>>>>> f2abbe3 (chore: commit local changes to allow rebase)
