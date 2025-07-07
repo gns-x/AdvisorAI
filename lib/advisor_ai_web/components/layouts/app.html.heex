@@ -14,30 +14,30 @@
   <body class="h-full bg-slate-50 antialiased">
     <div class="h-full flex">
       <!-- Sidebar -->
-      <div class="hidden lg:flex lg:flex-shrink-0 sidebar card-animate">
-        <div class="flex flex-col w-64 bg-white border-r border-slate-200 shadow-md">
+      <div class="hidden lg:flex lg:flex-shrink-0 sidebar card-animate glassy-sidebar">
+        <div class="flex flex-col w-64 bg-white/70 backdrop-blur-xl border-r border-slate-200 shadow-xl rounded-tr-3xl rounded-br-3xl overflow-hidden">
           <!-- Logo -->
-          <div class="flex items-center h-16 px-6 border-b border-slate-200">
+          <div class="flex items-center h-20 px-6 border-b border-slate-200">
             <div class="flex items-center space-x-3">
-              <div class="w-8 h-8 rounded-lg flex items-center justify-center shadow-sm bg-white">
-                <img src="https://raw.githubusercontent.com/gns-x/AdvisorAI/main/assets/static/logo.svg" alt="Advisor Logo" class="w-8 h-8" />
+              <div class="w-12 h-12 rounded-xl flex items-center justify-center shadow-md bg-white/80">
+                <img src="/assets/static/logo.svg" alt="Advisor Logo" class="w-10 h-10" />
               </div>
               <div>
-                <h1 class="text-lg font-semibold text-slate-900">AdvisorAI</h1>
-                <p class="text-xs text-slate-500">Financial Assistant</p>
+                <h1 class="text-xl font-extrabold gradient-text">AdvisorAI</h1>
+                <p class="text-xs font-medium gradient-text">Financial Assistant</p>
               </div>
             </div>
           </div>
           <!-- Navigation -->
-          <nav class="flex-1 px-4 py-6 space-y-2">
+          <nav class="flex-1 px-4 py-8 space-y-2">
             <div class="space-y-1">
               <h3 class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Main</h3>
-              <.link navigate={~p"/chat"} class="flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-colors hover:bg-slate-100 text-slate-700 hover:text-slate-900 button-animate"> <svg class="w-5 h-5 mr-3 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"> <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path> </svg> Chat </.link>
+              <.link navigate={~p"/chat"} class="flex items-center px-3 py-2 text-base font-semibold rounded-xl transition-all hover:bg-primary-50 hover:text-primary-600 focus:bg-primary-100 focus:text-primary-700 sidebar-link-animate"> <svg class="w-5 h-5 mr-3 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"> <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path> </svg> Chat </.link>
             </div>
             <div class="space-y-1">
               <h3 class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Settings</h3>
-              <.link navigate={~p"/settings/instructions"} class="flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-colors hover:bg-slate-100 text-slate-700 hover:text-slate-900 button-animate"> <svg class="w-5 h-5 mr-3 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"> <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path> </svg> Instructions </.link>
-              <.link navigate={~p"/settings/integrations"} class="flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-colors hover:bg-slate-100 text-slate-700 hover:text-slate-900 button-animate"> <svg class="w-5 h-5 mr-3 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"> <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path> <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path> </svg> Integrations </.link>
+              <.link navigate={~p"/settings/instructions"} class="flex items-center px-3 py-2 text-base font-semibold rounded-xl transition-all hover:bg-primary-50 hover:text-primary-600 focus:bg-primary-100 focus:text-primary-700 sidebar-link-animate"> <svg class="w-5 h-5 mr-3 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"> <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path> </svg> Instructions </.link>
+              <.link navigate={~p"/settings/integrations"} class="flex items-center px-3 py-2 text-base font-semibold rounded-xl transition-all hover:bg-primary-50 hover:text-primary-600 focus:bg-primary-100 focus:text-primary-700 sidebar-link-animate"> <svg class="w-5 h-5 mr-3 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"> <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path> <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path> </svg> Integrations </.link>
             </div>
           </nav>
           <!-- Status -->

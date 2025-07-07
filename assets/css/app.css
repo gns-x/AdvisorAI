@@ -563,3 +563,41 @@ textarea:focus {
     display: none;
   }
 }
+
+/* Modern glassy sidebar */
+.glassy-sidebar {
+  background: rgba(255,255,255,0.7);
+  backdrop-filter: blur(18px) saturate(1.2);
+  box-shadow: 0 8px 32px rgba(59,130,246,0.10), 0 1.5px 4px rgba(0,0,0,0.03);
+  border-radius: 1.5rem 0 0 1.5rem;
+  animation: sidebarSlideIn 0.7s cubic-bezier(0.4,0,0.2,1);
+}
+@keyframes sidebarSlideIn {
+  from { opacity: 0; transform: translateX(-32px) scale(0.98); }
+  to { opacity: 1; transform: none; }
+}
+
+/* Sidebar nav link animation */
+.sidebar-link-animate {
+  transition: background 0.18s, color 0.18s, box-shadow 0.18s, transform 0.12s;
+  box-shadow: none;
+}
+.sidebar-link-animate:hover, .sidebar-link-animate:focus {
+  background: linear-gradient(90deg, #e0e7ff 0%, #f0f5ff 100%);
+  color: #2563eb;
+  box-shadow: 0 2px 8px rgba(59,130,246,0.08);
+  transform: translateY(-1px) scale(1.04);
+}
+.sidebar-link-animate:active {
+  background: #e0e7ff;
+  color: #3b82f6;
+  transform: scale(0.98);
+}
+
+/* Gradient text for logo and subtitle */
+.gradient-text {
+  background: linear-gradient(90deg, #3b82f6 0%, #6366f1 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
