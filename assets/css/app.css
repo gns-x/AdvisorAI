@@ -79,11 +79,80 @@
 /* Base font family */
 body {
   font-family: 'Inter', system-ui, sans-serif;
+  background: var(--gray-50);
+  color: var(--gray-900);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  min-height: 100vh;
 }
 
-/* Smooth scrolling */
 html {
   scroll-behavior: smooth;
+  background: var(--gray-50);
+}
+
+/* Elegant Card Animations */
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: none; }
+}
+.card-animate {
+  animation: fadeInUp 0.5s cubic-bezier(0.4,0,0.2,1);
+}
+
+/* Button micro-interactions */
+.button-animate {
+  transition: background 0.2s, color 0.2s, box-shadow 0.2s, transform 0.1s;
+}
+.button-animate:hover {
+  background: var(--primary-100);
+  color: var(--primary-600);
+  box-shadow: 0 2px 8px rgba(59,130,246,0.08);
+  transform: translateY(-1px) scale(1.03);
+}
+.button-animate:active {
+  background: var(--primary-50);
+  color: var(--primary-500);
+  transform: scale(0.98);
+}
+
+/* Sidebar and nav */
+.sidebar {
+  background: #fff;
+  border-right: 1px solid var(--gray-200);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.02);
+}
+
+/* Status pulse */
+.status-pulse {
+  background: var(--success);
+  border-radius: 9999px;
+  width: 0.5rem;
+  height: 0.5rem;
+  animation: pulse 1.2s infinite cubic-bezier(0.4,0,0.6,1);
+}
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+/* Flash messages */
+.flash {
+  border-radius: 0.75rem;
+  box-shadow: 0 4px 24px rgba(16,185,129,0.08), 0 1.5px 4px rgba(0,0,0,0.03);
+  transition: opacity 0.2s, transform 0.2s;
+  animation: fadeInUp 0.4s cubic-bezier(0.4,0,0.2,1);
+}
+
+/* Modal overlay */
+.modal-overlay {
+  background: rgba(243,244,246,0.85);
+  backdrop-filter: blur(2px);
+}
+
+/* General transitions */
+.transition-all {
+  transition: all 0.2s cubic-bezier(0.4,0,0.2,1);
 }
 
 /* Custom scrollbar */
@@ -410,8 +479,10 @@ textarea[data-auto-resize]::-webkit-scrollbar-thumb:hover {
   }
 }
 
-/* Mobile Responsive */
+/* Responsive tweaks */
 @media (max-width: 768px) {
+  .sidebar { display: none; }
+  .main-content { padding: 0.5rem; }
   .chat-container {
     height: 100vh;
   }
