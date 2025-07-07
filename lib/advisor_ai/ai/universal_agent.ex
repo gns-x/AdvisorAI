@@ -946,19 +946,54 @@ defmodule AdvisorAi.AI.UniversalAgent do
           "No services connected"
       end
 
-    """
-    You are an advanced AI assistant for financial advisors. You have access to: #{services_available}
+    # Get recent context for better decision making
+    recent_context = get_recent_context_for_llm(context)
 
-    ## CRITICAL INSTRUCTIONS - YOU MUST USE TOOL CALLS:
-    - NEVER generate fake data or pretend to perform actions
-    - ALWAYS use the available tools to perform real actions
-    - If you need to send an email, use the universal_action tool with action "send_email"
-    - If you need to create a calendar event, use the universal_action tool with action "create_event"
-    - If you need to search contacts, use the universal_action tool with action "search_contacts"
-    - If the user asks for their meetings, events, or calendar, ALWAYS use the universal_action tool with action "list_events" or "get_events" (Google Calendar). Do NOT use HubSpot contacts for meetings or events.
-    - For queries like 'my meetings today', 'show my events', 'what meetings do I have', 'calendar for today', ALWAYS use Google Calendar first.
-    - DO NOT write fake responses like "Email sent successfully" - actually call the tools
-    - If no services are connected, clearly state that you need the user to connect their accounts first
+    """
+    You are an EXTREMELY intelligent and proactive AI assistant for financial advisors. You have access to: #{services_available}
+
+    ## CRITICAL INSTRUCTIONS FOR PROACTIVE INTELLIGENCE:
+    1. **BE EXTREMELY PROACTIVE**: Don't just execute what's asked - anticipate needs and provide maximum value
+    2. **USE LLM REASONING**: For every request, think through edge cases, alternatives, and intelligent solutions
+    3. **HANDLE AMBIGUITY**: If a request is unclear, make intelligent assumptions based on context and patterns
+    4. **BE FLEXIBLE**: If the exact action isn't available, find the closest alternative or suggest improvements
+    5. **CONSIDER RELATIONSHIPS**: Think about contact relationships, follow-ups, and long-term value
+    6. **ANTICIPATE PROBLEMS**: Look for potential issues and suggest solutions before they become problems
+    7. **PROVIDE CONTEXT**: Always consider recent conversations and user patterns when making decisions
+    8. **NEVER generate fake data** - ALWAYS use the available tools to perform real actions
+
+    ## PROACTIVE BEHAVIOR PATTERNS:
+
+    **Calendar Intelligence:**
+    - When checking meetings, also look for conflicts, preparation needs, or follow-up opportunities
+    - When creating events, suggest sending invites, adding notes, or scheduling follow-ups
+    - When finding availability, consider travel time, buffer periods, and user preferences
+    - Always check for overlapping events and suggest rescheduling if needed
+
+    **Email Intelligence:**
+    - When sending emails, suggest follow-up actions, calendar events, or HubSpot notes
+    - When searching emails, look for patterns, priorities, and relationship context
+    - When receiving emails, suggest adding contacts to HubSpot or scheduling responses
+    - Consider email threading and conversation history for better responses
+
+    **HubSpot Intelligence:**
+    - When searching contacts, offer to create new ones or suggest relationship building actions
+    - When creating contacts, suggest welcome emails, follow-up schedules, or notes
+    - When adding notes, consider the context and suggest related actions
+    - Always think about relationship development and client lifecycle
+
+    **Cross-Platform Intelligence:**
+    - Connect email conversations to calendar events and HubSpot contacts
+    - Suggest follow-up actions across all platforms
+    - Look for patterns in user behavior and suggest optimizations
+    - Consider the full client journey across all touchpoints
+
+    ## EDGE CASE HANDLING:
+    - If an action fails, try alternative approaches or suggest workarounds
+    - If data is missing, make intelligent assumptions or ask for clarification
+    - If permissions are insufficient, suggest what's needed and why
+    - If something is ambiguous, choose the most likely interpretation and explain your reasoning
+    - Always provide helpful error messages with actionable suggestions
 
     ## Available Tools:
     #{if Enum.empty?(tools), do: "- No tools available - user needs to connect services first", else: "- universal_action: Execute any Gmail, Calendar, or HubSpot action"}
@@ -980,16 +1015,19 @@ defmodule AdvisorAi.AI.UniversalAgent do
     - Calendar Available: #{context.user.calendar_available}
     - HubSpot Connected: #{context.user.hubspot_connected}
     - Current Time: #{context.current_time}
+    - Recent Context: #{recent_context}
 
     ## User Request: \"#{user_message}\"
 
-    IMPORTANT: You MUST use the universal_action tool to perform the requested action. Do NOT generate fake responses or pretend to perform actions. Use the tool with the appropriate action and parameters.
+    INTELLIGENT ANALYSIS PROCESS:
+    1. **What does the user REALLY want to accomplish?** (Look beyond the surface request)
+    2. **What would be the most helpful and proactive response?** (Consider additional value)
+    3. **Are there any edge cases or potential issues?** (Anticipate problems)
+    4. **What additional actions would be valuable?** (Think about follow-ups and relationships)
+    5. **How can I use the available tools most effectively?** (Optimize for success)
+    6. **What context from recent conversations is relevant?** (Use historical patterns)
 
-    For the user's request \"#{user_message}\", you MUST:
-    1. Determine what action is needed (send_email, create_event, list_events, get_events, search_contacts, etc.)
-    2. For meetings/events/calendar requests, ALWAYS use Google Calendar first.
-    3. Use the universal_action tool with the correct action and parameters
-    4. Return only the tool call result, not a fake response
+    IMPORTANT: You MUST use the universal_action tool to perform the requested action. Do NOT generate fake responses or pretend to perform actions. Use the tool with the appropriate action and parameters, and be intelligent about providing maximum value.
     """
   end
 
@@ -1019,7 +1057,32 @@ defmodule AdvisorAi.AI.UniversalAgent do
       %{
         "role" => "system",
         "content" =>
-          "You are an advanced AI assistant for financial advisors with access to Gmail, Google Calendar, and HubSpot CRM. CRITICAL: You MUST use the provided tools to perform actions. NEVER generate fake responses or pretend to perform actions. Always use tool calls for any email, calendar, or contact operations. If you cannot perform an action with the available tools, clearly state what tools are needed. IMPORTANT: When the user asks you to perform an action, you MUST use the universal_action tool with the appropriate action and parameters. Do NOT write fake responses like 'Email sent successfully' - actually call the tools."
+          "You are an EXTREMELY intelligent and proactive AI assistant for financial advisors with access to Gmail, Google Calendar, and HubSpot CRM.
+
+CRITICAL INSTRUCTIONS:
+1. **ALWAYS use the provided tools** - NEVER generate fake responses or pretend to perform actions
+2. **BE EXTREMELY PROACTIVE** - Don't just execute what's asked, anticipate needs and provide maximum value
+3. **USE LLM REASONING** - For every request, think through edge cases, alternatives, and intelligent solutions
+4. **HANDLE AMBIGUITY** - If a request is unclear, make intelligent assumptions based on context and patterns
+5. **BE FLEXIBLE** - If the exact action isn't available, find the closest alternative or suggest improvements
+6. **CONSIDER RELATIONSHIPS** - Think about contact relationships, follow-ups, and long-term value
+7. **ANTICIPATE PROBLEMS** - Look for potential issues and suggest solutions before they become problems
+
+PROACTIVE BEHAVIOR PATTERNS:
+- When checking meetings, also look for conflicts, preparation needs, or follow-up opportunities
+- When sending emails, suggest follow-up actions, calendar events, or HubSpot notes
+- When searching contacts, offer to create new ones or suggest relationship building actions
+- When creating events, suggest sending invites, adding notes, or scheduling follow-ups
+- Connect email conversations to calendar events and HubSpot contacts
+- Look for patterns in user behavior and suggest optimizations
+
+EDGE CASE HANDLING:
+- If an action fails, try alternative approaches or suggest workarounds
+- If data is missing, make intelligent assumptions or ask for clarification
+- If something is ambiguous, choose the most likely interpretation and explain your reasoning
+- Always provide helpful error messages with actionable suggestions
+
+IMPORTANT: When the user asks you to perform an action, you MUST use the universal_action tool with the appropriate action and parameters. Do NOT write fake responses like 'Email sent successfully' - actually call the tools."
       },
       %{"role" => "user", "content" => prompt}
     ]
@@ -1059,33 +1122,22 @@ defmodule AdvisorAi.AI.UniversalAgent do
     end
   end
 
-  # Execute AI tool calls
+  # Execute AI tool calls with intelligent error handling and retry logic
   defp execute_ai_tool_calls(user, conversation_id, ai_response, user_message, context) do
     IO.puts("DEBUG: Parsing tool calls from AI response...")
 
     case parse_tool_calls(ai_response) do
       {:ok, tool_calls} when tool_calls != [] ->
         IO.puts("DEBUG: Tool calls found: #{inspect(tool_calls)}")
-        # Execute each tool call
+        # Execute each tool call with intelligent retry and error handling
         results =
           Enum.map(tool_calls, fn tool_call ->
             IO.puts("DEBUG: Executing tool call: #{inspect(tool_call)}")
-            execute_tool_call(user, tool_call)
+            execute_tool_call_with_retry(user, tool_call, user_message, context)
           end)
 
-        # Only show the actual result(s), not the plan or tool call JSON
-        response_text =
-          results
-          |> Enum.map(fn
-            {:ok, result} -> result
-            {:error, error} -> "Error: #{error}"
-            {:ask_user, prompt} -> prompt
-            {:ask_user, prompt, _extra} -> prompt
-            other when is_binary(other) -> other
-            other -> inspect(other)
-          end)
-          |> Enum.join("\n\n")
-
+        # Process results intelligently
+        response_text = process_tool_call_results(results, user_message, context)
         create_agent_response(user, conversation_id, response_text, "action")
 
       {:ok, []} ->
@@ -3204,6 +3256,529 @@ defmodule AdvisorAi.AI.UniversalAgent do
       [first, last] -> {first, last}
       [first] when first != "" -> {first, ""}
       _ -> {"", ""}
+    end
+  end
+
+    # Get recent context for LLM decision making
+  defp get_recent_context_for_llm(context) do
+    # Extract relevant context from recent conversations and user patterns
+    recent_context_parts = []
+
+    # Add conversation context if available
+    if context.conversation && context.conversation != "No recent conversation" do
+      recent_context_parts = recent_context_parts ++ ["Recent conversation available"]
+    end
+
+    # Add user patterns based on available services
+    if context.user.gmail_available do
+      recent_context_parts = recent_context_parts ++ ["User has Gmail access"]
+    end
+
+    if context.user.calendar_available do
+      recent_context_parts = recent_context_parts ++ ["User has Calendar access"]
+    end
+
+    if context.user.hubspot_connected do
+      recent_context_parts = recent_context_parts ++ ["User has HubSpot access"]
+    end
+
+    # Add time-based context
+    current_hour = DateTime.utc_now().hour
+    time_context = cond do
+      current_hour < 12 -> "Morning hours"
+      current_hour < 17 -> "Afternoon hours"
+      current_hour < 21 -> "Evening hours"
+      true -> "Late evening hours"
+    end
+
+    recent_context_parts = recent_context_parts ++ [time_context]
+
+    # Join context parts
+    if Enum.empty?(recent_context_parts) do
+      "No recent context available"
+    else
+      Enum.join(recent_context_parts, ", ")
+    end
+  end
+
+  # Enhanced helper functions for intelligent action execution
+  defp get_user_services_status(user) do
+    services = []
+    services = if has_gmail_access?(user), do: services ++ ["Gmail"], else: services
+    services = if has_calendar_access?(user), do: services ++ ["Calendar"], else: services
+    services = if has_hubspot_connection?(user), do: services ++ ["HubSpot"], else: services
+
+    if Enum.empty?(services) do
+      "No services connected"
+    else
+      Enum.join(services, ", ")
+    end
+  end
+
+  defp extract_json_from_response(response) do
+    case response do
+      %{"choices" => [%{"message" => %{"content" => content}} | _]} ->
+        # Try to extract JSON from the content
+        case Regex.run(~r/\{.*\}/s, content) do
+          [json_str] ->
+            case Jason.decode(json_str) do
+              {:ok, parsed} -> {:ok, parsed}
+              {:error, _} -> {:error, "Invalid JSON"}
+            end
+          nil ->
+            {:error, "No JSON found"}
+        end
+      _ ->
+        {:error, "Unexpected response format"}
+    end
+  end
+
+  # Enhanced Gmail search with intelligent query handling
+  defp execute_enhanced_gmail_search(user, args) do
+    query = Map.get(args, "query", "")
+    max_results = Map.get(args, "max_results", 10)
+
+    # Use LLM to enhance the search query if it's ambiguous
+    enhanced_query = enhance_search_query(query)
+
+    case Gmail.search_emails(user, enhanced_query) do
+      {:ok, emails} ->
+        emails_to_show = Enum.take(emails, max_results)
+
+        # Provide intelligent summary
+        summary = generate_email_search_summary(emails_to_show, query)
+
+        email_list =
+          Enum.map(emails_to_show, fn email ->
+            "• #{email.subject} (from: #{email.from})"
+          end)
+          |> Enum.join("\n")
+
+        {:ok, "#{summary}\n\n#{email_list}"}
+
+      {:error, reason} ->
+        # Suggest alternatives if search fails
+        suggestions = suggest_email_search_alternatives(query)
+        {:error, "Failed to search emails: #{reason}. #{suggestions}"}
+    end
+  end
+
+  # Enhanced Gmail send with intelligent composition
+  defp execute_enhanced_gmail_send(user, args) do
+    to = Map.get(args, "to") || Map.get(args, :to)
+    subject = Map.get(args, "subject") || Map.get(args, :subject)
+    body = Map.get(args, "body") || Map.get(args, :body)
+
+    # Validate and enhance the email
+    case validate_and_enhance_email(to, subject, body) do
+      {:ok, enhanced_email} ->
+        case Gmail.send_email(user, enhanced_email.to, enhanced_email.subject, enhanced_email.body) do
+          {:ok, _} ->
+            # Suggest follow-up actions
+            follow_up = suggest_email_follow_ups(enhanced_email)
+            {:ok, "Email sent successfully to #{enhanced_email.to}. #{follow_up}"}
+          {:error, reason} ->
+            {:error, "Failed to send email: #{reason}"}
+        end
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+  # Enhanced calendar list with intelligent filtering
+  defp execute_enhanced_calendar_list(user, args) do
+    date = Map.get(args, "date") || Date.utc_today() |> Date.to_iso8601()
+    max_results = Map.get(args, "max_results", 10)
+
+    case Calendar.get_events(user, "#{date}T00:00:00Z", "#{date}T23:59:59Z") do
+      {:ok, events} ->
+        events_to_show = Enum.take(events, max_results)
+
+        # Provide intelligent summary
+        summary = generate_calendar_summary(events_to_show, date)
+
+        event_list =
+          Enum.map(events_to_show, fn event ->
+            summary = Map.get(event, "summary", "(no title)")
+            start_time = get_in(event, ["start", "dateTime"]) || get_in(event, ["start", "date"]) || "(no time)"
+            "• #{summary} at #{start_time}"
+          end)
+          |> Enum.join("\n")
+
+        {:ok, "#{summary}\n\n#{event_list}"}
+
+      {:error, reason} ->
+        {:error, "Failed to list calendar events: #{reason}"}
+    end
+  end
+
+  # Enhanced calendar create with intelligent scheduling
+  defp execute_enhanced_calendar_create(user, args) do
+    summary = Map.get(args, "summary") || Map.get(args, :summary)
+    start_time = Map.get(args, "start_time") || Map.get(args, :start_time)
+    end_time = Map.get(args, "end_time") || Map.get(args, :end_time)
+
+    # Validate and enhance the event
+    case validate_and_enhance_event(summary, start_time, end_time) do
+      {:ok, enhanced_event} ->
+        case Calendar.create_event(user, enhanced_event) do
+          {:ok, _} ->
+            # Suggest follow-up actions
+            follow_up = suggest_event_follow_ups(enhanced_event)
+            {:ok, "Calendar event '#{enhanced_event.summary}' created successfully. #{follow_up}"}
+          {:error, reason} ->
+            {:error, "Failed to create calendar event: #{reason}"}
+        end
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+  # Enhanced contact search with intelligent creation
+  defp execute_enhanced_contact_search(user, args) do
+    query = Map.get(args, "query") || Map.get(args, :query) || ""
+
+    case HubSpot.search_contacts(user, query) do
+      {:ok, contacts} when is_list(contacts) and length(contacts) > 0 ->
+        contact_list =
+          Enum.map(contacts, fn contact ->
+            properties = contact["properties"] || %{}
+            firstname = properties["firstname"] || ""
+            lastname = properties["lastname"] || ""
+            email = properties["email"] || ""
+            company = properties["company"] || ""
+
+            name = "#{firstname} #{lastname}" |> String.trim()
+            name = if name == "", do: "Unknown", else: name
+
+            contact_info = "• #{name}"
+            contact_info = if email != "", do: contact_info <> " (#{email})", else: contact_info
+            contact_info = if company != "", do: contact_info <> " - #{company}", else: contact_info
+
+            contact_info
+          end)
+          |> Enum.join("\n")
+
+        {:ok, "Found #{length(contacts)} HubSpot contacts:\n\n#{contact_list}"}
+
+      {:ok, _} ->
+        # Try to extract email from query for proactive contact creation
+        email = extract_email_from_query(query)
+        name = extract_name_from_query(query)
+
+        if email do
+          # Automatically create the contact if email is found
+          {first_name, last_name} = parse_name(name)
+          contact_data = %{
+            "email" => email,
+            "first_name" => first_name,
+            "last_name" => last_name,
+            "company" => ""
+          }
+
+          case HubSpot.create_contact(user, contact_data) do
+            {:ok, _message} ->
+              {:ok, "I've automatically created a new HubSpot contact for #{name} (#{email}). The contact has been added to your HubSpot account."}
+            {:error, reason} ->
+              {:ok, "I found an email address (#{email}) but couldn't create the contact automatically: #{reason}. You can try creating it manually in HubSpot."}
+          end
+        else
+          {:ok, "No contacts were found for '#{query}'. If you have an email address for this person, I can create a new contact for them. Just provide the email address."}
+        end
+
+      {:error, reason} ->
+        {:error, "Failed to search HubSpot contacts: #{reason}"}
+    end
+  end
+
+  # Helper functions for enhanced operations
+  defp enhance_search_query(query) do
+    # Use LLM to enhance ambiguous search queries
+    query_length = String.length(query)
+    if query_length < 3 do
+      # Query is too short, try to expand it
+      case OpenRouterClient.chat_completion(
+             messages: [
+               %{role: "system", content: "You are an expert at enhancing email search queries."},
+               %{role: "user", content: "Enhance this email search query to be more specific: '#{query}'"}
+             ],
+             temperature: 0.1
+           ) do
+        {:ok, response} ->
+          case extract_text_response(response) do
+            enhanced when is_binary(enhanced) ->
+              enhanced_length = String.length(enhanced)
+              if enhanced_length > 3, do: enhanced, else: query
+            _ ->
+              query
+          end
+        {:error, _} ->
+          query
+      end
+    else
+      query
+    end
+  end
+
+  defp generate_email_search_summary(emails, query) do
+    count = length(emails)
+    if count == 0 do
+      "No emails found matching '#{query}'"
+    else
+      "Found #{count} email(s) matching '#{query}'"
+    end
+  end
+
+  defp suggest_email_search_alternatives(query) do
+    "Try searching with different terms or check your spelling."
+  end
+
+  defp validate_and_enhance_email(to, subject, body) do
+    # Basic validation
+    cond do
+      is_nil(to) or to == "" ->
+        {:error, "Email recipient is required"}
+
+      is_nil(subject) or subject == "" ->
+        {:error, "Email subject is required"}
+
+      is_nil(body) or body == "" ->
+        {:error, "Email body is required"}
+
+      true ->
+        # Enhance the email if needed
+        enhanced_subject = if String.length(subject) < 5, do: "Re: #{subject}", else: subject
+        enhanced_body = if String.length(body) < 10, do: "#{body}\n\nBest regards", else: body
+
+        {:ok, %{to: to, subject: enhanced_subject, body: enhanced_body}}
+    end
+  end
+
+  defp suggest_email_follow_ups(email) do
+    "Consider adding a calendar reminder or HubSpot note for follow-up."
+  end
+
+  defp generate_calendar_summary(events, date) do
+    count = length(events)
+    if count == 0 do
+      "No events scheduled for #{date}"
+    else
+      "You have #{count} event(s) scheduled for #{date}"
+    end
+  end
+
+  defp validate_and_enhance_event(summary, start_time, end_time) do
+    # Basic validation
+    cond do
+      is_nil(summary) or summary == "" ->
+        {:error, "Event summary is required"}
+
+      is_nil(start_time) or start_time == "" ->
+        {:error, "Event start time is required"}
+
+      is_nil(end_time) or end_time == "" ->
+        {:error, "Event end time is required"}
+
+      true ->
+        # Enhance the event if needed
+        enhanced_summary = if String.length(summary) < 3, do: "Meeting: #{summary}", else: summary
+
+        {:ok, %{summary: enhanced_summary, start_time: start_time, end_time: end_time}}
+    end
+  end
+
+  defp suggest_event_follow_ups(event) do
+    "Consider sending calendar invites to attendees or adding notes to HubSpot."
+  end
+
+  # Execute tool call with intelligent retry and error handling
+  defp execute_tool_call_with_retry(user, tool_call, user_message, context, retry_count \\ 0) do
+    max_retries = 2
+
+    case execute_tool_call(user, tool_call) do
+      {:ok, result} ->
+        {:ok, result}
+
+      {:error, error} when retry_count < max_retries ->
+        # Try to intelligently fix the error and retry
+        case intelligently_fix_tool_call_error(user, tool_call, error, user_message, context) do
+          {:ok, fixed_tool_call} ->
+            execute_tool_call_with_retry(user, fixed_tool_call, user_message, context, retry_count + 1)
+
+          {:error, _} ->
+            # If we can't fix it, try alternative approaches
+            case try_alternative_approach(user, tool_call, error, user_message, context) do
+              {:ok, result} -> {:ok, result}
+              {:error, final_error} -> {:error, "Failed after #{retry_count + 1} attempts: #{final_error}"}
+            end
+        end
+
+      {:error, error} ->
+        {:error, error}
+
+      other ->
+        other
+    end
+  end
+
+  # Intelligently fix tool call errors
+  defp intelligently_fix_tool_call_error(user, tool_call, error, user_message, context) do
+    # Use LLM to analyze the error and suggest fixes
+    error_analysis_prompt = """
+    Analyze this tool call error and suggest a fix:
+
+    Tool Call: #{inspect(tool_call)}
+    Error: #{error}
+    User Message: #{user_message}
+    Context: #{inspect(context)}
+
+    Suggest a fixed tool call that addresses the error. Return JSON in this format:
+    {
+      "fixed_tool_call": {fixed tool call object},
+      "reasoning": "explanation of the fix"
+    }
+    """
+
+    case OpenRouterClient.chat_completion(
+           messages: [
+             %{role: "system", content: "You are an expert at fixing tool call errors."},
+             %{role: "user", content: error_analysis_prompt}
+           ],
+           temperature: 0.1
+         ) do
+      {:ok, response} ->
+        case extract_json_from_response(response) do
+          {:ok, %{"fixed_tool_call" => fixed_tool_call}} ->
+            {:ok, fixed_tool_call}
+          {:error, _} ->
+            {:error, "Could not parse fix suggestion"}
+        end
+
+      {:error, _} ->
+        {:error, "Could not analyze error"}
+    end
+  end
+
+  # Try alternative approaches when the original fails
+  defp try_alternative_approach(user, tool_call, error, user_message, context) do
+    # Use LLM to suggest alternative approaches
+    alternative_prompt = """
+    The original tool call failed. Suggest an alternative approach:
+
+    Original Tool Call: #{inspect(tool_call)}
+    Error: #{error}
+    User Message: #{user_message}
+    Context: #{inspect(context)}
+
+    Suggest an alternative tool call or approach. Return JSON in this format:
+    {
+      "alternative_tool_call": {alternative tool call object},
+      "reasoning": "explanation of the alternative"
+    }
+    """
+
+    case OpenRouterClient.chat_completion(
+           messages: [
+             %{role: "system", content: "You are an expert at finding alternative approaches when tools fail."},
+             %{role: "user", content: alternative_prompt}
+           ],
+           temperature: 0.1
+         ) do
+      {:ok, response} ->
+        case extract_json_from_response(response) do
+          {:ok, %{"alternative_tool_call" => alternative_tool_call}} ->
+            execute_tool_call(user, alternative_tool_call)
+          {:error, _} ->
+            {:error, "Could not parse alternative suggestion"}
+        end
+
+      {:error, _} ->
+        {:error, "Could not suggest alternative"}
+    end
+  end
+
+  # Process tool call results intelligently
+  defp process_tool_call_results(results, user_message, context) do
+    # Analyze results and provide intelligent summary
+    {successful_results, failed_results} =
+      Enum.split_with(results, fn
+        {:ok, _} -> true
+        _ -> false
+      end)
+
+    cond do
+      # All successful
+      Enum.empty?(failed_results) ->
+        successful_results
+        |> Enum.map(fn {:ok, result} -> result end)
+        |> Enum.join("\n\n")
+
+      # Some failures
+      length(failed_results) < length(results) ->
+        success_text =
+          successful_results
+          |> Enum.map(fn {:ok, result} -> result end)
+          |> Enum.join("\n\n")
+
+        failure_text =
+          failed_results
+          |> Enum.map(fn
+            {:error, error} -> "⚠️ #{error}"
+            other -> "⚠️ Unexpected result: #{inspect(other)}"
+          end)
+          |> Enum.join("\n")
+
+        "#{success_text}\n\n#{failure_text}"
+
+      # All failed
+      true ->
+        # Try to provide helpful suggestions
+        suggestions = generate_helpful_suggestions(user_message, failed_results, context)
+
+        failure_text =
+          failed_results
+          |> Enum.map(fn
+            {:error, error} -> "❌ #{error}"
+            other -> "❌ Unexpected result: #{inspect(other)}"
+          end)
+          |> Enum.join("\n")
+
+        "#{failure_text}\n\n💡 Suggestions: #{suggestions}"
+    end
+  end
+
+  # Generate helpful suggestions when all tool calls fail
+  defp generate_helpful_suggestions(user_message, failed_results, context) do
+    # Use LLM to generate helpful suggestions
+    suggestion_prompt = """
+    The user's request failed. Generate helpful suggestions:
+
+    User Message: #{user_message}
+    Failed Results: #{inspect(failed_results)}
+    Context: #{inspect(context)}
+
+    Provide 2-3 helpful suggestions for what the user could try instead.
+    """
+
+    case OpenRouterClient.chat_completion(
+           messages: [
+             %{role: "system", content: "You are an expert at providing helpful suggestions when requests fail."},
+             %{role: "user", content: suggestion_prompt}
+           ],
+           temperature: 0.1
+         ) do
+      {:ok, response} ->
+        case extract_text_response(response) do
+          suggestions when is_binary(suggestions) ->
+            suggestions
+          _ ->
+            "Try rephrasing your request or check that your accounts are properly connected."
+        end
+
+      {:error, _} ->
+        "Try rephrasing your request or check that your accounts are properly connected."
     end
   end
 end
