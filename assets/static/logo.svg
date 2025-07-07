@@ -1,42 +1,77 @@
-<svg width="120" height="120" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+<svg width="200" height="200" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
   <defs>
-    <linearGradient id="logoGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+    <!-- Premium gradient definitions -->
+    <linearGradient id="mainGradient" x1="0%" y1="0%" x2="100%" y2="100%">
       <stop offset="0%" style="stop-color:#667eea;stop-opacity:1" />
-      <stop offset="100%" style="stop-color:#764ba2;stop-opacity:1" />
+      <stop offset="50%" style="stop-color:#764ba2;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#f093fb;stop-opacity:1" />
     </linearGradient>
-    <linearGradient id="accentGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" style="stop-color:#f093fb;stop-opacity:1" />
-      <stop offset="100%" style="stop-color:#f5576c;stop-opacity:1" />
+    
+    <linearGradient id="accentGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#ffecd2;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#fcb69f;stop-opacity:1" />
     </linearGradient>
+    
+    <linearGradient id="shadowGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#000000;stop-opacity:0.3" />
+      <stop offset="100%" style="stop-color:#000000;stop-opacity:0.1" />
+    </linearGradient>
+    
+    <!-- Sophisticated filters -->
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
+      <feMerge> 
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    
+    <filter id="innerShadow" x="-50%" y="-50%" width="200%" height="200%">
+      <feOffset dx="0" dy="2"/>
+      <feGaussianBlur stdDeviation="2" result="offset-blur"/>
+      <feFlood flood-color="#000000" flood-opacity="0.2"/>
+      <feComposite in2="offset-blur" operator="in"/>
+      <feMerge> 
+        <feMergeNode/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
   </defs>
   
-  <!-- Background circle with subtle gradient -->
-  <circle cx="60" cy="60" r="55" fill="url(#logoGradient)" opacity="0.1"/>
+  <!-- Elegant background circle with subtle border -->
+  <circle cx="100" cy="100" r="95" fill="url(#shadowGradient)" opacity="0.1"/>
+  <circle cx="100" cy="100" r="90" fill="rgba(255,255,255,0.95)" stroke="url(#mainGradient)" stroke-width="2" opacity="0.8"/>
   
-  <!-- Main letter A structure -->
-  <path d="M60 25 L35 85 L45 85 L50 70 L70 70 L75 85 L85 85 L60 25 Z" 
-        fill="url(#logoGradient)" 
-        stroke="none"/>
+  <!-- Main Letter A with sophisticated design -->
+  <g transform="translate(100,100)" filter="url(#glow)">
+    <!-- Left stroke of A with elegant curve -->
+    <path d="M -35 35 Q -40 20 -30 -35 Q -28 -40 -25 -35 L -15 10 Q -12 15 -10 10 L 0 -20" 
+          fill="none" stroke="url(#mainGradient)" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+    
+    <!-- Right stroke of A with elegant curve -->
+    <path d="M 35 35 Q 40 20 30 -35 Q 28 -40 25 -35 L 15 10 Q 12 15 10 10 L 0 -20" 
+          fill="none" stroke="url(#mainGradient)" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+    
+    <!-- Crossbar with artistic flair -->
+    <path d="M -20 5 Q -15 0 0 2 Q 15 0 20 5" 
+          fill="none" stroke="url(#accentGradient)" stroke-width="6" stroke-linecap="round"/>
+    
+    <!-- Apex decoration -->
+    <circle cx="0" cy="-35" r="4" fill="url(#accentGradient)" filter="url(#innerShadow)"/>
+    
+    <!-- Artistic flourishes -->
+    <path d="M -25 -30 Q -20 -35 -15 -30" fill="none" stroke="url(#accentGradient)" stroke-width="2" opacity="0.7"/>
+    <path d="M 25 -30 Q 20 -35 15 -30" fill="none" stroke="url(#accentGradient)" stroke-width="2" opacity="0.7"/>
+  </g>
   
-  <!-- Crossbar of A with accent -->
-  <rect x="52" y="60" width="16" height="4" fill="url(#accentGradient)" rx="2"/>
+  <!-- Subtle decorative elements -->
+  <g opacity="0.3">
+    <circle cx="60" cy="60" r="2" fill="url(#accentGradient)"/>
+    <circle cx="140" cy="60" r="2" fill="url(#accentGradient)"/>
+    <circle cx="60" cy="140" r="2" fill="url(#accentGradient)"/>
+    <circle cx="140" cy="140" r="2" fill="url(#accentGradient)"/>
+  </g>
   
-  <!-- Elegant accent elements -->
-  <circle cx="60" cy="25" r="3" fill="url(#accentGradient)" opacity="0.8"/>
-  
-  <!-- Subtle shadow/depth effect -->
-  <path d="M60 25 L35 85 L45 85 L50 70 L70 70 L75 85 L85 85 L60 25 Z" 
-        fill="url(#logoGradient)" 
-        opacity="0.3"
-        transform="translate(2, 2)"/>
-  
-  <!-- Main A letter (repeated for layering effect) -->
-  <path d="M60 25 L35 85 L45 85 L50 70 L70 70 L75 85 L85 85 L60 25 Z" 
-        fill="url(#logoGradient)"/>
-  
-  <!-- Inner triangle for negative space refinement -->
-  <path d="M54 58 L60 42 L66 58 Z" fill="white" opacity="0.15"/>
-  
-  <!-- Elegant border accent -->
-  <circle cx="60" cy="60" r="58" fill="none" stroke="url(#logoGradient)" stroke-width="0.5" opacity="0.3"/>
+  <!-- Premium border accent -->
+  <circle cx="100" cy="100" r="90" fill="none" stroke="url(#mainGradient)" stroke-width="1" opacity="0.5" stroke-dasharray="2,4"/>
 </svg>
