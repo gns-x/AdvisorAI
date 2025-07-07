@@ -54,6 +54,8 @@ defmodule AdvisorAiWeb.Router do
     post "/webhooks/gmail", WebhookController, :gmail
     post "/webhooks/calendar", WebhookController, :calendar
     post "/webhooks/hubspot", WebhookController, :hubspot
+    post "/test/email-automation", WebhookController, :test_email_automation
+    post "/process-email", WebhookController, :process_manual_email
   end
 
   # Health check endpoint

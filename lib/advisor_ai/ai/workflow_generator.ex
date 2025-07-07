@@ -53,7 +53,11 @@ defmodule AdvisorAi.AI.WorkflowGenerator do
       %{
         "step" => 2,
         "action" => "send_email",
-        "params" => %{"to" => "attendee", "subject" => "Meeting Follow-up", "body" => "Follow-up content"},
+        "params" => %{
+          "to" => "attendee",
+          "subject" => "Meeting Follow-up",
+          "body" => "Follow-up content"
+        },
         "description" => "Send follow-up email",
         "depends_on" => 1
       },
@@ -82,7 +86,11 @@ defmodule AdvisorAi.AI.WorkflowGenerator do
       %{
         "step" => 3,
         "action" => "send_email",
-        "params" => %{"to" => "lead_email", "subject" => "Thank you for your interest", "body" => "Qualification email"},
+        "params" => %{
+          "to" => "lead_email",
+          "subject" => "Thank you for your interest",
+          "body" => "Qualification email"
+        },
         "description" => "Send qualification email",
         "depends_on" => 2
       }
@@ -120,14 +128,17 @@ defmodule AdvisorAi.AI.WorkflowGenerator do
     Respond with only the JSON workflow.
     """
 
-        case OpenRouterClient.chat_completion(messages: [
-      %{role: "system", content: system_prompt},
-      %{role: "user", content: user_request}
-    ]) do
+    case OpenRouterClient.chat_completion(
+           messages: [
+             %{role: "system", content: system_prompt},
+             %{role: "user", content: user_request}
+           ]
+         ) do
       {:ok, %{"choices" => [%{"message" => %{"content" => response}}]}} ->
         case Jason.decode(response) do
           {:ok, workflow} ->
             {:ok, workflow}
+
           {:error, _} ->
             # Fallback to template matching
             fallback_workflow(user_request)
@@ -153,16 +164,17 @@ defmodule AdvisorAi.AI.WorkflowGenerator do
 
       true ->
         # Generate simple single-step workflow
-        {:ok, [
-          %{
-            "step" => 1,
-            "action" => "search_emails",
-            "api" => "gmail",
-            "params" => %{"query" => user_request},
-            "description" => "Search for relevant information",
-            "fallback" => "general_assistance"
-          }
-        ]}
+        {:ok,
+         [
+           %{
+             "step" => 1,
+             "action" => "search_emails",
+             "api" => "gmail",
+             "params" => %{"query" => user_request},
+             "description" => "Search for relevant information",
+             "fallback" => "general_assistance"
+           }
+         ]}
     end
   end
 
@@ -171,40 +183,49 @@ defmodule AdvisorAi.AI.WorkflowGenerator do
     sorted_steps = Enum.sort_by(workflow["steps"], & &1["step"])
 
     # Execute steps in order, handling dependencies
-    results = Enum.reduce(sorted_steps, %{}, fn step, acc ->
-      case can_execute_step(step, acc) do
-        true ->
-          # Execute the step
-          case execute_workflow_step(user, step, extracted_data, acc) do
-            {:ok, result} ->
-              Map.put(acc, "step_#{step["step"]}", result)
-            {:error, reason} ->
-              # Try fallback if available
-              case step["fallback"] do
-                nil ->
-                  Map.put(acc, "step_#{step["step"]}", %{error: reason})
-                fallback_action ->
-                  case execute_fallback(user, fallback_action, step, extracted_data, acc) do
-                    {:ok, fallback_result} ->
-                      Map.put(acc, "step_#{step["step"]}", fallback_result)
-                    {:error, fallback_reason} ->
-                      Map.put(acc, "step_#{step["step"]}", %{error: reason, fallback_error: fallback_reason})
-                  end
-              end
-          end
+    results =
+      Enum.reduce(sorted_steps, %{}, fn step, acc ->
+        case can_execute_step(step, acc) do
+          true ->
+            # Execute the step
+            case execute_workflow_step(user, step, extracted_data, acc) do
+              {:ok, result} ->
+                Map.put(acc, "step_#{step["step"]}", result)
 
-        false ->
-          # Step cannot be executed due to dependency
-          Map.put(acc, "step_#{step["step"]}", %{error: "Dependency not met"})
-      end
-    end)
+              {:error, reason} ->
+                # Try fallback if available
+                case step["fallback"] do
+                  nil ->
+                    Map.put(acc, "step_#{step["step"]}", %{error: reason})
+
+                  fallback_action ->
+                    case execute_fallback(user, fallback_action, step, extracted_data, acc) do
+                      {:ok, fallback_result} ->
+                        Map.put(acc, "step_#{step["step"]}", fallback_result)
+
+                      {:error, fallback_reason} ->
+                        Map.put(acc, "step_#{step["step"]}", %{
+                          error: reason,
+                          fallback_error: fallback_reason
+                        })
+                    end
+                end
+            end
+
+          false ->
+            # Step cannot be executed due to dependency
+            Map.put(acc, "step_#{step["step"]}", %{error: "Dependency not met"})
+        end
+      end)
 
     {:ok, results}
   end
 
   defp can_execute_step(step, previous_results) do
     case step["depends_on"] do
-      nil -> true
+      nil ->
+        true
+
       depends_on ->
         # Check if the dependency step was successful
         case Map.get(previous_results, "step_#{depends_on}") do
@@ -223,10 +244,13 @@ defmodule AdvisorAi.AI.WorkflowGenerator do
     case step["api"] do
       "gmail" ->
         execute_gmail_action(user, step["action"], params)
+
       "calendar" ->
         execute_calendar_action(user, step["action"], params)
+
       "hubspot" ->
         execute_hubspot_action(user, step["action"], params)
+
       _ ->
         {:error, "Unknown API: #{step["api"]}"}
     end
@@ -236,9 +260,14 @@ defmodule AdvisorAi.AI.WorkflowGenerator do
     # Execute fallback action
     case fallback_action do
       "create_contact" ->
-        execute_hubspot_action(user, "create_contact", %{"email" => "default@example.com", "name" => "Default Contact"})
+        execute_hubspot_action(user, "create_contact", %{
+          "email" => "default@example.com",
+          "name" => "Default Contact"
+        })
+
       "general_assistance" ->
         {:ok, %{message: "I'll help you with this request manually"}}
+
       _ ->
         {:error, "Unknown fallback action: #{fallback_action}"}
     end
@@ -249,8 +278,14 @@ defmodule AdvisorAi.AI.WorkflowGenerator do
     case step["extract_from"] do
       nil ->
         step["params"]
+
       extract_rules ->
-        extract_params_from_previous(step["params"], extract_rules, previous_results, extracted_data)
+        extract_params_from_previous(
+          step["params"],
+          extract_rules,
+          previous_results,
+          extracted_data
+        )
     end
   end
 
@@ -260,12 +295,16 @@ defmodule AdvisorAi.AI.WorkflowGenerator do
       case value do
         "extracted_email" ->
           Map.put(acc, key, Map.get(extracted_data, "email") || "default@example.com")
+
         "extracted_name" ->
           Map.put(acc, key, Map.get(extracted_data, "name") || "Default Name")
+
         "contact_email" ->
           Map.put(acc, key, Map.get(extracted_data, "email") || "default@example.com")
+
         "contact_id" ->
           Map.put(acc, key, Map.get(extracted_data, "contact_id") || "default_id")
+
         _ ->
           Map.put(acc, key, value)
       end
@@ -278,11 +317,13 @@ defmodule AdvisorAi.AI.WorkflowGenerator do
       "search_emails" ->
         query = Map.get(params, "query", "")
         AdvisorAi.Integrations.Gmail.search_emails(user, query)
+
       "send_email" ->
         to = Map.get(params, "to", "")
         subject = Map.get(params, "subject", "")
         body = Map.get(params, "body", "")
         AdvisorAi.Integrations.Gmail.send_email(user, to, subject, body)
+
       _ ->
         {:error, "Unknown Gmail action: #{action}"}
     end
@@ -294,6 +335,7 @@ defmodule AdvisorAi.AI.WorkflowGenerator do
         date = Map.get(params, "date", "today")
         duration = Map.get(params, "duration_minutes", 30)
         AdvisorAi.Integrations.Calendar.get_availability(user, date, duration)
+
       _ ->
         {:error, "Unknown Calendar action: #{action}"}
     end
@@ -303,16 +345,20 @@ defmodule AdvisorAi.AI.WorkflowGenerator do
     case action do
       "create_contact" ->
         AdvisorAi.Integrations.HubSpot.create_contact(user, params)
+
       "add_note" ->
         contact_email = Map.get(params, "contact_email", "")
         note_content = Map.get(params, "note_content", "")
         AdvisorAi.Integrations.HubSpot.add_note(user, contact_email, note_content)
+
       "search_contacts" ->
         query = Map.get(params, "query", "")
         AdvisorAi.Integrations.HubSpot.search_contacts(user, query)
+
       "list_contacts" ->
         limit = Map.get(params, "limit", 50)
         AdvisorAi.Integrations.HubSpot.list_contacts(user, limit)
+
       _ ->
         {:error, "Unknown HubSpot action: #{action}"}
     end

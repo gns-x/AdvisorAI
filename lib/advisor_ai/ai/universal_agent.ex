@@ -6,7 +6,7 @@ defmodule AdvisorAi.AI.UniversalAgent do
 
   alias AdvisorAi.{Accounts, Chat, AI}
   alias AdvisorAi.Integrations.{Gmail, Calendar, HubSpot}
-  alias AI.{OpenRouterClient, TogetherClient, OllamaClient}
+  alias AI.{OpenRouterClient, TogetherClient, OllamaClient, AgentInstruction}
 
   @doc """
   Process any user request and autonomously perform the appropriate Gmail/Calendar actions.
@@ -15,18 +15,55 @@ defmodule AdvisorAi.AI.UniversalAgent do
   def process_request(user, conversation_id, user_message) do
     # Check for common greetings first
     greeting_response = check_for_greeting(user_message)
+
     if greeting_response do
       create_agent_response(user, conversation_id, greeting_response, "conversation")
     else
-      conversation = get_conversation_with_context(conversation_id, user.id)
-      user_context = get_comprehensive_user_context(user)
+      # Check if this is an ongoing instruction
+      case recognize_ongoing_instruction(user_message) do
+        {:ok, instruction_data} ->
+          # Store the instruction and confirm
+          case store_ongoing_instruction(user, instruction_data) do
+            {:ok, _instruction} ->
+              confirmation_message = build_instruction_confirmation(instruction_data)
+              create_agent_response(user, conversation_id, confirmation_message, "conversation")
 
-      # Build context for AI
-      context = build_ai_context(user, conversation, user_context)
+            {:error, reason} ->
+              create_agent_response(
+                user,
+                conversation_id,
+                "I understand you want me to remember that instruction, but I had trouble saving it. Please try again.",
+                "error"
+              )
+          end
 
-      # Get available tools (Gmail/Calendar API capabilities)
-      tools = get_available_tools(user)
+        {:error, :not_instruction} ->
+          # Process as normal request
+          process_normal_request(user, conversation_id, user_message)
+      end
+    end
+  end
 
+  # Process normal requests (non-instruction requests)
+  defp process_normal_request(user, conversation_id, user_message) do
+    conversation = get_conversation_with_context(conversation_id, user.id)
+    user_context = get_comprehensive_user_context(user)
+
+    # Build context for AI
+    context = build_ai_context(user, conversation, user_context)
+
+    # Get available tools (Gmail/Calendar API capabilities)
+    tools = get_available_tools(user)
+
+    # If no tools are available, provide a helpful response
+    if Enum.empty?(tools) do
+      create_agent_response(
+        user,
+        conversation_id,
+        "I'd be happy to help you with that! However, I need you to connect your accounts first so I can access your real data. Please go to Settings > Integrations to connect your Gmail, Google Calendar, or HubSpot accounts. Once connected, I'll be able to search your emails, manage your calendar, and access your contacts.",
+        "conversation"
+      )
+    else
       # Create AI prompt for universal action understanding
       prompt = build_universal_prompt(user_message, context, tools)
 
@@ -41,7 +78,13 @@ defmodule AdvisorAi.AI.UniversalAgent do
 
         {:error, reason} ->
           IO.puts("AI Error: #{reason}")
-          create_agent_response(user, conversation_id, "I'm having trouble understanding your request. Please try rephrasing it.", "error")
+
+          create_agent_response(
+            user,
+            conversation_id,
+            "I'm having trouble understanding your request. Please try rephrasing it.",
+            "error"
+          )
       end
     end
   end
@@ -51,7 +94,15 @@ defmodule AdvisorAi.AI.UniversalAgent do
     message_lower = String.downcase(String.trim(message))
 
     cond do
-      message_lower in ["hello", "hi", "hey", "good morning", "good afternoon", "good evening", "greetings"] ->
+      message_lower in [
+        "hello",
+        "hi",
+        "hey",
+        "good morning",
+        "good afternoon",
+        "good evening",
+        "greetings"
+      ] ->
         "Hello! I'm your AI assistant. I can help you with emails, calendar management, and contact searches. What would you like to do today?"
 
       message_lower in ["how are you", "how are you doing", "how's it going"] ->
@@ -86,83 +137,26 @@ defmodule AdvisorAi.AI.UniversalAgent do
 
   # Get all available Gmail/Calendar tools as a schema
   def get_available_tools(user) do
-    [
-      # Universal Action Tool - Handles ANY request dynamically
-      %{
-        name: "universal_action",
-        description: "Execute any action related to Gmail, Calendar, HubSpot, or OAuth. This is a flexible tool that can handle any request by interpreting the action name and parameters. Examples: search emails, send email, list events, create event, search contacts, check permissions, etc.",
-        parameters: %{
-          type: "object",
-          properties: %{
-            action: %{
-              type: "string",
-              description: "The action to perform (e.g., 'search_emails', 'send_email', 'list_events', 'create_event', 'search_contacts', 'check_permissions', 'delete_email', 'update_event', etc.)"
-            },
-            query: %{
-              type: "string",
-              description: "Search query for emails or contacts"
-            },
-            to: %{
-              type: "string",
-              description: "Recipient email address"
-            },
-            subject: %{
-              type: "string",
-              description: "Email subject line"
-            },
-            body: %{
-              type: "string",
-              description: "Email body content"
-            },
-            max_results: %{
-              type: "integer",
-              description: "Maximum number of results to return",
-              default: 10
-            },
-            summary: %{
-              type: "string",
-              description: "Event title/summary"
-            },
-            start_time: %{
-              type: "string",
-              description: "Event start time (ISO 8601 format)"
-            },
-            end_time: %{
-              type: "string",
-              description: "Event end time (ISO 8601 format)"
-            },
-            attendees: %{
-              type: "array",
-              items: %{type: "string"},
-              description: "List of attendee email addresses"
-            },
-            message_id: %{
-              type: "string",
-              description: "Gmail message ID for operations on specific emails"
-            },
-            event_id: %{
-              type: "string",
-              description: "Calendar event ID for operations on specific events"
-            }
-          },
-          required: ["action"]
-        }
-      }
-    ]
+    # Check what services are available
+    google_connected = has_valid_google_tokens?(user)
+    gmail_available = has_gmail_access?(user)
+    calendar_available = has_calendar_access?(user)
 
-    # For universal action, we don't need to filter - it handles all services
-    # Just check if user has any Google access
-    if has_valid_google_tokens?(user) do
+    # Only return tools if user has access to at least one service
+    if google_connected or gmail_available or calendar_available do
       [
+        # Universal Action Tool - Handles ANY request dynamically
         %{
           name: "universal_action",
-          description: "Execute any action related to Gmail, Calendar, HubSpot, or OAuth. This is a flexible tool that can handle any request by interpreting the action name and parameters. Examples: search emails, send email, list events, create event, search contacts, check permissions, etc.",
+          description:
+            "Execute any action related to Gmail, Calendar, HubSpot, or OAuth. This is a flexible tool that can handle any request by interpreting the action name and parameters. Examples: search emails, send email, list events, create event, search contacts, check permissions, etc.",
           parameters: %{
             type: "object",
             properties: %{
               action: %{
                 type: "string",
-                description: "The action to perform (e.g., 'search_emails', 'send_email', 'list_events', 'create_event', 'search_contacts', 'check_permissions', 'delete_email', 'update_event', etc.)"
+                description:
+                  "The action to perform (e.g., 'search_emails', 'send_email', 'list_events', 'create_event', 'search_contacts', 'check_permissions', 'delete_email', 'update_event', etc.)"
               },
               query: %{
                 type: "string",
@@ -222,32 +216,58 @@ defmodule AdvisorAi.AI.UniversalAgent do
 
   # Build AI prompt for universal action understanding
   defp build_universal_prompt(user_message, context, tools) do
-    tools_description = Enum.map_join(tools, "\n", fn tool ->
-      {name, description, parameters} = case tool do
-        %{function: %{name: n, description: d, parameters: p}} -> {n, d, p}
-        %{name: n, description: d, parameters: p} -> {n, d, p}
-        _ -> {"unknown", "No description", %{}}
+    tools_description =
+      if Enum.empty?(tools) do
+        "No tools available - user has not connected any services (Gmail, Calendar, HubSpot)"
+      else
+        Enum.map_join(tools, "\n", fn tool ->
+          {name, description, parameters} =
+            case tool do
+              %{function: %{name: n, description: d, parameters: p}} -> {n, d, p}
+              %{name: n, description: d, parameters: p} -> {n, d, p}
+              _ -> {"unknown", "No description", %{}}
+            end
+
+          """
+          - #{name}: #{description}
+            Parameters: #{Jason.encode!(parameters)}
+          """
+        end)
       end
 
-      """
-      - #{name}: #{description}
-        Parameters: #{Jason.encode!(parameters)}
-      """
-    end)
+    # Determine what services are available
+    services_available = cond do
+      context.user.google_connected and context.user.gmail_available and context.user.calendar_available ->
+        "Gmail, Google Calendar, and HubSpot CRM"
+      context.user.google_connected and context.user.gmail_available ->
+        "Gmail and HubSpot CRM"
+      context.user.google_connected and context.user.calendar_available ->
+        "Google Calendar and HubSpot CRM"
+      context.user.google_connected ->
+        "HubSpot CRM only"
+      true ->
+        "No services connected"
+    end
 
     """
-    You are an advanced AI assistant for financial advisors with access to Gmail, Google Calendar, and HubSpot CRM. You must be extremely precise, proactive, and intelligent in handling requests.
+    You are an advanced AI assistant for financial advisors. You have access to: #{services_available}
+
+    ## CRITICAL: NEVER GENERATE FAKE DATA
+    - If you cannot access real data from the connected services, DO NOT make up fake information
+    - If no services are connected, clearly state that you need the user to connect their accounts first
+    - If a service is connected but returns no results, say "No results found" - do not invent data
+    - Always be honest about what data you can and cannot access
 
     ## Core Capabilities & Tools Available:
-    - Email: search, read, compose, send, and track email conversations
+    #{if Enum.empty?(tools), do: "- No tools available - user needs to connect services first", else: "- Email: search, read, compose, send, and track email conversations
     - Calendar: check availability, schedule meetings, update events, handle conflicts
     - HubSpot: search contacts, create/update records, add notes, track interactions
-    - Memory: store and recall ongoing instructions and task states
+    - Memory: store and recall ongoing instructions and task states"}
 
     ## Critical Operating Principles:
 
     1. **ALWAYS gather complete context before acting:**
-       - Search across ALL systems (emails, calendar, HubSpot) for relevant information
+       - Search across ALL available systems for relevant information
        - Check for existing relationships, past interactions, and scheduled events
        - Consider timezone differences and working hours
        - Verify contact information across multiple sources
@@ -292,7 +312,7 @@ defmodule AdvisorAi.AI.UniversalAgent do
     When receiving a request:
     1. Parse and understand the complete intent
     2. Identify all entities (people, companies, dates, topics)
-    3. Search all systems for context
+    3. Search all available systems for context
     4. Plan the complete task sequence
     5. Execute with status updates
     6. Handle any errors or unexpected responses
@@ -365,44 +385,54 @@ defmodule AdvisorAi.AI.UniversalAgent do
   # Get AI response with tool calls using OpenRouter (supports function calling)
   defp get_ai_response_with_tools(prompt, tools) do
     # Convert tools to OpenRouter tool calling format (newer format)
-    tools_format = Enum.map(tools, fn tool ->
-      {name, description, parameters} = case tool do
-        %{function: %{name: n, description: d, parameters: p}} -> {n, d, p}
-        %{name: n, description: d, parameters: p} -> {n, d, p}
-        _ -> {"unknown", "No description", %{}}
-      end
+    tools_format =
+      Enum.map(tools, fn tool ->
+        {name, description, parameters} =
+          case tool do
+            %{function: %{name: n, description: d, parameters: p}} -> {n, d, p}
+            %{name: n, description: d, parameters: p} -> {n, d, p}
+            _ -> {"unknown", "No description", %{}}
+          end
 
-      %{
-        type: "function",
-        function: %{
-          name: name,
-          description: description,
-          parameters: parameters
+        %{
+          type: "function",
+          function: %{
+            name: name,
+            description: description,
+            parameters: parameters
+          }
         }
-      }
-    end)
+      end)
 
     messages = [
-      %{"role" => "system", "content" => "You are an advanced AI assistant for financial advisors with access to Gmail, Google Calendar, and HubSpot CRM. You must be extremely precise, proactive, and intelligent in handling requests. Follow the comprehensive instructions in your prompt. Deeply analyze the user's request, reason step by step, and only return the final result. Never output plans, JSON, or intermediate steps—only the final answer."},
+      %{
+        "role" => "system",
+        "content" =>
+          "You are an advanced AI assistant for financial advisors with access to Gmail, Google Calendar, and HubSpot CRM. You must be extremely precise, proactive, and intelligent in handling requests. Follow the comprehensive instructions in your prompt. Deeply analyze the user's request, reason step by step, and only return the final result. Never output plans, JSON, or intermediate steps—only the final answer."
+      },
       %{"role" => "user", "content" => prompt}
     ]
 
     case OpenRouterClient.chat_completion(
-      messages: messages,
-      tools: tools_format,
-      tool_choice: "auto",
-      temperature: 0.1
-    ) do
-      {:ok, response} -> {:ok, response}
+           messages: messages,
+           tools: tools_format,
+           tool_choice: "auto",
+           temperature: 0.1
+         ) do
+      {:ok, response} ->
+        {:ok, response}
+
       {:error, _} ->
         # Fallback to Together AI
         case TogetherClient.chat_completion(
-          messages: messages,
-          tools: tools_format,
-          tool_choice: "auto",
-          temperature: 0.1
-        ) do
-          {:ok, response} -> {:ok, response}
+               messages: messages,
+               tools: tools_format,
+               tool_choice: "auto",
+               temperature: 0.1
+             ) do
+          {:ok, response} ->
+            {:ok, response}
+
           {:error, _} ->
             # Final fallback to Ollama (basic response without function calling)
             case OllamaClient.chat_completion(messages: messages, temperature: 0.1) do
@@ -418,9 +448,10 @@ defmodule AdvisorAi.AI.UniversalAgent do
     case parse_tool_calls(ai_response) do
       {:ok, tool_calls} when tool_calls != [] ->
         # Execute each tool call
-        results = Enum.map(tool_calls, fn tool_call ->
-          execute_tool_call(user, tool_call)
-        end)
+        results =
+          Enum.map(tool_calls, fn tool_call ->
+            execute_tool_call(user, tool_call)
+          end)
 
         # Only show the actual result(s), not the plan or tool call JSON
         response_text =
@@ -443,7 +474,12 @@ defmodule AdvisorAi.AI.UniversalAgent do
 
           {:error, _} ->
             # If no JSON found, just return the LLM's conversational response
-            create_agent_response(user, conversation_id, response_text || "I'm not sure how to help with that yet, but I'm learning!", "conversation")
+            create_agent_response(
+              user,
+              conversation_id,
+              response_text || "I'm not sure how to help with that yet, but I'm learning!",
+              "conversation"
+            )
         end
 
       {:error, reason} ->
@@ -456,7 +492,12 @@ defmodule AdvisorAi.AI.UniversalAgent do
 
           {:error, _} ->
             # If no JSON found, just return the LLM's conversational response
-            create_agent_response(user, conversation_id, response_text || "I'm not sure how to help with that yet, but I'm learning!", "conversation")
+            create_agent_response(
+              user,
+              conversation_id,
+              response_text || "I'm not sure how to help with that yet, but I'm learning!",
+              "conversation"
+            )
         end
     end
   end
@@ -466,12 +507,14 @@ defmodule AdvisorAi.AI.UniversalAgent do
     case response do
       %{"choices" => [%{"message" => %{"tool_calls" => tool_calls}} | _]} ->
         # Convert tool calls to function call format for compatibility
-        function_calls = Enum.map(tool_calls, fn tool_call ->
-          %{
-            "name" => tool_call["function"]["name"],
-            "arguments" => tool_call["function"]["arguments"]
-          }
-        end)
+        function_calls =
+          Enum.map(tool_calls, fn tool_call ->
+            %{
+              "name" => tool_call["function"]["name"],
+              "arguments" => tool_call["function"]["arguments"]
+            }
+          end)
+
         {:ok, function_calls}
 
       %{"choices" => [%{"message" => %{"function_call" => function_call}} | _]} ->
@@ -498,6 +541,7 @@ defmodule AdvisorAi.AI.UniversalAgent do
           {:ok, args} -> {:ok, [%{"name" => name, "arguments" => args}]}
           {:error, _} -> {:error, "Invalid arguments JSON"}
         end
+
       _ ->
         {:error, "No function calls found"}
     end
@@ -508,6 +552,7 @@ defmodule AdvisorAi.AI.UniversalAgent do
     case response do
       %{"choices" => [%{"message" => %{"content" => content}} | _]} ->
         content
+
       _ ->
         nil
     end
@@ -519,17 +564,20 @@ defmodule AdvisorAi.AI.UniversalAgent do
     raw_arguments = tool_call["arguments"] || %{}
 
     # Parse arguments if they're a JSON string
-    arguments = case raw_arguments do
-      args when is_binary(args) ->
-        case Jason.decode(args) do
-          {:ok, parsed_args} -> parsed_args
-          {:error, _} -> %{}
-        end
-      args when is_map(args) ->
-        args
-      _ ->
-        %{}
-    end
+    arguments =
+      case raw_arguments do
+        args when is_binary(args) ->
+          case Jason.decode(args) do
+            {:ok, parsed_args} -> parsed_args
+            {:error, _} -> %{}
+          end
+
+        args when is_map(args) ->
+          args
+
+        _ ->
+          %{}
+      end
 
     IO.puts("DEBUG: Executing tool: #{function_name} with args: #{inspect(arguments)}")
 
@@ -540,7 +588,7 @@ defmodule AdvisorAi.AI.UniversalAgent do
     end
   end
 
-    # Universal Action Execution - Handles ANY request dynamically
+  # Universal Action Execution - Handles ANY request dynamically
   defp execute_universal_action(user, args) do
     # Extract action from args
     action = Map.get(args, "action", "")
@@ -548,31 +596,39 @@ defmodule AdvisorAi.AI.UniversalAgent do
 
     cond do
       # Gmail actions
-      String.contains?(action_lower, "search") and (String.contains?(action_lower, "email") or String.contains?(action_lower, "mail")) ->
+      String.contains?(action_lower, "search") and
+          (String.contains?(action_lower, "email") or String.contains?(action_lower, "mail")) ->
         query = Map.get(args, "query", "")
         max_results = Map.get(args, "max_results", 10)
         execute_gmail_action(user, "search", %{query: query, max_results: max_results})
 
-      String.contains?(action_lower, "send") and (String.contains?(action_lower, "email") or String.contains?(action_lower, "mail")) ->
+      String.contains?(action_lower, "send") and
+          (String.contains?(action_lower, "email") or String.contains?(action_lower, "mail")) ->
         execute_gmail_action(user, "send", args)
 
-      String.contains?(action_lower, "list") and (String.contains?(action_lower, "email") or String.contains?(action_lower, "mail")) ->
+      String.contains?(action_lower, "list") and
+          (String.contains?(action_lower, "email") or String.contains?(action_lower, "mail")) ->
         execute_gmail_action(user, "list", args)
 
-      String.contains?(action_lower, "delete") and (String.contains?(action_lower, "email") or String.contains?(action_lower, "mail")) ->
+      String.contains?(action_lower, "delete") and
+          (String.contains?(action_lower, "email") or String.contains?(action_lower, "mail")) ->
         execute_gmail_action(user, "delete", args)
 
       # Calendar actions
-      String.contains?(action_lower, "list") and (String.contains?(action_lower, "event") or String.contains?(action_lower, "calendar")) ->
+      String.contains?(action_lower, "list") and
+          (String.contains?(action_lower, "event") or String.contains?(action_lower, "calendar")) ->
         execute_calendar_action(user, "list", args)
 
-      String.contains?(action_lower, "create") and (String.contains?(action_lower, "event") or String.contains?(action_lower, "calendar")) ->
+      String.contains?(action_lower, "create") and
+          (String.contains?(action_lower, "event") or String.contains?(action_lower, "calendar")) ->
         execute_calendar_action(user, "create", args)
 
-      String.contains?(action_lower, "update") and (String.contains?(action_lower, "event") or String.contains?(action_lower, "calendar")) ->
+      String.contains?(action_lower, "update") and
+          (String.contains?(action_lower, "event") or String.contains?(action_lower, "calendar")) ->
         execute_calendar_action(user, "update", args)
 
-      String.contains?(action_lower, "delete") and (String.contains?(action_lower, "event") or String.contains?(action_lower, "calendar")) ->
+      String.contains?(action_lower, "delete") and
+          (String.contains?(action_lower, "event") or String.contains?(action_lower, "calendar")) ->
         execute_calendar_action(user, "delete", args)
 
       # Contact actions
@@ -583,8 +639,16 @@ defmodule AdvisorAi.AI.UniversalAgent do
         execute_contact_action(user, "create", args)
 
       # OAuth actions
-      String.contains?(action_lower, "check") and (String.contains?(action_lower, "permission") or String.contains?(action_lower, "scope") or String.contains?(action_lower, "oauth")) ->
+      String.contains?(action_lower, "check") and
+          (String.contains?(action_lower, "permission") or String.contains?(action_lower, "scope") or
+             String.contains?(action_lower, "oauth")) ->
         execute_oauth_action(user, args)
+
+      # Instruction management actions
+      (String.contains?(action_lower, "check") and String.contains?(action_lower, "ongoing") and
+          String.contains?(action_lower, "instruction")) or String.contains?(action_lower, "search_instructions") or
+          String.contains?(action_lower, "search_ongoing_instructions") or String.contains?(action_lower, "search_memory") ->
+        execute_check_ongoing_instructions(user, args)
 
       # Default - try to infer from action name
       true ->
@@ -645,11 +709,15 @@ defmodule AdvisorAi.AI.UniversalAgent do
         case Gmail.search_emails(user, query) do
           {:ok, emails} ->
             emails_to_show = Enum.take(emails, max_results)
-            email_list = Enum.map(emails_to_show, fn email ->
-              "• #{email.subject} (from: #{email.from})"
-            end) |> Enum.join("\n")
+
+            email_list =
+              Enum.map(emails_to_show, fn email ->
+                "• #{email.subject} (from: #{email.from})"
+              end)
+              |> Enum.join("\n")
 
             {:ok, "Found #{length(emails)} emails:\n\n#{email_list}"}
+
           {:error, reason} ->
             {:error, "Failed to search emails: #{reason}"}
         end
@@ -671,11 +739,15 @@ defmodule AdvisorAi.AI.UniversalAgent do
         case Gmail.search_emails(user, query) do
           {:ok, emails} ->
             emails_to_show = Enum.take(emails, max_results)
-            email_list = Enum.map(emails_to_show, fn email ->
-              "• #{email.subject} (from: #{email.from})"
-            end) |> Enum.join("\n")
+
+            email_list =
+              Enum.map(emails_to_show, fn email ->
+                "• #{email.subject} (from: #{email.from})"
+              end)
+              |> Enum.join("\n")
 
             {:ok, "Found #{length(emails)} emails:\n\n#{email_list}"}
+
           {:error, reason} ->
             {:error, "Failed to list emails: #{reason}"}
         end
@@ -695,41 +767,63 @@ defmodule AdvisorAi.AI.UniversalAgent do
       "create" ->
         # Fix: resolve attendees if it's a nested tool call
         attendees = Map.get(args, "attendees", [])
+
         resolved_attendees =
           cond do
-            is_map(attendees) and Map.has_key?(attendees, "function_name") and Map.has_key?(attendees, "args") ->
+            is_map(attendees) and Map.has_key?(attendees, "function_name") and
+                Map.has_key?(attendees, "args") ->
               # Execute the nested tool call to get contacts
-              tool_call = %{"name" => attendees["function_name"], "arguments" => Enum.at(attendees["args"], 0)}
+              tool_call = %{
+                "name" => attendees["function_name"],
+                "arguments" => Enum.at(attendees["args"], 0)
+              }
+
               case execute_tool_call(user, tool_call) do
                 {:ok, contacts_result} ->
                   # contacts_result is a string like "Found 1 contacts:\n\n• Name (email) - phone"
                   # Extract emails from the result
                   Regex.scan(~r/\(([^)]+@[^)]+)\)/, contacts_result)
                   |> Enum.map(fn [_, email] -> email end)
-                _ -> []
+
+                _ ->
+                  []
               end
-            is_list(attendees) -> attendees
-            true -> []
+
+            is_list(attendees) ->
+              attendees
+
+            true ->
+              []
           end
+
         event_data = Map.put(args, "attendees", resolved_attendees)
         Calendar.create_event(user, event_data)
+
       "list" ->
         case Calendar.list_events(user) do
           {:ok, events} when is_list(events) ->
             if length(events) > 0 do
-              event_list = Enum.map(events, fn event ->
-                start_time = get_in(event, ["start", "dateTime"]) || get_in(event, ["start", "date"])
-                "• #{event["summary"]} (#{start_time})"
-              end) |> Enum.join("\n")
+              event_list =
+                Enum.map(events, fn event ->
+                  start_time =
+                    get_in(event, ["start", "dateTime"]) || get_in(event, ["start", "date"])
+
+                  "• #{event["summary"]} (#{start_time})"
+                end)
+                |> Enum.join("\n")
+
               {:ok, "Found #{length(events)} events:\n\n#{event_list}"}
             else
               {:ok, "No events found"}
             end
+
           {:ok, other} ->
             {:ok, inspect(other)}
+
           {:error, reason} ->
             {:error, "Failed to list events: #{reason}"}
         end
+
       _ ->
         {:error, "Unknown calendar action: #{action}"}
     end
@@ -742,30 +836,41 @@ defmodule AdvisorAi.AI.UniversalAgent do
 
         case HubSpot.search_contacts(user, query) do
           {:ok, contacts} when is_list(contacts) and length(contacts) > 0 ->
-            contact_list = Enum.map(contacts, fn contact ->
-              properties = contact["properties"] || %{}
-              firstname = properties["firstname"] || ""
-              lastname = properties["lastname"] || ""
-              email = properties["email"] || ""
-              company = properties["company"] || ""
-              phone = properties["phone"] || ""
-              jobtitle = properties["jobtitle"] || ""
+            contact_list =
+              Enum.map(contacts, fn contact ->
+                properties = contact["properties"] || %{}
+                firstname = properties["firstname"] || ""
+                lastname = properties["lastname"] || ""
+                email = properties["email"] || ""
+                company = properties["company"] || ""
+                phone = properties["phone"] || ""
+                jobtitle = properties["jobtitle"] || ""
 
-              name = "#{firstname} #{lastname}" |> String.trim()
-              name = if name == "", do: "Unknown", else: name
+                name = "#{firstname} #{lastname}" |> String.trim()
+                name = if name == "", do: "Unknown", else: name
 
-              contact_info = "• #{name}"
-              contact_info = if email != "", do: contact_info <> " (#{email})", else: contact_info
-              contact_info = if company != "", do: contact_info <> " - #{company}", else: contact_info
-              contact_info = if jobtitle != "", do: contact_info <> " (#{jobtitle})", else: contact_info
-              contact_info = if phone != "", do: contact_info <> " - #{phone}", else: contact_info
+                contact_info = "• #{name}"
 
-              contact_info
-            end) |> Enum.join("\n")
+                contact_info =
+                  if email != "", do: contact_info <> " (#{email})", else: contact_info
+
+                contact_info =
+                  if company != "", do: contact_info <> " - #{company}", else: contact_info
+
+                contact_info =
+                  if jobtitle != "", do: contact_info <> " (#{jobtitle})", else: contact_info
+
+                contact_info = if phone != "", do: contact_info <> " - #{phone}", else: contact_info
+
+                contact_info
+              end)
+              |> Enum.join("\n")
 
             {:ok, "Found #{length(contacts)} HubSpot contacts:\n\n#{contact_list}"}
+
           {:ok, _} ->
             {:ok, "No HubSpot contacts found."}
+
           {:error, reason} ->
             {:error, "Failed to search HubSpot contacts: #{reason}"}
         end
@@ -775,30 +880,42 @@ defmodule AdvisorAi.AI.UniversalAgent do
 
         case HubSpot.list_contacts(user, limit) do
           {:ok, contacts} when is_list(contacts) and length(contacts) > 0 ->
-            contact_list = Enum.map(contacts, fn contact ->
-              properties = contact["properties"] || %{}
-              firstname = properties["firstname"] || ""
-              lastname = properties["lastname"] || ""
-              email = properties["email"] || ""
-              company = properties["company"] || ""
-              phone = properties["phone"] || ""
-              jobtitle = properties["jobtitle"] || ""
+            contact_list =
+              Enum.map(contacts, fn contact ->
+                properties = contact["properties"] || %{}
+                firstname = properties["firstname"] || ""
+                lastname = properties["lastname"] || ""
+                email = properties["email"] || ""
+                company = properties["company"] || ""
+                phone = properties["phone"] || ""
+                jobtitle = properties["jobtitle"] || ""
 
-              name = "#{firstname} #{lastname}" |> String.trim()
-              name = if name == "", do: "Unknown", else: name
+                name = "#{firstname} #{lastname}" |> String.trim()
+                name = if name == "", do: "Unknown", else: name
 
-              contact_info = "• #{name}"
-              contact_info = if email != "", do: contact_info <> " (#{email})", else: contact_info
-              contact_info = if company != "", do: contact_info <> " - #{company}", else: contact_info
-              contact_info = if jobtitle != "", do: contact_info <> " (#{jobtitle})", else: contact_info
-              contact_info = if phone != "", do: contact_info <> " - #{phone}", else: contact_info
+                contact_info = "• #{name}"
 
-              contact_info
-            end) |> Enum.join("\n")
+                contact_info =
+                  if email != "", do: contact_info <> " (#{email})", else: contact_info
+
+                contact_info =
+                  if company != "", do: contact_info <> " - #{company}", else: contact_info
+
+                contact_info =
+                  if jobtitle != "", do: contact_info <> " (#{jobtitle})", else: contact_info
+
+                contact_info =
+                  if phone != "", do: contact_info <> " - #{phone}", else: contact_info
+
+                contact_info
+              end)
+              |> Enum.join("\n")
 
             {:ok, "Found #{length(contacts)} HubSpot contacts:\n\n#{contact_list}"}
+
           {:ok, _} ->
             {:ok, "No HubSpot contacts found."}
+
           {:error, reason} ->
             {:error, "Failed to list HubSpot contacts: #{reason}"}
         end
@@ -812,20 +929,24 @@ defmodule AdvisorAi.AI.UniversalAgent do
     case Accounts.get_user_google_account(user.id) do
       nil ->
         {:ok, "No Google account connected. Please connect your Google account first."}
+
       account ->
         scopes = account.scopes || []
+
         if Enum.empty?(scopes) do
-          {:ok, "No OAuth scopes found. You need to reconnect your Google account to grant permissions."}
+          {:ok,
+           "No OAuth scopes found. You need to reconnect your Google account to grant permissions."}
         else
-          scope_descriptions = scopes
-          |> Enum.map(fn scope ->
-            case scope do
-              "https://www.googleapis.com/auth/gmail.modify" -> "Gmail (read & send emails)"
-              "https://www.googleapis.com/auth/calendar" -> "Calendar (full access)"
-              "https://www.googleapis.com/auth/contacts" -> "Contacts (full access)"
-              _ -> scope
-            end
-          end)
+          scope_descriptions =
+            scopes
+            |> Enum.map(fn scope ->
+              case scope do
+                "https://www.googleapis.com/auth/gmail.modify" -> "Gmail (read & send emails)"
+                "https://www.googleapis.com/auth/calendar" -> "Calendar (full access)"
+                "https://www.googleapis.com/auth/contacts" -> "Contacts (full access)"
+                _ -> scope
+              end
+            end)
 
           {:ok, "Current OAuth scopes:\n" <> Enum.join(scope_descriptions, "\n")}
         end
@@ -859,9 +980,12 @@ defmodule AdvisorAi.AI.UniversalAgent do
     case Gmail.search_emails(user, query) do
       {:ok, emails} ->
         emails_to_show = Enum.take(emails, max_results)
-        email_list = Enum.map(emails_to_show, fn email ->
-          "• #{email.subject} (from: #{email.from})"
-        end) |> Enum.join("\n")
+
+        email_list =
+          Enum.map(emails_to_show, fn email ->
+            "• #{email.subject} (from: #{email.from})"
+          end)
+          |> Enum.join("\n")
 
         {:ok, "Found #{length(emails)} emails:\n\n#{email_list}"}
 
@@ -877,9 +1001,12 @@ defmodule AdvisorAi.AI.UniversalAgent do
     case Gmail.search_emails(user, query) do
       {:ok, emails} ->
         emails_to_show = Enum.take(emails, max_results)
-        email_list = Enum.map(emails_to_show, fn email ->
-          "• #{email.subject} (from: #{email.from})"
-        end) |> Enum.join("\n")
+
+        email_list =
+          Enum.map(emails_to_show, fn email ->
+            "• #{email.subject} (from: #{email.from})"
+          end)
+          |> Enum.join("\n")
 
         {:ok, "Found #{length(emails)} emails:\n\n#{email_list}"}
 
@@ -893,7 +1020,8 @@ defmodule AdvisorAi.AI.UniversalAgent do
 
     case Gmail.get_email_details(user, message_id) do
       {:ok, email} ->
-        {:ok, "Email: #{email.subject}\nFrom: #{email.from}\nDate: #{email.date}\n\n#{email.body}"}
+        {:ok,
+         "Email: #{email.subject}\nFrom: #{email.from}\nDate: #{email.date}\n\n#{email.body}"}
 
       {:error, reason} ->
         {:error, "Failed to get email: #{reason}"}
@@ -914,7 +1042,7 @@ defmodule AdvisorAi.AI.UniversalAgent do
     end
   end
 
-    defp execute_gmail_delete_message(user, args) do
+  defp execute_gmail_delete_message(user, args) do
     message_id = args["message_id"]
 
     case Gmail.delete_message(user, message_id) do
@@ -979,10 +1107,14 @@ defmodule AdvisorAi.AI.UniversalAgent do
     case Calendar.list_events(user, opts) do
       {:ok, events} ->
         if length(events) > 0 do
-          event_list = Enum.map(events, fn event ->
-            start_time = get_in(event, ["start", "dateTime"]) || get_in(event, ["start", "date"])
-            "• #{event["summary"]} (#{start_time})"
-          end) |> Enum.join("\n")
+          event_list =
+            Enum.map(events, fn event ->
+              start_time =
+                get_in(event, ["start", "dateTime"]) || get_in(event, ["start", "date"])
+
+              "• #{event["summary"]} (#{start_time})"
+            end)
+            |> Enum.join("\n")
 
           {:ok, "Found #{length(events)} events:\n\n#{event_list}"}
         else
@@ -1020,6 +1152,7 @@ defmodule AdvisorAi.AI.UniversalAgent do
       calendar_id: calendar_id,
       max_results: max_results
     ]
+
     opts = if time_min, do: Keyword.put(opts, :time_min, time_min), else: opts
     opts = if time_max, do: Keyword.put(opts, :time_max, time_max), else: opts
     opts = if q, do: Keyword.put(opts, :q, q), else: opts
@@ -1027,10 +1160,14 @@ defmodule AdvisorAi.AI.UniversalAgent do
     case Calendar.list_events(user, opts) do
       {:ok, events} ->
         if length(events) > 0 do
-          event_list = Enum.map(events, fn event ->
-            start_time = get_in(event, ["start", "dateTime"]) || get_in(event, ["start", "date"])
-            "• #{event["summary"]} (#{start_time})"
-          end) |> Enum.join("\n")
+          event_list =
+            Enum.map(events, fn event ->
+              start_time =
+                get_in(event, ["start", "dateTime"]) || get_in(event, ["start", "date"])
+
+              "• #{event["summary"]} (#{start_time})"
+            end)
+            |> Enum.join("\n")
 
           {:ok, "Found #{length(events)} events:\n\n#{event_list}"}
         else
@@ -1051,7 +1188,8 @@ defmodule AdvisorAi.AI.UniversalAgent do
         start_time = get_in(event, ["start", "dateTime"]) || get_in(event, ["start", "date"])
         end_time = get_in(event, ["end", "dateTime"]) || get_in(event, ["end", "date"])
 
-        {:ok, "Event: #{event["summary"]}\nStart: #{start_time}\nEnd: #{end_time}\nDescription: #{event["description"] || "No description"}"}
+        {:ok,
+         "Event: #{event["summary"]}\nStart: #{start_time}\nEnd: #{end_time}\nDescription: #{event["description"] || "No description"}"}
 
       {:error, reason} ->
         {:error, "Failed to get event: #{reason}"}
@@ -1105,9 +1243,11 @@ defmodule AdvisorAi.AI.UniversalAgent do
     case Calendar.list_calendars(user) do
       {:ok, calendars} ->
         if length(calendars) > 0 do
-          calendar_list = Enum.map(calendars, fn calendar ->
-            "• #{calendar["summary"]} (#{calendar["id"]})"
-          end) |> Enum.join("\n")
+          calendar_list =
+            Enum.map(calendars, fn calendar ->
+              "• #{calendar["summary"]} (#{calendar["id"]})"
+            end)
+            |> Enum.join("\n")
 
           {:ok, "Available calendars:\n\n#{calendar_list}"}
         else
@@ -1125,30 +1265,39 @@ defmodule AdvisorAi.AI.UniversalAgent do
 
     case HubSpot.search_contacts(user, query) do
       {:ok, contacts} when is_list(contacts) and length(contacts) > 0 ->
-        contact_list = Enum.map(contacts, fn contact ->
-          properties = contact["properties"] || %{}
-          firstname = properties["firstname"] || ""
-          lastname = properties["lastname"] || ""
-          email = properties["email"] || ""
-          company = properties["company"] || ""
-          phone = properties["phone"] || ""
-          jobtitle = properties["jobtitle"] || ""
+        contact_list =
+          Enum.map(contacts, fn contact ->
+            properties = contact["properties"] || %{}
+            firstname = properties["firstname"] || ""
+            lastname = properties["lastname"] || ""
+            email = properties["email"] || ""
+            company = properties["company"] || ""
+            phone = properties["phone"] || ""
+            jobtitle = properties["jobtitle"] || ""
 
-          name = "#{firstname} #{lastname}" |> String.trim()
-          name = if name == "", do: "Unknown", else: name
+            name = "#{firstname} #{lastname}" |> String.trim()
+            name = if name == "", do: "Unknown", else: name
 
-          contact_info = "• #{name}"
-          contact_info = if email != "", do: contact_info <> " (#{email})", else: contact_info
-          contact_info = if company != "", do: contact_info <> " - #{company}", else: contact_info
-          contact_info = if jobtitle != "", do: contact_info <> " (#{jobtitle})", else: contact_info
-          contact_info = if phone != "", do: contact_info <> " - #{phone}", else: contact_info
+            contact_info = "• #{name}"
+            contact_info = if email != "", do: contact_info <> " (#{email})", else: contact_info
 
-          contact_info
-        end) |> Enum.join("\n")
+            contact_info =
+              if company != "", do: contact_info <> " - #{company}", else: contact_info
+
+            contact_info =
+              if jobtitle != "", do: contact_info <> " (#{jobtitle})", else: contact_info
+
+            contact_info = if phone != "", do: contact_info <> " - #{phone}", else: contact_info
+
+            contact_info
+          end)
+          |> Enum.join("\n")
 
         {:ok, "Found #{length(contacts)} HubSpot contacts:\n\n#{contact_list}"}
+
       {:ok, _} ->
         {:ok, "No HubSpot contacts found."}
+
       {:error, reason} ->
         {:error, "Failed to search HubSpot contacts: #{reason}"}
     end
@@ -1168,44 +1317,73 @@ defmodule AdvisorAi.AI.UniversalAgent do
         scopes = account.scopes || []
 
         if Enum.empty?(scopes) do
-          {:ok, "No OAuth scopes found. You need to reconnect your Google account to grant permissions."}
+          {:ok,
+           "No OAuth scopes found. You need to reconnect your Google account to grant permissions."}
         else
-          scope_descriptions = scopes
-          |> Enum.map(fn scope ->
-            case scope do
-              "https://www.googleapis.com/auth/gmail.modify" -> "Gmail (read & send emails)"
-              "https://www.googleapis.com/auth/calendar" -> "Calendar (full access)"
-              "https://www.googleapis.com/auth/calendar.events" -> "Calendar events"
-
-
-              "https://www.googleapis.com/auth/user.emails.read" -> "User emails"
-              "https://www.googleapis.com/auth/user.addresses.read" -> "User addresses"
-              "https://www.googleapis.com/auth/user.birthday.read" -> "User birthday"
-              "https://www.googleapis.com/auth/user.phonenumbers.read" -> "User phone numbers"
-              "https://www.googleapis.com/auth/user.organization.read" -> "User organization"
-              "https://www.googleapis.com/auth/user.gender.read" -> "User gender"
-              "https://www.googleapis.com/auth/userinfo.profile" -> "User profile"
-              "https://www.googleapis.com/auth/userinfo.email" -> "User email"
-              _ -> scope
-            end
-          end)
+          scope_descriptions =
+            scopes
+            |> Enum.map(fn scope ->
+              case scope do
+                "https://www.googleapis.com/auth/gmail.modify" -> "Gmail (read & send emails)"
+                "https://www.googleapis.com/auth/calendar" -> "Calendar (full access)"
+                "https://www.googleapis.com/auth/calendar.events" -> "Calendar events"
+                "https://www.googleapis.com/auth/user.emails.read" -> "User emails"
+                "https://www.googleapis.com/auth/user.addresses.read" -> "User addresses"
+                "https://www.googleapis.com/auth/user.birthday.read" -> "User birthday"
+                "https://www.googleapis.com/auth/user.phonenumbers.read" -> "User phone numbers"
+                "https://www.googleapis.com/auth/user.organization.read" -> "User organization"
+                "https://www.googleapis.com/auth/user.gender.read" -> "User gender"
+                "https://www.googleapis.com/auth/userinfo.profile" -> "User profile"
+                "https://www.googleapis.com/auth/userinfo.email" -> "User email"
+                _ -> scope
+              end
+            end)
 
           {:ok, "Current OAuth scopes:\n" <> Enum.join(scope_descriptions, "\n")}
         end
     end
   end
 
+    defp execute_check_ongoing_instructions(user, _args) do
+    case AgentInstruction.get_active_instructions_by_user(user.id) do
+      {:ok, instructions} when is_list(instructions) and length(instructions) > 0 ->
+        instruction_list =
+          instructions
+          |> Enum.map(fn instruction ->
+            trigger_desc = case instruction.trigger_type do
+              "email_received" -> "when emails are received"
+              "calendar_event_created" -> "when calendar events are created"
+              "hubspot_contact_created" -> "when HubSpot contacts are created"
+              _ -> "when triggered"
+            end
+
+            "• #{instruction.instruction} (#{trigger_desc})"
+          end)
+          |> Enum.join("\n")
+
+        {:ok, "You have #{length(instructions)} active ongoing instructions:\n\n#{instruction_list}"}
+
+      {:ok, []} ->
+        {:ok, "You don't have any active ongoing instructions. You can create them by telling me things like 'When I get an email from someone not in HubSpot, automatically add them to HubSpot' or 'When I create a calendar event, send an email to attendees'."}
+
+      _ ->
+        {:error, "Failed to check ongoing instructions"}
+    end
+  end
+
   # Generate response from tool execution results
   defp generate_response_from_results(_user_message, results) do
-    successful_results = Enum.filter(results, fn
-      {:ok, _} -> true
-      {:error, _} -> false
-    end)
+    successful_results =
+      Enum.filter(results, fn
+        {:ok, _} -> true
+        {:error, _} -> false
+      end)
 
-    error_results = Enum.filter(results, fn
-      {:error, _} -> true
-      {:ok, _} -> false
-    end)
+    error_results =
+      Enum.filter(results, fn
+        {:error, _} -> true
+        {:ok, _} -> false
+      end)
 
     cond do
       length(successful_results) > 0 and length(error_results) == 0 ->
@@ -1249,9 +1427,11 @@ defmodule AdvisorAi.AI.UniversalAgent do
     case conversation do
       %{messages: messages} when is_list(messages) and length(messages) > 0 ->
         recent_messages = Enum.take(messages, 5)
+
         Enum.map_join(recent_messages, "\n", fn msg ->
           "#{msg.role}: #{msg.content}"
         end)
+
       _ ->
         "No recent conversation"
     end
@@ -1266,7 +1446,9 @@ defmodule AdvisorAi.AI.UniversalAgent do
 
   defp has_valid_google_tokens?(user) do
     case Accounts.get_user_google_account(user.id) do
-      nil -> false
+      nil ->
+        false
+
       account ->
         case account.token_expires_at do
           nil -> true
@@ -1277,9 +1459,12 @@ defmodule AdvisorAi.AI.UniversalAgent do
 
   defp has_gmail_access?(user) do
     case Accounts.get_user_google_account(user.id) do
-      nil -> false
+      nil ->
+        false
+
       account ->
         scopes = account.scopes || []
+
         Enum.any?(scopes, fn scope ->
           String.contains?(scope, "gmail") or String.contains?(scope, "mail")
         end)
@@ -1288,9 +1473,12 @@ defmodule AdvisorAi.AI.UniversalAgent do
 
   defp has_calendar_access?(user) do
     case Accounts.get_user_google_account(user.id) do
-      nil -> false
+      nil ->
+        false
+
       account ->
         scopes = account.scopes || []
+
         Enum.any?(scopes, fn scope ->
           String.contains?(scope, "calendar")
         end)
@@ -1306,10 +1494,13 @@ defmodule AdvisorAi.AI.UniversalAgent do
   end
 
   def handle_unknown_action(user, conversation_id, action) do
-    create_agent_response(user, conversation_id, "Could not determine how to execute action: #{action}", "error")
+    create_agent_response(
+      user,
+      conversation_id,
+      "Could not determine how to execute action: #{action}",
+      "error"
+    )
   end
-
-
 
   # Extract JSON from text and execute it as a tool call
   defp extract_and_execute_json_from_text(user, text, context) do
@@ -1343,7 +1534,10 @@ defmodule AdvisorAi.AI.UniversalAgent do
   defp determine_tool_from_params(params, _context) do
     cond do
       # Gmail tools
-      Map.has_key?(params, "query") and (String.contains?(Map.get(params, "query", ""), "sent") or String.contains?(Map.get(params, "query", ""), "from:") or String.contains?(Map.get(params, "query", ""), "subject:")) ->
+      Map.has_key?(params, "query") and
+          (String.contains?(Map.get(params, "query", ""), "sent") or
+             String.contains?(Map.get(params, "query", ""), "from:") or
+             String.contains?(Map.get(params, "query", ""), "subject:")) ->
         "gmail_list_messages"
 
       Map.has_key?(params, "message_id") ->
@@ -1366,5 +1560,205 @@ defmodule AdvisorAi.AI.UniversalAgent do
       true ->
         nil
     end
+  end
+
+  # Recognize if a message is an ongoing instruction
+  defp recognize_ongoing_instruction(message) do
+    message_lower = String.downcase(message)
+
+    # Check for instruction patterns
+    cond do
+      # Email-related instructions
+      String.contains?(message_lower, "when i get an email") or
+          String.contains?(message_lower, "when someone emails me") or
+          String.contains?(message_lower, "when an email comes in") or
+          String.contains?(message_lower, "when i receive an email") ->
+        parse_email_instruction(message)
+
+      # Calendar-related instructions
+      String.contains?(message_lower, "when i create") and String.contains?(message_lower, "calendar") or
+          String.contains?(message_lower, "when i add") and String.contains?(message_lower, "event") ->
+        parse_calendar_instruction(message)
+
+      # HubSpot-related instructions
+      String.contains?(message_lower, "when i create") and String.contains?(message_lower, "contact") or
+          String.contains?(message_lower, "when someone") and String.contains?(message_lower, "hubspot") ->
+        parse_hubspot_instruction(message)
+
+      # Generic automation instructions
+      String.contains?(message_lower, "automatically") and
+          (String.contains?(message_lower, "send") or String.contains?(message_lower, "create") or
+             String.contains?(message_lower, "add") or String.contains?(message_lower, "notify")) ->
+        parse_generic_instruction(message)
+
+      # Direct HubSpot + email combinations
+      (String.contains?(message_lower, "email") and String.contains?(message_lower, "hubspot")) or
+      (String.contains?(message_lower, "email") and String.contains?(message_lower, "contact")) ->
+        parse_generic_instruction(message)
+
+      true ->
+        {:error, :not_instruction}
+    end
+  end
+
+  # Parse email-related instructions
+  defp parse_email_instruction(message) do
+    message_lower = String.downcase(message)
+
+    cond do
+      # "When I get an email from someone not already in hubspot, automatically add them to hubspot with a note about the email"
+      String.contains?(message_lower, "not already in hubspot") or
+          String.contains?(message_lower, "not in hubspot") or
+          String.contains?(message_lower, "doesn't exist") or
+          String.contains?(message_lower, "doesnt exist") or
+          String.contains?(message_lower, "add to hubspot") ->
+        {:ok, %{
+          trigger_type: "email_received",
+          instruction: message,
+          conditions: %{
+            "check_hubspot" => true,
+            "create_contact_if_missing" => true,
+            "add_note" => true
+          }
+        }}
+
+      # "When I get an email from a client, automatically respond with..."
+      String.contains?(message_lower, "automatically respond") or
+          String.contains?(message_lower, "auto-reply") ->
+        {:ok, %{
+          trigger_type: "email_received",
+          instruction: message,
+          conditions: %{
+            "auto_reply" => true
+          }
+        }}
+
+      # Generic email instruction
+      true ->
+        {:ok, %{
+          trigger_type: "email_received",
+          instruction: message,
+          conditions: %{}
+        }}
+    end
+  end
+
+  # Parse calendar-related instructions
+  defp parse_calendar_instruction(message) do
+    message_lower = String.downcase(message)
+
+    cond do
+      # "When I add an event in my calendar, send an email to attendees"
+      String.contains?(message_lower, "send an email to attendees") or
+          String.contains?(message_lower, "notify attendees") ->
+        {:ok, %{
+          trigger_type: "calendar_event_created",
+          instruction: message,
+          conditions: %{
+            "notify_attendees" => true
+          }
+        }}
+
+      # Generic calendar instruction
+      true ->
+        {:ok, %{
+          trigger_type: "calendar_event_created",
+          instruction: message,
+          conditions: %{}
+        }}
+    end
+  end
+
+  # Parse HubSpot-related instructions
+  defp parse_hubspot_instruction(message) do
+    message_lower = String.downcase(message)
+
+    cond do
+      # "When I create a contact in HubSpot, send them an email"
+      String.contains?(message_lower, "send them an email") or
+          String.contains?(message_lower, "send email") ->
+        {:ok, %{
+          trigger_type: "hubspot_contact_created",
+          instruction: message,
+          conditions: %{
+            "send_welcome_email" => true
+          }
+        }}
+
+      # Generic HubSpot instruction
+      true ->
+        {:ok, %{
+          trigger_type: "hubspot_contact_created",
+          instruction: message,
+          conditions: %{}
+        }}
+    end
+  end
+
+  # Parse generic automation instructions
+  defp parse_generic_instruction(message) do
+    message_lower = String.downcase(message)
+
+    cond do
+      # Check for HubSpot + email combinations first
+      (String.contains?(message_lower, "email") and String.contains?(message_lower, "hubspot")) or
+      (String.contains?(message_lower, "email") and String.contains?(message_lower, "contact")) ->
+        {:ok, %{
+          trigger_type: "email_received",
+          instruction: message,
+          conditions: %{
+            "check_hubspot" => true,
+            "create_contact_if_missing" => true,
+            "add_note" => true
+          }
+        }}
+
+      String.contains?(message_lower, "email") ->
+        {:ok, %{
+          trigger_type: "email_received",
+          instruction: message,
+          conditions: %{}
+        }}
+
+      String.contains?(message_lower, "calendar") or String.contains?(message_lower, "event") ->
+        {:ok, %{
+          trigger_type: "calendar_event_created",
+          instruction: message,
+          conditions: %{}
+        }}
+
+      String.contains?(message_lower, "contact") or String.contains?(message_lower, "hubspot") ->
+        {:ok, %{
+          trigger_type: "hubspot_contact_created",
+          instruction: message,
+          conditions: %{}
+        }}
+
+      true ->
+        {:error, :not_instruction}
+    end
+  end
+
+  # Store the ongoing instruction in the database
+  defp store_ongoing_instruction(user, instruction_data) do
+    AgentInstruction.create(%{
+      user_id: user.id,
+      instruction: instruction_data.instruction,
+      trigger_type: instruction_data.trigger_type,
+      conditions: instruction_data.conditions,
+      is_active: true
+    })
+  end
+
+  # Build confirmation message for stored instruction
+  defp build_instruction_confirmation(instruction_data) do
+    trigger_description = case instruction_data.trigger_type do
+      "email_received" -> "when you receive emails"
+      "calendar_event_created" -> "when you create calendar events"
+      "hubspot_contact_created" -> "when you create HubSpot contacts"
+      _ -> "when triggered"
+    end
+
+    "Perfect! I've saved your instruction and will remember to #{instruction_data.instruction} #{trigger_description}. You can manage all your automated instructions in Settings > Instructions."
   end
 end

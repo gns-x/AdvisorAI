@@ -11,16 +11,31 @@ defmodule AdvisorAi.AI.IntelligentAgent do
   Process a user request using AI to understand and execute tasks intelligently.
   """
   def process_request(user, conversation_id, user_message) do
+    require Logger
+
+    Logger.info("🧠 IntelligentAgent: Processing request for user #{user.email}")
+    Logger.info("💬 IntelligentAgent: User message: #{user_message}")
+
     conversation = get_conversation_with_context(conversation_id, user.id)
     user_context = get_comprehensive_user_context(user)
     context = build_ai_context(user, conversation, user_context)
     prompt = build_hybrid_prompt(user_message, context)
 
+    Logger.info("📝 IntelligentAgent: Built prompt for AI")
+
     case get_ai_response(prompt) do
       {:ok, ai_response} ->
+        Logger.info("🤖 IntelligentAgent: Got AI response: #{ai_response}")
         handle_hybrid_ai_response(user, conversation_id, ai_response, context)
-      {:error, _reason} ->
-        create_agent_response(user, conversation_id, "I'm having trouble processing your request right now. Please try again.", "error")
+
+      {:error, reason} ->
+        Logger.error("❌ IntelligentAgent: Failed to get AI response: #{reason}")
+        create_agent_response(
+          user,
+          conversation_id,
+          "I'm having trouble processing your request right now. Please try again.",
+          "error"
+        )
     end
   end
 
@@ -54,12 +69,21 @@ defmodule AdvisorAi.AI.IntelligentAgent do
 
   # Handle the AI response: execute actions for real data, otherwise show the conversational response
   defp handle_hybrid_ai_response(user, conversation_id, ai_response, context) do
+    require Logger
+
+    Logger.info("🔄 IntelligentAgent: Handling hybrid AI response")
+
     case parse_hybrid_ai_response(ai_response) do
       {:action, action, params} ->
+        Logger.info("⚡ IntelligentAgent: Parsed action: #{action} with params: #{inspect(params)}")
         execute_generic_action(user, conversation_id, action, params, context)
+
       {:response, response} ->
+        Logger.info("💭 IntelligentAgent: Parsed conversational response: #{response}")
         create_agent_response(user, conversation_id, response, "conversation")
+
       :raw ->
+        Logger.info("📄 IntelligentAgent: Using raw response: #{ai_response}")
         create_agent_response(user, conversation_id, ai_response, "conversation")
     end
   end
@@ -73,14 +97,19 @@ defmodule AdvisorAi.AI.IntelligentAgent do
             {:ok, %{"action" => action} = map} ->
               params = Map.drop(map, ["action"])
               {:action, action, params}
+
             {:ok, %{"response" => resp}} ->
               {:response, resp}
-            _ -> :raw
+
+            _ ->
+              :raw
           end
         rescue
           _ -> :raw
         end
-      _ -> :raw
+
+      _ ->
+        :raw
     end
   end
 
@@ -90,74 +119,159 @@ defmodule AdvisorAi.AI.IntelligentAgent do
       "get_contacts" ->
         case HubSpot.list_contacts(user, params["page_size"] || 50) do
           {:ok, contacts} ->
-            contact_list = Enum.map(contacts, fn contact ->
-              properties = contact["properties"] || %{}
-              firstname = properties["firstname"] || ""
-              lastname = properties["lastname"] || ""
-              email = properties["email"] || "No email"
-              company = properties["company"] || ""
-              phone = properties["phone"] || "No phone"
+            contact_list =
+              Enum.map(contacts, fn contact ->
+                properties = contact["properties"] || %{}
+                firstname = properties["firstname"] || ""
+                lastname = properties["lastname"] || ""
+                email = properties["email"] || "No email"
+                company = properties["company"] || ""
+                phone = properties["phone"] || "No phone"
 
-              name = "#{firstname} #{lastname}" |> String.trim()
-              name = if name == "", do: "Unknown", else: name
+                name = "#{firstname} #{lastname}" |> String.trim()
+                name = if name == "", do: "Unknown", else: name
 
-              "• #{name} (#{email}, #{phone})#{if company != "", do: " - #{company}", else: ""}"
-            end) |> Enum.join("\n")
-            response = if contact_list == "", do: "No HubSpot contacts found.", else: "Your HubSpot contacts:\n\n#{contact_list}"
+                "• #{name} (#{email}, #{phone})#{if company != "", do: " - #{company}", else: ""}"
+              end)
+              |> Enum.join("\n")
+
+            response =
+              if contact_list == "",
+                do: "No HubSpot contacts found.",
+                else: "Your HubSpot contacts:\n\n#{contact_list}"
+
             create_agent_response(user, conversation_id, response, "action")
+
           {:error, reason} ->
-            create_agent_response(user, conversation_id, "Failed to get HubSpot contacts: #{reason}", "error")
+            create_agent_response(
+              user,
+              conversation_id,
+              "Failed to get HubSpot contacts: #{reason}",
+              "error"
+            )
         end
+
       "search_emails" ->
         query = params["query"] || params["q"] || ""
+
         case Gmail.search_emails(user, query) do
           {:ok, emails} ->
-            email_list = Enum.map(emails, fn email ->
-              "• #{email.subject} (from: #{email.from})"
-            end) |> Enum.join("\n")
-            response = if email_list == "", do: "No emails found.", else: "Emails found:\n\n#{email_list}"
+            email_list =
+              Enum.map(emails, fn email ->
+                "• #{email.subject} (from: #{email.from})"
+              end)
+              |> Enum.join("\n")
+
+            response =
+              if email_list == "", do: "No emails found.", else: "Emails found:\n\n#{email_list}"
+
             create_agent_response(user, conversation_id, response, "action")
+
           {:error, reason} ->
-            create_agent_response(user, conversation_id, "Failed to search emails: #{reason}", "error")
+            create_agent_response(
+              user,
+              conversation_id,
+              "Failed to search emails: #{reason}",
+              "error"
+            )
         end
+
       "get_recent_emails" ->
         max_results = params["max_results"] || 10
+
         case Gmail.get_recent_emails(user, max_results) do
           {:ok, emails} ->
-            email_list = Enum.map(emails, fn email ->
-              "• #{email.subject} (from: #{email.from})"
-            end) |> Enum.join("\n")
-            response = if email_list == "", do: "No recent emails found.", else: "Your recent emails:\n\n#{email_list}"
+            email_list =
+              Enum.map(emails, fn email ->
+                "• #{email.subject} (from: #{email.from})"
+              end)
+              |> Enum.join("\n")
+
+            response =
+              if email_list == "",
+                do: "No recent emails found.",
+                else: "Your recent emails:\n\n#{email_list}"
+
             create_agent_response(user, conversation_id, response, "action")
+
           {:error, reason} ->
-            create_agent_response(user, conversation_id, "Failed to get recent emails: #{reason}", "error")
+            create_agent_response(
+              user,
+              conversation_id,
+              "Failed to get recent emails: #{reason}",
+              "error"
+            )
         end
+
       "get_calendar_events" ->
         case Calendar.get_events(user, params["time_min"], params["time_max"]) do
           {:ok, events} ->
-            event_list = Enum.map(events, fn event ->
-              "• #{event.summary} (#{event.start_time})"
-            end) |> Enum.join("\n")
-            response = if event_list == "", do: "No events found.", else: "Your calendar events:\n\n#{event_list}"
+            event_list =
+              Enum.map(events, fn event ->
+                "• #{event.summary} (#{event.start_time})"
+              end)
+              |> Enum.join("\n")
+
+            response =
+              if event_list == "",
+                do: "No events found.",
+                else: "Your calendar events:\n\n#{event_list}"
+
             create_agent_response(user, conversation_id, response, "action")
+
           {:error, reason} ->
-            create_agent_response(user, conversation_id, "Failed to get calendar events: #{reason}", "error")
+            create_agent_response(
+              user,
+              conversation_id,
+              "Failed to get calendar events: #{reason}",
+              "error"
+            )
         end
+
       "send_email" ->
         to = params["to"]
         subject = params["subject"] || "No Subject"
         body = params["body"] || "Hello,\n\nBest regards"
+
         case Gmail.send_email(user, to, subject, body) do
-          {:ok, _} -> create_agent_response(user, conversation_id, "Email sent successfully.", "action")
-          {:error, reason} -> create_agent_response(user, conversation_id, "Failed to send email: #{reason}", "error")
+          {:ok, _} ->
+            create_agent_response(user, conversation_id, "Email sent successfully.", "action")
+
+          {:error, reason} ->
+            create_agent_response(
+              user,
+              conversation_id,
+              "Failed to send email: #{reason}",
+              "error"
+            )
         end
+
       "create_calendar_event" ->
         case Calendar.create_event(user, params) do
-          {:ok, event} -> create_agent_response(user, conversation_id, "Calendar event created successfully: #{event}", "action")
-          {:error, reason} -> create_agent_response(user, conversation_id, "Failed to create calendar event: #{reason}", "error")
+          {:ok, event} ->
+            create_agent_response(
+              user,
+              conversation_id,
+              "Calendar event created successfully: #{event}",
+              "action"
+            )
+
+          {:error, reason} ->
+            create_agent_response(
+              user,
+              conversation_id,
+              "Failed to create calendar event: #{reason}",
+              "error"
+            )
         end
+
       _ ->
-        create_agent_response(user, conversation_id, "Sorry, I don't yet support the action '#{action}'.", "error")
+        create_agent_response(
+          user,
+          conversation_id,
+          "Sorry, I don't yet support the action '#{action}'.",
+          "error"
+        )
     end
   end
 
@@ -208,11 +322,23 @@ defmodule AdvisorAi.AI.IntelligentAgent do
       recent_messages: get_recent_messages(conversation),
       available_actions: [
         # Gmail API functions
-        "search_emails", "get_emails", "send_email", "compose_draft", "get_recent_emails", "list_emails",
+        "search_emails",
+        "get_emails",
+        "send_email",
+        "compose_draft",
+        "get_recent_emails",
+        "list_emails",
         # Calendar API functions
-        "create_calendar_event", "get_calendar_events", "update_calendar_event", "delete_calendar_event",
+        "create_calendar_event",
+        "get_calendar_events",
+        "update_calendar_event",
+        "delete_calendar_event",
         # Contact API functions
-        "find_contact", "list_contacts", "create_contact", "update_contact", "delete_contact"
+        "find_contact",
+        "list_contacts",
+        "create_contact",
+        "update_contact",
+        "delete_contact"
       ],
       current_time: DateTime.utc_now()
     }
@@ -222,11 +348,15 @@ defmodule AdvisorAi.AI.IntelligentAgent do
   defp get_ai_response(prompt) do
     # Try OpenRouter first (most powerful)
     case try_openrouter(prompt) do
-      {:ok, response} -> {:ok, response}
+      {:ok, response} ->
+        {:ok, response}
+
       {:error, _} ->
         # Fallback to Together AI
         case try_together_ai(prompt) do
-          {:ok, response} -> {:ok, response}
+          {:ok, response} ->
+            {:ok, response}
+
           {:error, _} ->
             # Fallback to Ollama
             try_ollama(prompt)
@@ -243,6 +373,7 @@ defmodule AdvisorAi.AI.IntelligentAgent do
     case OpenRouterClient.chat_completion(messages: messages, temperature: 0.3) do
       {:ok, %{"choices" => [%{"message" => %{"content" => content}} | _]}} ->
         {:ok, content}
+
       {:error, reason} ->
         {:error, reason}
     end
@@ -257,6 +388,7 @@ defmodule AdvisorAi.AI.IntelligentAgent do
     case TogetherClient.chat_completion(messages: messages, temperature: 0.3) do
       {:ok, %{"choices" => [%{"message" => %{"content" => content}} | _]}} ->
         {:ok, content}
+
       {:error, reason} ->
         {:error, reason}
     end
@@ -271,6 +403,7 @@ defmodule AdvisorAi.AI.IntelligentAgent do
     case OllamaClient.chat_completion(messages: messages, temperature: 0.3) do
       {:ok, %{"choices" => [%{"message" => %{"content" => content}} | _]}} ->
         {:ok, content}
+
       {:error, reason} ->
         {:error, reason}
     end
@@ -279,7 +412,9 @@ defmodule AdvisorAi.AI.IntelligentAgent do
   # Helper functions
   defp has_valid_google_tokens?(user) do
     case AdvisorAi.Accounts.get_user_google_account(user.id) do
-      nil -> false
+      nil ->
+        false
+
       account ->
         account.access_token != nil and account.refresh_token != nil
     end
@@ -287,19 +422,23 @@ defmodule AdvisorAi.AI.IntelligentAgent do
 
   defp has_gmail_access?(user) do
     case AdvisorAi.Accounts.get_user_google_account(user.id) do
-      nil -> false
+      nil ->
+        false
+
       account ->
         account.access_token != nil and account.refresh_token != nil and
-        Enum.any?(account.scopes || [], fn s -> String.contains?(s, "gmail") end)
+          Enum.any?(account.scopes || [], fn s -> String.contains?(s, "gmail") end)
     end
   end
 
   defp has_calendar_access?(user) do
     case AdvisorAi.Accounts.get_user_google_account(user.id) do
-      nil -> false
+      nil ->
+        false
+
       account ->
         account.access_token != nil and account.refresh_token != nil and
-        Enum.any?(account.scopes || [], fn s -> String.contains?(s, "calendar") end)
+          Enum.any?(account.scopes || [], fn s -> String.contains?(s, "calendar") end)
     end
   end
 
@@ -334,11 +473,11 @@ defmodule AdvisorAi.AI.IntelligentAgent do
   defp create_agent_response(user, conversation_id, response_content, response_type) do
     # Create the agent's response message
     case Chat.create_message(conversation_id, %{
-      user_id: user.id,
-      role: "assistant",
-      content: response_content,
-      metadata: %{response_type: response_type}
-    }) do
+           user_id: user.id,
+           role: "assistant",
+           content: response_content,
+           metadata: %{response_type: response_type}
+         }) do
       {:ok, message} -> {:ok, message}
       {:error, changeset} -> {:error, changeset}
     end
@@ -349,14 +488,18 @@ defmodule AdvisorAi.AI.IntelligentAgent do
     case Calendar.get_events(user, params["time_min"], params["time_max"]) do
       {:ok, events} ->
         if length(events) > 0 do
-          event_list = Enum.map_join(events, "\n", fn event ->
-            "- #{event.summary} (#{event.start_time})"
-          end)
+          event_list =
+            Enum.map_join(events, "\n", fn event ->
+              "- #{event.summary} (#{event.start_time})"
+            end)
+
           {:ok, "Calendar events:\n#{event_list}"}
         else
           {:ok, "No calendar events found for the specified criteria."}
         end
-      {:error, reason} -> {:error, "Failed to get calendar events: #{reason}"}
+
+      {:error, reason} ->
+        {:error, "Failed to get calendar events: #{reason}"}
     end
   end
 
@@ -377,8 +520,10 @@ defmodule AdvisorAi.AI.IntelligentAgent do
   # Contact API functions
   defp execute_find_contact_action(user, _conversation_id, params, _context) do
     query = params["email"] || params["name"] || params[:email] || params[:name]
+
     if is_nil(query) or query == "" do
-      {:ok, nil} # Gracefully skip if no query provided
+      # Gracefully skip if no query provided
+      {:ok, nil}
     else
       case HubSpot.search_contacts(user, query) do
         {:ok, [contact | _]} ->
@@ -391,8 +536,10 @@ defmodule AdvisorAi.AI.IntelligentAgent do
           name = if name == "", do: "Unknown", else: name
 
           {:ok, "Found HubSpot contact: #{name} (#{email})"}
+
         {:ok, []} ->
           {:ok, "No HubSpot contact found matching the criteria."}
+
         {:error, reason} ->
           {:error, "Failed to find HubSpot contact: #{reason}"}
       end
@@ -403,7 +550,9 @@ defmodule AdvisorAi.AI.IntelligentAgent do
     case HubSpot.create_contact(user, params) do
       {:ok, result} ->
         {:ok, "HubSpot contact created successfully: #{result}"}
-      {:error, reason} -> {:error, "Failed to create HubSpot contact: #{reason}"}
+
+      {:error, reason} ->
+        {:error, "Failed to create HubSpot contact: #{reason}"}
     end
   end
 
@@ -418,17 +567,22 @@ defmodule AdvisorAi.AI.IntelligentAgent do
   # Gmail API functions (update existing ones to match new naming)
   defp execute_search_emails_action(user, _conversation_id, params, _context) do
     query = params["query"] || params["q"]
+
     case Gmail.search_emails(user, query) do
       {:ok, emails} ->
         if length(emails) > 0 do
-          email_list = Enum.map_join(emails, "\n", fn email ->
-            "- #{email.subject} (from: #{email.from})"
-          end)
+          email_list =
+            Enum.map_join(emails, "\n", fn email ->
+              "- #{email.subject} (from: #{email.from})"
+            end)
+
           {:ok, "Search results:\n#{email_list}"}
         else
           {:ok, "No emails found matching the search criteria."}
         end
-      {:error, reason} -> {:error, "Failed to search emails: #{reason}"}
+
+      {:error, reason} ->
+        {:error, "Failed to search emails: #{reason}"}
     end
   end
 end

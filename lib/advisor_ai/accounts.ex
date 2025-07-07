@@ -30,8 +30,36 @@ defmodule AdvisorAi.Accounts do
 
   def get_user(id), do: Repo.get(User, id)
 
-  def get_user_by_email(email) do
-    Repo.get_by(User, email: email)
+  @doc """
+  Lists all users.
+
+  ## Examples
+
+      iex> list_users()
+      [%User{}, ...]
+
+  """
+  def list_users do
+    Repo.all(User)
+  end
+
+  @doc """
+  Gets a single user by email.
+
+  ## Examples
+
+      iex> get_user_by_email("user@example.com")
+      {:ok, %User{}}
+
+      iex> get_user_by_email("nonexistent@example.com")
+      {:error, :not_found}
+
+  """
+  def get_user_by_email(email) when is_binary(email) do
+    case Repo.get_by(User, email: email) do
+      nil -> {:error, :not_found}
+      user -> {:ok, user}
+    end
   end
 
   def get_or_create_user(attrs) do
@@ -86,6 +114,7 @@ defmodule AdvisorAi.Accounts do
         google_token_expires_at: attrs.token_expires_at,
         google_scopes: attrs.scopes || []
       }
+
       update_user(user, user_token_attrs)
     end
 

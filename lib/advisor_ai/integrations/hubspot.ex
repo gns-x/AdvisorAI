@@ -73,10 +73,11 @@ defmodule AdvisorAi.Integrations.HubSpot do
       {:ok, access_token} ->
         url = "#{@hubspot_api_url}/crm/v3/objects/contacts"
 
-        params = URI.encode_query(%{
-          limit: limit,
-          properties: "email,firstname,lastname,company,phone,jobtitle"
-        })
+        params =
+          URI.encode_query(%{
+            limit: limit,
+            properties: "email,firstname,lastname,company,phone,jobtitle"
+          })
 
         case HTTPoison.get("#{url}?#{params}", [
                {"Authorization", "Bearer #{access_token}"},
@@ -150,6 +151,10 @@ defmodule AdvisorAi.Integrations.HubSpot do
               {:error, reason} ->
                 {:error, "Failed to parse response: #{reason}"}
             end
+
+          {:ok, %{status_code: 409}} ->
+            # Contact already exists - this is not an error
+            {:ok, "Contact already exists"}
 
           {:ok, %{status_code: status_code}} ->
             {:error, "HubSpot API error: #{status_code}"}
@@ -351,6 +356,7 @@ defmodule AdvisorAi.Integrations.HubSpot do
     case AdvisorAi.AI.LocalEmbeddingClient.embeddings(input: text) do
       {:ok, %{"data" => [%{"embedding" => embedding}]}} ->
         {:ok, embedding}
+
       {:error, reason} ->
         {:error, "Failed to generate embedding: #{reason}"}
     end
@@ -364,7 +370,8 @@ defmodule AdvisorAi.Integrations.HubSpot do
   defp get_oauth_token(user) do
     cond do
       is_nil(user.hubspot_access_token) ->
-        {:error, "No HubSpot access token found. Please connect your HubSpot account via OAuth in the settings."}
+        {:error,
+         "No HubSpot access token found. Please connect your HubSpot account via OAuth in the settings."}
 
       is_user_token_expired?(user) ->
         refresh_user_access_token(user)
@@ -409,6 +416,7 @@ defmodule AdvisorAi.Integrations.HubSpot do
     case get_access_token(user) do
       {:ok, _token} ->
         {:ok, "OAuth connection successful"}
+
       {:error, reason} ->
         {:error, reason}
     end

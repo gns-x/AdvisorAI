@@ -13,7 +13,8 @@ defmodule Ueberauth.Strategy.HubSpot.OAuth do
         site: "https://api.hubapi.com",
         authorize_url: "https://app.hubspot.com/oauth/authorize",
         token_url: "https://api.hubapi.com/oauth/v1/token",
-        redirect_uri: System.get_env("HUBSPOT_REDIRECT_URI", "http://localhost:4000/auth/hubspot/callback")
+        redirect_uri:
+          System.get_env("HUBSPOT_REDIRECT_URI", "http://localhost:4000/auth/hubspot/callback")
       ]
       |> Keyword.merge(config)
       |> Keyword.merge(opts)

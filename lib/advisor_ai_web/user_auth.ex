@@ -98,20 +98,22 @@ defmodule AdvisorAiWeb.UserAuth do
 
   defp has_expired_oauth_tokens?(user) do
     # Check Google token expiration
-    google_expired = case user.google_token_expires_at do
-      nil -> false
-      expires_at -> DateTime.compare(DateTime.utc_now(), expires_at) == :gt
-    end
+    google_expired =
+      case user.google_token_expires_at do
+        nil -> false
+        expires_at -> DateTime.compare(DateTime.utc_now(), expires_at) == :gt
+      end
 
     # Check HubSpot token expiration
-    hubspot_expired = case user.hubspot_token_expires_at do
-      nil -> false
-      expires_at -> DateTime.compare(DateTime.utc_now(), expires_at) == :gt
-    end
+    hubspot_expired =
+      case user.hubspot_token_expires_at do
+        nil -> false
+        expires_at -> DateTime.compare(DateTime.utc_now(), expires_at) == :gt
+      end
 
     # If user has any OAuth tokens and they're expired, return true
     (user.google_access_token && google_expired) ||
-    (user.hubspot_access_token && hubspot_expired)
+      (user.hubspot_access_token && hubspot_expired)
   end
 
   defp clear_user_oauth_tokens(user) do

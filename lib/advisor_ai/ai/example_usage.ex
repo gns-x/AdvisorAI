@@ -30,7 +30,8 @@ defmodule AdvisorAi.AI.ExampleUsage do
   New approach: AI generates a complete workflow automatically
   """
   def example_client_onboarding(user, conversation_id) do
-    request = "I just received an email from a new client Sarah Johnson at sarah@techstartup.com. She wants to discuss investment options. Please onboard her properly."
+    request =
+      "I just received an email from a new client Sarah Johnson at sarah@techstartup.com. She wants to discuss investment options. Please onboard her properly."
 
     # The intelligent agent will:
     # 1. Analyze the request and understand it's a client onboarding
@@ -70,7 +71,8 @@ defmodule AdvisorAi.AI.ExampleUsage do
   New approach: AI understands business context and creates workflows
   """
   def example_lead_qualification(user, conversation_id) do
-    request = "I got an inquiry from a potential client interested in retirement planning. They mentioned they have $500k to invest. Please qualify them and set up a consultation."
+    request =
+      "I got an inquiry from a potential client interested in retirement planning. They mentioned they have $500k to invest. Please qualify them and set up a consultation."
 
     # The intelligent agent will:
     # 1. Understand this is a lead qualification process
@@ -91,7 +93,8 @@ defmodule AdvisorAi.AI.ExampleUsage do
   New approach: AI dynamically combines available APIs
   """
   def example_cross_system_request(user, conversation_id) do
-    request = "I had a great meeting with ABC Corp today. Please send them a thank you email, add notes to their contact record, and schedule a follow-up meeting for next month."
+    request =
+      "I had a great meeting with ABC Corp today. Please send them a thank you email, add notes to their contact record, and schedule a follow-up meeting for next month."
 
     # The intelligent agent will:
     # 1. Search for ABC Corp in HubSpot
@@ -183,7 +186,8 @@ defmodule AdvisorAi.AI.ExampleUsage do
   without any code changes
   """
   def example_new_request_type(user, conversation_id) do
-    request = "I need to prepare for my quarterly review with my manager. Can you help me gather all the client meetings and portfolio performance data from the last 3 months?"
+    request =
+      "I need to prepare for my quarterly review with my manager. Can you help me gather all the client meetings and portfolio performance data from the last 3 months?"
 
     # This is a completely new type of request that wasn't pre-programmed.
     # The intelligent agent will:

@@ -12,14 +12,12 @@ defmodule AdvisorAiWeb.ChatLive.Index do
     # Get or create a current conversation
     {:ok, current_conversation} = Chat.get_or_create_current_conversation(user.id)
 
-        messages =
+    messages =
       if current_conversation do
         Chat.get_conversation_with_messages!(current_conversation.id, user.id).messages
       else
         []
       end
-
-
 
     socket =
       socket
@@ -52,38 +50,39 @@ defmodule AdvisorAiWeb.ChatLive.Index do
     socket
   end
 
-    @impl true
+  @impl true
   def handle_event("send_message", %{"message" => message}, socket) do
     if String.trim(message) != "" do
       user = socket.assigns.current_user
       conversation = socket.assigns.current_conversation
 
       # Create user message
-              # Create user message
-        {:ok, user_message} =
-          Chat.create_message(conversation.id, %{
-            role: "user",
-            content: message
-          })
+      # Create user message
+      {:ok, user_message} =
+        Chat.create_message(conversation.id, %{
+          role: "user",
+          content: message
+        })
 
-        # Add user message to stream
-        socket = stream_insert(socket, :messages, user_message, at: -1)
+      # Add user message to stream
+      socket = stream_insert(socket, :messages, user_message, at: -1)
 
-        # Set loading state
-        socket = assign(socket, :loading, true)
-        IO.puts("DEBUG: Loading state set to true")
+      # Set loading state
+      socket = assign(socket, :loading, true)
+      IO.puts("DEBUG: Loading state set to true")
 
-        # Process with AI agent
-        task = Task.async(fn ->
+      # Process with AI agent
+      task =
+        Task.async(fn ->
           result = Agent.process_user_message(user, conversation.id, message)
           IO.puts("DEBUG: Agent result: #{inspect(result)}")
           result
         end)
 
-        {:noreply,
-         socket
-         |> assign(:new_message, "")
-         |> assign(:loading, true)}
+      {:noreply,
+       socket
+       |> assign(:new_message, "")
+       |> assign(:loading, true)}
     else
       {:noreply, socket}
     end
@@ -125,14 +124,26 @@ defmodule AdvisorAiWeb.ChatLive.Index do
 
   @impl true
   def handle_event("quick_action", %{"action" => action}, socket) do
-    message = case action do
-      "analyze_portfolio" -> "Can you analyze my investment portfolio and provide recommendations for optimization?"
-      "financial_planning" -> "I need help with financial planning. Can you create a comprehensive plan for my financial goals?"
-      "tax_advice" -> "What are the best tax strategies for my situation? Can you provide tax planning advice?"
-      "schedule_followup" -> "Can you help me schedule a follow-up meeting with my client?"
-      "send_notes" -> "Can you help me draft and send meeting notes to the participants?"
-      _ -> "How can you help me with my financial needs?"
-    end
+    message =
+      case action do
+        "analyze_portfolio" ->
+          "Can you analyze my investment portfolio and provide recommendations for optimization?"
+
+        "financial_planning" ->
+          "I need help with financial planning. Can you create a comprehensive plan for my financial goals?"
+
+        "tax_advice" ->
+          "What are the best tax strategies for my situation? Can you provide tax planning advice?"
+
+        "schedule_followup" ->
+          "Can you help me schedule a follow-up meeting with my client?"
+
+        "send_notes" ->
+          "Can you help me draft and send meeting notes to the participants?"
+
+        _ ->
+          "How can you help me with my financial needs?"
+      end
 
     # Trigger the send_message event with the quick action message
     handle_event("send_message", %{"message" => message}, socket)
@@ -175,7 +186,7 @@ defmodule AdvisorAiWeb.ChatLive.Index do
      |> stream(:messages, messages, reset: true)}
   end
 
-    @impl true
+  @impl true
   def handle_event("delete_conversation", %{"id" => conversation_id}, socket) do
     user = socket.assigns.current_user
 
@@ -183,18 +194,22 @@ defmodule AdvisorAiWeb.ChatLive.Index do
     conversation = Chat.get_conversation!(conversation_id, user.id)
 
     # Check if this is the current conversation
-    is_current = socket.assigns.current_conversation && socket.assigns.current_conversation.id == conversation_id
+    is_current =
+      socket.assigns.current_conversation &&
+        socket.assigns.current_conversation.id == conversation_id
 
     case Chat.delete_conversation(conversation) do
       {:ok, _} ->
         # Remove from conversations list
-        updated_conversations = Enum.reject(socket.assigns.conversations, fn conv -> conv.id == conversation_id end)
+        updated_conversations =
+          Enum.reject(socket.assigns.conversations, fn conv -> conv.id == conversation_id end)
 
         socket = assign(socket, :conversations, updated_conversations)
 
         # If this was the current conversation, create a new one
         if is_current do
-          {:ok, new_conversation} = Chat.create_conversation(user.id, %{title: "New Conversation"})
+          {:ok, new_conversation} =
+            Chat.create_conversation(user.id, %{title: "New Conversation"})
 
           {:noreply,
            socket
@@ -243,7 +258,11 @@ defmodule AdvisorAiWeb.ChatLive.Index do
   end
 
   @impl true
-  def handle_event("add_reaction", %{"message_id" => _message_id, "reaction" => _reaction}, socket) do
+  def handle_event(
+        "add_reaction",
+        %{"message_id" => _message_id, "reaction" => _reaction},
+        socket
+      ) do
     # Store reaction in database (you would implement this)
     # For now, just acknowledge the event
     {:noreply, socket}
@@ -271,7 +290,7 @@ defmodule AdvisorAiWeb.ChatLive.Index do
       Chat.update_conversation_title(socket.assigns.current_conversation, title)
     end
 
-        socket = assign(socket, :loading, false)
+    socket = assign(socket, :loading, false)
     IO.puts("DEBUG: Loading state set to false (success)")
     IO.puts("DEBUG: Socket assigns after update: #{inspect(socket.assigns.loading)}")
 
@@ -354,20 +373,22 @@ defmodule AdvisorAiWeb.ChatLive.Index do
 
   defp has_expired_oauth_tokens?(user) do
     # Check Google token expiration
-    google_expired = case user.google_token_expires_at do
-      nil -> false
-      expires_at -> DateTime.compare(DateTime.utc_now(), expires_at) == :gt
-    end
+    google_expired =
+      case user.google_token_expires_at do
+        nil -> false
+        expires_at -> DateTime.compare(DateTime.utc_now(), expires_at) == :gt
+      end
 
     # Check HubSpot token expiration
-    hubspot_expired = case user.hubspot_token_expires_at do
-      nil -> false
-      expires_at -> DateTime.compare(DateTime.utc_now(), expires_at) == :gt
-    end
+    hubspot_expired =
+      case user.hubspot_token_expires_at do
+        nil -> false
+        expires_at -> DateTime.compare(DateTime.utc_now(), expires_at) == :gt
+      end
 
     # If user has any OAuth tokens and they're expired, return true
     (user.google_access_token && google_expired) ||
-    (user.hubspot_access_token && hubspot_expired)
+      (user.hubspot_access_token && hubspot_expired)
   end
 
   defp clear_user_oauth_tokens(user) do

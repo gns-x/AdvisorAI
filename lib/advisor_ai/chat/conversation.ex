@@ -11,6 +11,7 @@ defmodule AdvisorAi.Chat.Conversation do
 
     belongs_to :user, AdvisorAi.Accounts.User
     has_many :messages, AdvisorAi.Chat.Message
+    has_many :agent_tasks, AdvisorAi.Tasks.AgentTask
 
     timestamps()
   end

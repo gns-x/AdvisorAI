@@ -22,8 +22,8 @@ defmodule AdvisorAi.Workers.TokenMonitorWorker do
     # Get all Google accounts with tokens
     google_accounts =
       from a in AdvisorAi.Accounts.Account,
-      where: a.provider == "google" and not is_nil(a.token_expires_at),
-      preload: [:user]
+        where: a.provider == "google" and not is_nil(a.token_expires_at),
+        preload: [:user]
 
     Repo.all(google_accounts)
     |> Enum.each(fn account ->
@@ -35,8 +35,8 @@ defmodule AdvisorAi.Workers.TokenMonitorWorker do
     # Get all HubSpot accounts with tokens
     hubspot_accounts =
       from a in AdvisorAi.Accounts.Account,
-      where: a.provider == "hubspot" and not is_nil(a.token_expires_at),
-      preload: [:user]
+        where: a.provider == "hubspot" and not is_nil(a.token_expires_at),
+        preload: [:user]
 
     Repo.all(hubspot_accounts)
     |> Enum.each(fn account ->
@@ -113,10 +113,11 @@ defmodule AdvisorAi.Workers.TokenMonitorWorker do
 
   defp create_notification_message(user, content, notification_type) do
     # Create a system conversation for notifications
-    {:ok, conversation} = Chat.create_conversation(%{
-      user_id: user.id,
-      title: "System Notifications"
-    })
+    {:ok, conversation} =
+      Chat.create_conversation(%{
+        user_id: user.id,
+        title: "System Notifications"
+      })
 
     # Create the notification message
     Chat.create_message(conversation.id, %{
@@ -132,7 +133,8 @@ defmodule AdvisorAi.Workers.TokenMonitorWorker do
   # Schedule the token monitor to run every hour
   def schedule_token_monitoring() do
     %{}
-    |> new(schedule: {:extended, "0 * * * *"}) # Every hour
+    # Every hour
+    |> new(schedule: {:extended, "0 * * * *"})
     |> Oban.insert()
   end
 end

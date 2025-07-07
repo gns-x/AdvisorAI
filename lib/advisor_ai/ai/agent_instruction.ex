@@ -49,4 +49,42 @@ defmodule AdvisorAi.AI.AgentInstruction do
   def delete(%__MODULE__{} = agent_instruction) do
     Repo.delete(agent_instruction)
   end
+
+  @doc """
+  Gets all active instructions for a user by trigger type.
+
+  ## Examples
+
+      iex> get_active_instructions_by_trigger(user_id, "email_received")
+      {:ok, [%AgentInstruction{}, ...]}
+
+  """
+  def get_active_instructions_by_trigger(user_id, trigger_type) do
+    case Repo.all(
+      from i in __MODULE__,
+      where: i.user_id == ^user_id and i.trigger_type == ^trigger_type and i.is_active == true
+    ) do
+      instructions when is_list(instructions) -> {:ok, instructions}
+      _ -> {:ok, []}
+    end
+  end
+
+  @doc """
+  Gets all active instructions for a user.
+
+  ## Examples
+
+      iex> get_active_instructions_by_user(user_id)
+      {:ok, [%AgentInstruction{}, ...]}
+
+  """
+  def get_active_instructions_by_user(user_id) do
+    case Repo.all(
+      from i in __MODULE__,
+      where: i.user_id == ^user_id and i.is_active == true
+    ) do
+      instructions when is_list(instructions) -> {:ok, instructions}
+      _ -> {:ok, []}
+    end
+  end
 end

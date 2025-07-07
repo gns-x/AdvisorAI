@@ -34,29 +34,36 @@ defmodule AdvisorAi.AI.TogetherClient do
       }
 
       # Add functions if provided (OpenAI function calling)
-      request_body = if length(functions) > 0 do
-        request_body
-        |> Map.put(:functions, functions)
-        |> Map.put(:function_call, function_call || "auto")
-      else
-        request_body
-      end
+      request_body =
+        if length(functions) > 0 do
+          request_body
+          |> Map.put(:functions, functions)
+          |> Map.put(:function_call, function_call || "auto")
+        else
+          request_body
+        end
 
       # Add tools if provided (OpenAI tool calling)
-      request_body = if length(tools) > 0 do
-        request_body
-        |> Map.put(:tools, tools)
-        |> Map.put(:tool_choice, tool_choice || "auto")
-      else
-        request_body
-      end
+      request_body =
+        if length(tools) > 0 do
+          request_body
+          |> Map.put(:tools, tools)
+          |> Map.put(:tool_choice, tool_choice || "auto")
+        else
+          request_body
+        end
 
       http_opts = [timeout: 30_000, recv_timeout: 120_000]
 
-      case HTTPoison.post("#{@together_api_url}/chat/completions", Jason.encode!(request_body), [
-             {"Authorization", "Bearer #{api_key}"},
-             {"Content-Type", "application/json"}
-           ], http_opts) do
+      case HTTPoison.post(
+             "#{@together_api_url}/chat/completions",
+             Jason.encode!(request_body),
+             [
+               {"Authorization", "Bearer #{api_key}"},
+               {"Content-Type", "application/json"}
+             ],
+             http_opts
+           ) do
         {:ok, %HTTPoison.Response{status_code: 200, body: body}} ->
           case Jason.decode(body) do
             {:ok, response} ->
@@ -65,11 +72,18 @@ defmodule AdvisorAi.AI.TogetherClient do
                 %{"choices" => [%{"message" => message} | _]} ->
                   # Check if there are tool calls
                   case message do
-                    %{"tool_calls" => tool_calls} when is_list(tool_calls) and length(tool_calls) > 0 ->
-                      {:ok, %{"choices" => [%{"message" => %{"content" => "", "tool_calls" => tool_calls}}]}}
+                    %{"tool_calls" => tool_calls}
+                    when is_list(tool_calls) and length(tool_calls) > 0 ->
+                      {:ok,
+                       %{
+                         "choices" => [
+                           %{"message" => %{"content" => "", "tool_calls" => tool_calls}}
+                         ]
+                       }}
 
                     _ ->
-                      {:ok, %{"choices" => [%{"message" => %{"content" => message["content"] || ""}}]}}
+                      {:ok,
+                       %{"choices" => [%{"message" => %{"content" => message["content"] || ""}}]}}
                   end
 
                 _ ->
@@ -108,10 +122,15 @@ defmodule AdvisorAi.AI.TogetherClient do
 
       http_opts = [timeout: 30_000, recv_timeout: 120_000]
 
-      case HTTPoison.post("#{@together_api_url}/embeddings", Jason.encode!(request_body), [
-             {"Authorization", "Bearer #{api_key}"},
-             {"Content-Type", "application/json"}
-           ], http_opts) do
+      case HTTPoison.post(
+             "#{@together_api_url}/embeddings",
+             Jason.encode!(request_body),
+             [
+               {"Authorization", "Bearer #{api_key}"},
+               {"Content-Type", "application/json"}
+             ],
+             http_opts
+           ) do
         {:ok, %HTTPoison.Response{status_code: 200, body: body}} ->
           case Jason.decode(body) do
             {:ok, %{"data" => [%{"embedding" => embedding} | _]}} ->

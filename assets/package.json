@@ -3,8 +3,7 @@
   "version": "1.0.0",
   "description": "Assets for AdvisorAI",
   "scripts": {
-    "build": "tailwindcss --config=tailwind.config.js --input=css/app.css --output=../priv/static/assets/app.css --minify",
-    "watch": "tailwindcss --config=tailwind.config.js --input=css/app.css --output=../priv/static/assets/app.css --watch"
+    "build": "tailwindcss --config=tailwind.config.js --input=css/app.css --output=../priv/static/assets/app.css --watch"
   },
   "devDependencies": {
     "@tailwindcss/forms": "^0.5.7"

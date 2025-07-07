@@ -6,14 +6,16 @@ defmodule AdvisorAiWeb.HubspotOauthController do
 
   @hubspot_client_id System.get_env("HUBSPOT_CLIENT_ID")
   @hubspot_client_secret System.get_env("HUBSPOT_CLIENT_SECRET")
-  @redirect_uri System.get_env("HUBSPOT_REDIRECT_URI") || "http://localhost:4000/hubspot/oauth/callback"
+  @redirect_uri System.get_env("HUBSPOT_REDIRECT_URI") ||
+                  "http://localhost:4000/hubspot/oauth/callback"
 
   def debug(conn, _params) do
     config = %{
       client_id: @hubspot_client_id,
       client_secret: if(@hubspot_client_secret, do: "SET", else: "NOT SET"),
       redirect_uri: @redirect_uri,
-      test_url: "https://app-eu1.hubspot.com/oauth/authorize?client_id=#{@hubspot_client_id}&redirect_uri=#{URI.encode(@redirect_uri)}&scope=crm.objects.contacts.write%20crm.schemas.contacts.write%20oauth%20crm.schemas.contacts.read%20crm.objects.contacts.read&response_type=code&state=test123",
+      test_url:
+        "https://app-eu1.hubspot.com/oauth/authorize?client_id=#{@hubspot_client_id}&redirect_uri=#{URI.encode(@redirect_uri)}&scope=crm.objects.contacts.write%20crm.schemas.contacts.write%20oauth%20crm.schemas.contacts.read%20crm.objects.contacts.read&response_type=code&state=test123",
       instructions: [
         "1. Go to https://developers.hubspot.com/",
         "2. Find app with ID: #{@hubspot_client_id}",
@@ -31,6 +33,7 @@ defmodule AdvisorAiWeb.HubspotOauthController do
 
   def test_oauth(conn, _params) do
     user = conn.assigns.current_user
+
     case AdvisorAi.Integrations.HubSpot.test_oauth_connection(user) do
       {:ok, message} ->
         conn
@@ -96,7 +99,8 @@ defmodule AdvisorAiWeb.HubspotOauthController do
     conn = put_session(conn, :hubspot_oauth_state, state)
 
     # Use the scopes that HubSpot confirmed work with this app
-    scopes = "crm.objects.contacts.write crm.schemas.contacts.write oauth crm.schemas.contacts.read crm.objects.contacts.read"
+    scopes =
+      "crm.objects.contacts.write crm.schemas.contacts.write oauth crm.schemas.contacts.read crm.objects.contacts.read"
 
     # Build the OAuth URL manually to ensure proper formatting
     params = %{
@@ -107,9 +111,10 @@ defmodule AdvisorAiWeb.HubspotOauthController do
       state: state
     }
 
-    query_string = params
-    |> Enum.map(fn {k, v} -> "#{k}=#{URI.encode(v)}" end)
-    |> Enum.join("&")
+    query_string =
+      params
+      |> Enum.map(fn {k, v} -> "#{k}=#{URI.encode(v)}" end)
+      |> Enum.join("&")
 
     url = "https://app.hubspot.com/oauth/authorize?#{query_string}"
 
@@ -125,32 +130,46 @@ defmodule AdvisorAiWeb.HubspotOauthController do
   def callback(conn, %{"code" => code, "state" => state}) do
     # Verify state parameter
     stored_state = get_session(conn, :hubspot_oauth_state)
+
     if state != stored_state do
       conn
       |> put_flash(:error, "OAuth state verification failed. Please try again.")
       |> redirect(to: "/settings/integrations")
     else
       # Exchange code for tokens
-      body = URI.encode_query(%{
-        grant_type: "authorization_code",
-        client_id: @hubspot_client_id,
-        client_secret: @hubspot_client_secret,
-        redirect_uri: @redirect_uri,
-        code: code
-      })
+      body =
+        URI.encode_query(%{
+          grant_type: "authorization_code",
+          client_id: @hubspot_client_id,
+          client_secret: @hubspot_client_secret,
+          redirect_uri: @redirect_uri,
+          code: code
+        })
 
       headers = [{"Content-Type", "application/x-www-form-urlencoded"}]
 
       case HTTPoison.post("https://api.hubapi.com/oauth/v1/token", body, headers) do
         {:ok, %{status_code: 200, body: resp_body}} ->
           case Jason.decode(resp_body) do
-            {:ok, %{"access_token" => access_token, "refresh_token" => refresh_token, "expires_in" => expires_in}} ->
+            {:ok,
+             %{
+               "access_token" => access_token,
+               "refresh_token" => refresh_token,
+               "expires_in" => expires_in
+             }} ->
               # Get current user from assigns (should be available due to require_authenticated_user)
               user = conn.assigns.current_user
-              expires_at = DateTime.add(DateTime.utc_now(), expires_in) |> DateTime.truncate(:second)
+
+              expires_at =
+                DateTime.add(DateTime.utc_now(), expires_in) |> DateTime.truncate(:second)
 
               # Store tokens in DB
-              case Accounts.update_user_hubspot_tokens(user, access_token, refresh_token, expires_at) do
+              case Accounts.update_user_hubspot_tokens(
+                     user,
+                     access_token,
+                     refresh_token,
+                     expires_at
+                   ) do
                 {:ok, _updated_user} ->
                   conn
                   |> delete_session(:hubspot_oauth_state)

@@ -31,6 +31,7 @@ defmodule AdvisorAi.Tasks.GmailDiagnosticTask do
         case GmailDiagnostics.diagnose_gmail_issues(account) do
           {:ok, message} ->
             IO.puts("✅ #{message}")
+
           {:error, reason} ->
             IO.puts("❌ #{reason}")
             IO.puts("\n🔧 Suggested fixes:")
@@ -44,6 +45,7 @@ defmodule AdvisorAi.Tasks.GmailDiagnosticTask do
     case Accounts.get_user_by_email(email) do
       nil ->
         IO.puts("❌ User with email #{email} not found")
+
       user ->
         IO.puts("🔍 Running diagnostics for #{user.email}")
         IO.puts("=" |> String.duplicate(50))
@@ -51,6 +53,7 @@ defmodule AdvisorAi.Tasks.GmailDiagnosticTask do
         case GmailDiagnostics.diagnose_gmail_issues(user) do
           {:ok, message} ->
             IO.puts("✅ #{message}")
+
           {:error, reason} ->
             IO.puts("❌ #{reason}")
             IO.puts("\n🔧 Suggested fixes:")

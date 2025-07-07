@@ -90,6 +90,7 @@ defmodule AdvisorAiWeb.AuthController do
           {:ok, _account} ->
             # Reload user to get updated token fields
             updated_user = Accounts.get_user!(user.id)
+
             conn
             |> put_flash(:info, "Google connected successfully!")
             |> assign(:current_user, updated_user)
@@ -98,6 +99,7 @@ defmodule AdvisorAiWeb.AuthController do
           {:error, changeset} ->
             require Logger
             Logger.error("Failed to create or update account: #{inspect(changeset.errors)}")
+
             conn
             |> put_flash(:error, "Failed to connect Google account: #{inspect(changeset.errors)}")
             |> redirect(to: ~p"/settings/integrations")
@@ -167,16 +169,20 @@ defmodule AdvisorAiWeb.AuthController do
             |> UserAuth.log_in_user(user)
             |> put_flash(:info, "Welcome #{user.name}!")
             |> redirect(to: ~p"/chat")
+
           {:error, changeset} ->
             require Logger
             Logger.error("Failed to create or update account: #{inspect(changeset.errors)}")
+
             conn
             |> put_flash(:error, "Failed to connect Google account: #{inspect(changeset.errors)}")
             |> redirect(to: ~p"/settings/integrations")
         end
+
       {:error, changeset} ->
         require Logger
         Logger.error("Failed to create or get user: #{inspect(changeset.errors)}")
+
         conn
         |> put_flash(:error, "Authentication failed: #{inspect(changeset.errors)}")
         |> redirect(to: ~p"/")

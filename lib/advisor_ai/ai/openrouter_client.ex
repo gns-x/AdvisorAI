@@ -33,33 +33,37 @@ defmodule AdvisorAi.AI.OpenRouterClient do
       }
 
       # Add functions if provided (OpenAI function calling)
-      request_body = if length(functions) > 0 do
-        request_body
-        |> Map.put(:functions, functions)
-        |> Map.put(:function_call, function_call || "auto")
-      else
-        request_body
-      end
+      request_body =
+        if length(functions) > 0 do
+          request_body
+          |> Map.put(:functions, functions)
+          |> Map.put(:function_call, function_call || "auto")
+        else
+          request_body
+        end
 
       # Add tools if provided (OpenAI tool calling)
-      request_body = if length(tools) > 0 do
-        request_body
-        |> Map.put(:tools, tools)
-        |> Map.put(:tool_choice, tool_choice || "auto")
-      else
-        request_body
-      end
+      request_body =
+        if length(tools) > 0 do
+          request_body
+          |> Map.put(:tools, tools)
+          |> Map.put(:tool_choice, tool_choice || "auto")
+        else
+          request_body
+        end
 
       # Make request
-      case HTTPoison.post("#{@openrouter_api_url}/chat/completions",
-                         Jason.encode!(request_body),
-                         [
-                           {"Authorization", "Bearer #{api_key}"},
-                           {"Content-Type", "application/json"},
-                           {"HTTP-Referer", "https://advisor-ai.local"},
-                           {"X-Title", "AdvisorAI"}
-                         ],
-                         recv_timeout: 30_000) do
+      case HTTPoison.post(
+             "#{@openrouter_api_url}/chat/completions",
+             Jason.encode!(request_body),
+             [
+               {"Authorization", "Bearer #{api_key}"},
+               {"Content-Type", "application/json"},
+               {"HTTP-Referer", "https://advisor-ai.local"},
+               {"X-Title", "AdvisorAI"}
+             ],
+             recv_timeout: 30_000
+           ) do
         {:ok, %{status_code: 200, body: body}} ->
           case Jason.decode(body) do
             {:ok, response} -> {:ok, response}
@@ -95,15 +99,17 @@ defmodule AdvisorAi.AI.OpenRouterClient do
       }
 
       # Make request
-      case HTTPoison.post("#{@openrouter_api_url}/embeddings",
-                         Jason.encode!(request_body),
-                         [
-                           {"Authorization", "Bearer #{api_key}"},
-                           {"Content-Type", "application/json"},
-                           {"HTTP-Referer", "https://advisor-ai.local"},
-                           {"X-Title", "AdvisorAI"}
-                         ],
-                         recv_timeout: 15_000) do
+      case HTTPoison.post(
+             "#{@openrouter_api_url}/embeddings",
+             Jason.encode!(request_body),
+             [
+               {"Authorization", "Bearer #{api_key}"},
+               {"Content-Type", "application/json"},
+               {"HTTP-Referer", "https://advisor-ai.local"},
+               {"X-Title", "AdvisorAI"}
+             ],
+             recv_timeout: 15_000
+           ) do
         {:ok, %{status_code: 200, body: body}} ->
           case Jason.decode(body) do
             {:ok, response} -> {:ok, response}
@@ -128,11 +134,13 @@ defmodule AdvisorAi.AI.OpenRouterClient do
     if is_nil(api_key) or api_key == "" do
       {:error, "OPENROUTER_API_KEY not set"}
     else
-      case HTTPoison.get("#{@openrouter_api_url}/models",
-                        [
-                          {"Authorization", "Bearer #{api_key}"},
-                          {"Content-Type", "application/json"}
-                        ]) do
+      case HTTPoison.get(
+             "#{@openrouter_api_url}/models",
+             [
+               {"Authorization", "Bearer #{api_key}"},
+               {"Content-Type", "application/json"}
+             ]
+           ) do
         {:ok, %{status_code: 200}} ->
           {:ok, "OpenRouter is available"}
 
