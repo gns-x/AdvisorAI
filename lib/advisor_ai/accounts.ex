@@ -64,8 +64,10 @@ defmodule AdvisorAi.Accounts do
 
   def get_or_create_user(attrs) do
     case get_user_by_email(attrs.email) do
-      nil -> create_user(attrs)
-      user -> {:ok, user |> touch_last_login()}
+      {:error, :not_found} -> create_user(attrs)
+      {:ok, user} ->
+        user = touch_last_login(user)
+        {:ok, user}
     end
   end
 
