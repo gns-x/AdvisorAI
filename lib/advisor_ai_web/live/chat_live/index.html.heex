@@ -2,8 +2,8 @@
   <!-- Navigation Tabs -->
   <div class="flex items-center justify-between px-8 py-6 bg-white/70 backdrop-blur-xl border-b border-slate-200/50 shadow-sm">
     <div class="flex space-x-8">
-      <button phx-click="show_chat" class={if @view_mode == "chat", do: "text-base font-semibold gradient-text border-b-2 border-blue-500 pb-2 transition-all", else: "text-base text-slate-400 hover:text-slate-700 transition-all"}>Chat</button>
-      <button phx-click="show_history" class={if @view_mode == "history", do: "text-base font-semibold gradient-text border-b-2 border-blue-500 pb-2 transition-all", else: "text-base text-slate-400 hover:text-slate-700 transition-all"}>History</button>
+      <button phx-click="show_chat" class={if @view_mode == "chat", do: "text-base font-semibold gradient-text transition-all", else: "text-base text-slate-400 hover:text-slate-700 transition-all"}>Chat</button>
+      <button phx-click="show_history" class={if @view_mode == "history", do: "text-base font-semibold gradient-text transition-all", else: "text-base text-slate-400 hover:text-slate-700 transition-all"}>History</button>
     </div>
     <button phx-click="new_conversation" class="flex items-center space-x-2 px-4 py-2 text-base text-slate-600 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all shadow-sm border border-slate-200 hover:shadow-md hover:scale-105">
       <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
@@ -21,9 +21,9 @@
             <div id={dom_id} class="w-full animate-fadeIn">
               <%= if message.role == "user" do %>
                 <div class="flex justify-end">
-                  <div class="user-message bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-2xl px-6 py-4 shadow-lg max-w-xl backdrop-blur-sm">
-                    <div class="text-base whitespace-pre-wrap break-words">{message.content}</div>
-                    <div class="mt-2 text-xs text-blue-100 text-right">{Calendar.strftime(message.inserted_at, "%I:%M %p")}</div>
+                  <div class="user-message bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-2xl px-6 py-4 shadow-lg max-w-xl backdrop-blur-sm">
+                    <div class="text-base whitespace-pre-wrap break-words font-medium">{message.content}</div>
+                    <div class="mt-2 text-xs text-blue-200 text-right">{Calendar.strftime(message.inserted_at, "%I:%M %p")}</div>
                   </div>
                 </div>
               <% else %>
@@ -95,14 +95,10 @@
         <div class="max-w-xl mx-auto">
           <form phx-submit="send_message" class="relative">
             <div class="flex bg-white/90 backdrop-blur-sm rounded-2xl border border-slate-200/50 focus-within:border-blue-400 focus-within:ring-2 focus-within:ring-blue-100 transition-all shadow-lg hover:shadow-xl cursor-input-container">
-              <div class="flex-1 min-w-0 flex items-center">
-                <textarea id="message-input" name="message" value={@new_message} phx-hook="CursorStyleAutoResize" rows="1" class="w-full bg-transparent border-0 px-6 py-4 text-slate-800 placeholder-slate-400 focus:outline-none resize-none min-h-[52px] overflow-y-auto text-base" placeholder="Ask anything... (Enter to send, Shift+Enter for new line)" autocomplete="off" disabled={@loading} data-auto-resize style="height: auto;"></textarea>
-              </div>
-              <div class="flex items-center pr-4 space-x-2 flex-shrink-0">
-                <button type="submit" disabled={@loading || String.trim(@new_message) == ""} class="cursor-send-button p-2 text-slate-400 hover:text-blue-600 disabled:text-slate-300 disabled:cursor-not-allowed rounded-xl transition-all hover:bg-blue-50 hover:scale-105">
-                  <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" /></svg>
-                </button>
-              </div>
+              <textarea id="message-input" name="message" value={@new_message} phx-hook="CursorStyleAutoResize" rows="1" class="flex-1 bg-transparent border-0 px-6 py-4 text-slate-800 placeholder-slate-400 focus:outline-none resize-none min-h-[52px] overflow-y-auto text-base" placeholder="Ask anything... (Enter to send, Shift+Enter for new line)" autocomplete="off" disabled={@loading} data-auto-resize style="height: auto;"></textarea>
+              <button type="submit" disabled={@loading || String.trim(@new_message) == ""} class="cursor-send-button p-2 text-slate-400 hover:text-blue-600 disabled:text-slate-300 disabled:cursor-not-allowed rounded-xl transition-all hover:bg-blue-50 hover:scale-105 mr-2">
+                <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" /></svg>
+              </button>
             </div>
           </form>
         </div>
