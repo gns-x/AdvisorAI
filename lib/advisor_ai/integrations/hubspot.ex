@@ -42,12 +42,6 @@ defmodule AdvisorAi.Integrations.HubSpot do
             }
           end
 
-        File.write(
-          "/private/tmp/hubspot_debug.log",
-          "[HubSpot.search_contacts] Query: #{query}\n",
-          [:append]
-        )
-
         case HTTPoison.post(url, Jason.encode!(request_body), [
                {"Authorization", "Bearer #{access_token}"},
                {"Content-Type", "application/json"}
@@ -55,43 +49,19 @@ defmodule AdvisorAi.Integrations.HubSpot do
           {:ok, %{status_code: 200, body: body}} ->
             Logger.info("[HubSpot.search_contacts] Raw response: #{body}")
 
-            File.write(
-              "/private/tmp/hubspot_debug.log",
-              "[HubSpot.search_contacts] Raw response: #{body}\n",
-              [:append]
-            )
-
             case Jason.decode(body) do
               {:ok, %{"results" => contacts}} ->
                 Logger.info("[HubSpot.search_contacts] Contacts found: #{length(contacts)}")
-
-                File.write(
-                  "/private/tmp/hubspot_debug.log",
-                  "[HubSpot.search_contacts] Contacts found: #{length(contacts)}\n",
-                  [:append]
-                )
 
                 {:ok, contacts}
 
               {:ok, _} ->
                 Logger.info("[HubSpot.search_contacts] No contacts found in response.")
 
-                File.write(
-                  "/private/tmp/hubspot_debug.log",
-                  "[HubSpot.search_contacts] No contacts found in response.\n",
-                  [:append]
-                )
-
                 {:ok, []}
 
               {:error, reason} ->
                 Logger.error("[HubSpot.search_contacts] Failed to parse response: #{reason}")
-
-                File.write(
-                  "/private/tmp/hubspot_debug.log",
-                  "[HubSpot.search_contacts] Failed to parse response: #{reason}\n",
-                  [:append]
-                )
 
                 {:error, "Failed to parse response: #{reason}"}
             end
@@ -99,34 +69,16 @@ defmodule AdvisorAi.Integrations.HubSpot do
           {:ok, %{status_code: status_code, body: body}} ->
             Logger.error("[HubSpot.search_contacts] HubSpot API error: #{status_code} - #{body}")
 
-            File.write(
-              "/private/tmp/hubspot_debug.log",
-              "[HubSpot.search_contacts] HubSpot API error: #{status_code} - #{body}\n",
-              [:append]
-            )
-
             {:error, "HubSpot API error: #{status_code} - #{body}"}
 
           {:error, reason} ->
             Logger.error("[HubSpot.search_contacts] HTTP error: #{inspect(reason)}")
-
-            File.write(
-              "/private/tmp/hubspot_debug.log",
-              "[HubSpot.search_contacts] HTTP error: #{inspect(reason)}\n",
-              [:append]
-            )
 
             {:error, "HTTP error: #{reason}"}
         end
 
       {:error, reason} ->
         Logger.error("[HubSpot.search_contacts] Access token error: #{reason}")
-
-        File.write(
-          "/private/tmp/hubspot_debug.log",
-          "[HubSpot.search_contacts] Access token error: #{reason}\n",
-          [:append]
-        )
 
         {:error, reason}
     end
@@ -150,45 +102,19 @@ defmodule AdvisorAi.Integrations.HubSpot do
                {"Content-Type", "application/json"}
              ]) do
           {:ok, %{status_code: 200, body: body}} ->
-            Logger.info("[HubSpot.list_contacts] Raw response: #{body}")
-
-            File.write(
-              "/private/tmp/hubspot_debug.log",
-              "[HubSpot.list_contacts] Raw response: #{body}\n",
-              [:append]
-            )
-
             case Jason.decode(body) do
               {:ok, %{"results" => contacts}} ->
                 Logger.info("[HubSpot.list_contacts] Contacts found: #{length(contacts)}")
-
-                File.write(
-                  "/private/tmp/hubspot_debug.log",
-                  "[HubSpot.list_contacts] Contacts found: #{length(contacts)}\n",
-                  [:append]
-                )
 
                 {:ok, contacts}
 
               {:ok, _} ->
                 Logger.info("[HubSpot.list_contacts] No contacts found in response.")
 
-                File.write(
-                  "/private/tmp/hubspot_debug.log",
-                  "[HubSpot.list_contacts] No contacts found in response.\n",
-                  [:append]
-                )
-
                 {:ok, []}
 
               {:error, reason} ->
                 Logger.error("[HubSpot.list_contacts] Failed to parse response: #{reason}")
-
-                File.write(
-                  "/private/tmp/hubspot_debug.log",
-                  "[HubSpot.list_contacts] Failed to parse response: #{reason}\n",
-                  [:append]
-                )
 
                 {:error, "Failed to parse response: #{reason}"}
             end
@@ -610,6 +536,15 @@ defmodule AdvisorAi.Integrations.HubSpot do
 
       {:error, reason} ->
         {:error, reason}
+    end
+  end
+
+  # Public: Get a single contact by email (returns the first match or nil)
+  def get_contact_by_email(user, email) do
+    case search_contacts(user, email) do
+      {:ok, [contact | _]} -> {:ok, contact}
+      {:ok, []} -> {:ok, nil}
+      {:error, reason} -> {:error, reason}
     end
   end
 end

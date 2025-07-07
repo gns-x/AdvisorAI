@@ -220,7 +220,11 @@ defmodule AdvisorAi.AI.Agent do
             # Send notification to user in chat
             AdvisorAi.Chat.create_message_for_user(
               user,
-              "A new HubSpot contact was created for #{parsed_email} with subject: '#{subject}'."
+              "A new HubSpot contact was created for #{parsed_email} (#{first_name} #{last_name})."
+            )
+            AdvisorAi.Chat.create_message_for_user(
+              user,
+              "Notification: Contact '#{first_name} #{last_name}' was added to HubSpot."
             )
             {:ok, "Contact created in HubSpot and user notified"}
           {:error, reason} ->
@@ -457,10 +461,15 @@ defmodule AdvisorAi.AI.Agent do
 
     # Look for action type in the instruction
     cond do
+      # HubSpot contact creation triggers (more flexible)
+      Regex.match?(~r/(add (them|contact|to) hubspot|create( a)? contact( in)? hubspot|not in hubspot|doesn'?t exist in hubspot|not already in hubspot)/, instruction_lower) ->
+        {:ok, "email_received",
+         %{"check_hubspot" => true, "create_contact_if_missing" => true, "add_note" => true}}
+
       # Email-related actions
       String.contains?(instruction_lower, "when i get an email") or
           String.contains?(instruction_lower, "when someone emails me") ->
-        {:ok, "email_received", %{}}
+        {:ok, "email_received", %{"check_hubspot" => false}}
 
       String.contains?(instruction_lower, "send_email") or
           String.contains?(instruction_lower, "send an email") ->
@@ -482,12 +491,6 @@ defmodule AdvisorAi.AI.Agent do
       String.contains?(instruction_lower, "search_emails") or
           String.contains?(instruction_lower, "search emails") ->
         {:ok, "search_emails", %{"query" => "automation"}}
-
-      # HubSpot actions
-      String.contains?(instruction_lower, "add them to hubspot") or
-          String.contains?(instruction_lower, "create contact") ->
-        {:ok, "email_received",
-         %{"check_hubspot" => true, "create_contact_if_missing" => true, "add_note" => true}}
 
       true ->
         {:error, "Unknown action type in instruction"}

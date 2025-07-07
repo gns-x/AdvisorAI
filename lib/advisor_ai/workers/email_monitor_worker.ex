@@ -10,8 +10,8 @@ defmodule AdvisorAi.Workers.EmailMonitorWorker do
   alias AdvisorAi.Integrations.Gmail
   alias AdvisorAi.AI.Agent
 
-  # Check every 24 hours (1 day)
-  @check_interval 86_400_000
+  # Check every 30 seconds
+  @check_interval 30_000
 
   def start_link(_opts) do
     GenServer.start_link(__MODULE__, %{}, name: __MODULE__)
