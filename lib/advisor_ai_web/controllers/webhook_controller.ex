@@ -203,8 +203,8 @@ defmodule AdvisorAiWeb.WebhookController do
     # Extract user from the message
     case get_user_from_message(message) do
       {:ok, user} ->
-        # Extract email data for automation
-        email_data = extract_email_data_for_automation(message)
+              # Extract email data for automation
+              email_data = extract_email_data_for_automation(message)
 
         # Use universal agent to proactively handle the email
         case handle_proactive_email_response(user, email_data) do
