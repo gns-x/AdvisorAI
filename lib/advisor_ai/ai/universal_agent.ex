@@ -2265,8 +2265,9 @@ IMPORTANT: When the user asks you to perform an action, you MUST use the univers
                 end
               else
                 # Try to search emails for this person
-                case Gmail.search_emails(user, query, 5) do
+                case Gmail.search_emails(user, query) do
                   {:ok, emails} when is_list(emails) and length(emails) > 0 ->
+                    emails = Enum.take(emails, 5)
                     # Found emails - extract email addresses and offer to create contact
                     email_addresses =
                       emails
