@@ -2343,21 +2343,31 @@ IMPORTANT: When the user asks you to perform an action, you MUST use the univers
         end
 
       "create" ->
-        email = Map.get(args, "email") || Map.get(args, :email)
-        first_name = Map.get(args, "first_name") || Map.get(args, :first_name) || ""
-        last_name = Map.get(args, "last_name") || Map.get(args, :last_name) || ""
-        company = Map.get(args, "company") || Map.get(args, :company) || ""
+        # Enhanced: recognize a wide range of phrasings and extract info from any message
+        email = Map.get(args, "email") || Map.get(args, :email) || extract_email_from_query(user_message)
+        name = Map.get(args, "name") || Map.get(args, :name) || extract_name_from_query(user_message)
+        first_name = Map.get(args, "first_name") || Map.get(args, :first_name) || (name && String.split(name, " ") |> List.first() || "")
+        last_name = Map.get(args, "last_name") || Map.get(args, :last_name) || (name && String.split(name, " ") |> Enum.drop(1) |> Enum.join(" ") || "")
+        company = Map.get(args, "company") || Map.get(args, :company) || extract_company_from_query(user_message)
+        phone = Map.get(args, "phone") || Map.get(args, :phone) || extract_phone_from_query(user_message)
 
-        contact_data = %{
-          "email" => email,
-          "first_name" => first_name,
-          "last_name" => last_name,
-          "company" => company
-        }
-
-        case HubSpot.create_contact(user, contact_data) do
-          {:ok, message} -> {:ok, message}
-          {:error, reason} -> {:error, "Failed to create contact: #{reason}"}
+        cond do
+          is_nil(email) or email == "" ->
+            {:ask_user, "To create a contact, please provide their email address."}
+          is_nil(first_name) or first_name == "" ->
+            {:ask_user, "To create a contact, please provide their first name."}
+          true ->
+            contact_data = %{
+              "email" => email,
+              "first_name" => first_name,
+              "last_name" => last_name,
+              "company" => company,
+              "phone" => phone
+            }
+            case HubSpot.create_contact(user, contact_data) do
+              {:ok, message} -> {:ok, "Contact created: #{first_name} #{last_name} (#{email})"}
+              {:error, reason} -> {:error, "Failed to create contact: #{reason}"}
+            end
         end
 
       "add_note" ->
@@ -3950,6 +3960,23 @@ IMPORTANT: When the user asks you to perform an action, you MUST use the univers
 
       {:error, _} ->
         "Try rephrasing your request or check that your accounts are properly connected."
+    end
+  end
+
+  # Helper functions for enhanced extraction
+  defp extract_company_from_query(query) do
+    # Look for 'company' or 'at [company]' in the query
+    case Regex.run(~r/(?:company|at) ([A-Za-z0-9 .,&'-]+)/, query) do
+      [_, company] -> String.trim(company)
+      _ -> ""
+    end
+  end
+
+  defp extract_phone_from_query(query) do
+    # Look for phone numbers in the query
+    case Regex.run(~r/(\+?\d[\d .-]{7,}\d)/, query) do
+      [_, phone] -> String.trim(phone)
+      _ -> ""
     end
   end
 end
