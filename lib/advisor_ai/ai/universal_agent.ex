@@ -2343,6 +2343,16 @@ IMPORTANT: When the user asks you to perform an action, you MUST use the univers
         end
 
       "create" ->
+        # If args["body"] is a JSON string, parse and merge it into args
+        args =
+          case Map.get(args, "body") do
+            body when is_binary(body) ->
+              case Jason.decode(body) do
+                {:ok, body_map} -> Map.merge(args, body_map)
+                _ -> args
+              end
+            _ -> args
+          end
         # Enhanced: recognize a wide range of phrasings and extract info from any message
         email = Map.get(args, "email") || Map.get(args, :email) || extract_email_from_query(user_message)
         name = Map.get(args, "name") || Map.get(args, :name) || extract_name_from_query(user_message)
