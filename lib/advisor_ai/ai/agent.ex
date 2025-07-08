@@ -173,12 +173,16 @@ defmodule AdvisorAi.AI.Agent do
   defp execute_email_received_automation(user, params, trigger_data) do
     case trigger_data do
       %{from: sender_email, subject: subject, body: body} ->
-        # Check if this is a complex instruction that requires HubSpot integration
-        if Map.get(params, "check_hubspot", false) do
-          execute_hubspot_email_automation(user, sender_email, subject, body, params)
-        else
-          # Simple email automation
-          execute_simple_email_automation(user, sender_email, subject, body, params)
+        # Check if this is an appointment handling instruction
+        cond do
+          Map.get(params, "handle_appointment", false) ->
+            execute_appointment_automation(user, sender_email, subject, body, params)
+          # Check if this is a complex instruction that requires HubSpot integration
+          Map.get(params, "check_hubspot", false) ->
+            execute_hubspot_email_automation(user, sender_email, subject, body, params)
+          true ->
+            # Simple email automation
+            execute_simple_email_automation(user, sender_email, subject, body, params)
         end
 
       _ ->
@@ -240,6 +244,86 @@ defmodule AdvisorAi.AI.Agent do
       {:error, reason} ->
         Logger.error("❌ Failed to check contact in HubSpot: #{reason}")
         {:error, "Failed to check contact in HubSpot: #{reason}"}
+    end
+  end
+
+  # Execute appointment automation
+  defp execute_appointment_automation(user, sender_email, subject, body, params) do
+    require Logger
+
+    Logger.info("📅 Agent: Handling appointment automation for #{sender_email}")
+
+    # Parse sender name and email
+    {parsed_name, parsed_email} =
+      case Regex.run(~r/^(.*)<(.+@.+)>$/, sender_email) do
+        [_, name, email] -> {String.trim(name), String.trim(email)}
+        nil -> {"", String.trim(sender_email)}
+      end
+
+    # Check if this matches the person specified in the instruction
+    person_name = Map.get(params, "person_name")
+    if person_name && !String.contains?(String.downcase(parsed_name), String.downcase(person_name)) do
+      Logger.info("⏭️ Agent: Email not from specified person #{person_name}, skipping appointment automation")
+      {:ok, "Email not from specified person, skipping automation"}
+    else
+      # Look up contact in HubSpot
+      case AdvisorAi.Integrations.HubSpot.get_contact_by_email(user, parsed_email) do
+        {:ok, contact} ->
+          Logger.info("👤 Agent: Found contact in HubSpot, sending appointment scheduling email")
+
+          # Send appointment scheduling email
+          appointment_email = """
+          Hi #{parsed_name || "there"},
+
+          Thank you for your email! I'd be happy to schedule an appointment with you.
+
+          Here are my available times for this week:
+          - Monday: 2:00 PM - 4:00 PM
+          - Tuesday: 10:00 AM - 12:00 PM
+          - Wednesday: 3:00 PM - 5:00 PM
+          - Thursday: 1:00 PM - 3:00 PM
+          - Friday: 9:00 AM - 11:00 AM
+
+          Please let me know which time works best for you, or if you'd prefer a different time.
+
+          Best regards,
+          #{user.name}
+          """
+
+          case Gmail.send_email(user, parsed_email, "Re: #{subject} - Appointment Scheduling", appointment_email) do
+            {:ok, _} ->
+              Logger.info("✅ Agent: Sent appointment scheduling email to #{parsed_email}")
+              {:ok, "Sent appointment scheduling email to #{parsed_email}"}
+            {:error, reason} ->
+              Logger.error("❌ Agent: Failed to send appointment email: #{reason}")
+              {:error, "Failed to send appointment email: #{reason}"}
+          end
+
+        {:ok, nil} ->
+          Logger.info("👤 Agent: Contact not found in HubSpot, creating new contact")
+          # Create contact in HubSpot first
+          contact_data = %{
+            "email" => parsed_email,
+            "first_name" => parsed_name || "",
+            "last_name" => "",
+            "company" => "",
+            "notes" => "Contact created via appointment automation"
+          }
+
+          case AdvisorAi.Integrations.HubSpot.create_contact(user, contact_data) do
+            {:ok, _contact} ->
+              Logger.info("✅ Agent: Created contact in HubSpot, now sending appointment email")
+              # Now send the appointment email
+              execute_appointment_automation(user, sender_email, subject, body, params)
+            {:error, reason} ->
+              Logger.error("❌ Agent: Failed to create contact in HubSpot: #{reason}")
+              {:error, "Failed to create contact in HubSpot: #{reason}"}
+          end
+
+        {:error, reason} ->
+          Logger.error("❌ Agent: Failed to check contact in HubSpot: #{reason}")
+          {:error, "Failed to check contact in HubSpot: #{reason}"}
+      end
     end
   end
 
@@ -475,7 +559,30 @@ defmodule AdvisorAi.AI.Agent do
         {:ok, "email_received",
          %{"check_hubspot" => true, "create_contact_if_missing" => true, "add_note" => true}}
 
-      # Email-related actions
+      # Email-related actions with specific person handling
+      (String.contains?(instruction_lower, "when i receive an email") or
+          String.contains?(instruction_lower, "when i get an email") or
+          String.contains?(instruction_lower, "when someone emails me")) and
+          (String.contains?(instruction_lower, "automatically handle") or
+             String.contains?(instruction_lower, "automatically") or
+             String.contains?(instruction_lower, "handle appointment")) ->
+        # Extract person name if specified
+        person_name = extract_person_name_from_instruction(instruction)
+        params = %{
+          "check_hubspot" => true,
+          "create_contact_if_missing" => true,
+          "add_note" => true,
+          "handle_appointment" => true
+        }
+
+        if person_name do
+          Map.put(params, "person_name", person_name)
+        else
+          params
+        end
+        |> then(&{:ok, "email_received", &1})
+
+      # General email-related actions
       String.contains?(instruction_lower, "when i get an email") or
           String.contains?(instruction_lower, "when someone emails me") ->
         {:ok, "email_received", %{"check_hubspot" => false}}
@@ -503,6 +610,17 @@ defmodule AdvisorAi.AI.Agent do
 
       true ->
         {:error, "Unknown action type in instruction"}
+    end
+  end
+
+  # Extract person name from instruction
+  defp extract_person_name_from_instruction(instruction) do
+    instruction_lower = String.downcase(instruction)
+
+    # Look for "from [name]" pattern
+    case Regex.run(~r/from\s+([a-z\s]+?)(?:\s|$|,|\.)/, instruction_lower) do
+      [_, name] -> String.trim(name)
+      nil -> nil
     end
   end
 

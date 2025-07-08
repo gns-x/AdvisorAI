@@ -3143,11 +3143,14 @@ IMPORTANT: When the user asks you to perform an action, you MUST use the univers
   end
 
   def create_agent_response(_user, conversation_id, content, response_type) do
-    Chat.create_message(conversation_id, %{
+    case Chat.create_message(conversation_id, %{
       role: "assistant",
       content: content,
       metadata: %{response_type: response_type}
-    })
+    }) do
+      {:ok, message} -> {:ok, message}
+      {:error, reason} -> {:error, reason}
+    end
   end
 
   def handle_unknown_action(user, conversation_id, action) do
