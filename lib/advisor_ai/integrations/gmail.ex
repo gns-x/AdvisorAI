@@ -266,6 +266,12 @@ defmodule AdvisorAi.Integrations.Gmail do
                   type: "sent"
                 })
 
+                # Send notification to user
+                AdvisorAi.Chat.create_message_for_user(
+                  user,
+                  "✅ **Gmail Email Sent**: Successfully sent email to #{to} with subject: '#{subject}'."
+                )
+
                 {:ok, "Email sent successfully"}
 
               {:ok, %{status_code: 403, body: body}} ->
