@@ -239,27 +239,11 @@ defmodule AdvisorAi.AI.IntelligentAgent do
         subject = params["subject"] || "No Subject"
         body = params["body"] || "Hello,\n\nBest regards"
 
-        # Send notification about email sending
-        AdvisorAi.Chat.create_message_for_user(
-          user,
-          "📧 **Intelligent Agent**: Sending email to #{to} with subject: '#{subject}'..."
-        )
-
         case Gmail.send_email(user, to, subject, body) do
           {:ok, _} ->
-            # Send success notification
-            AdvisorAi.Chat.create_message_for_user(
-              user,
-              "✅ **Intelligent Agent**: Successfully sent email to #{to} with subject: '#{subject}'."
-            )
             create_agent_response(user, conversation_id, "Email sent successfully.", "action")
 
           {:error, reason} ->
-            # Send error notification
-            AdvisorAi.Chat.create_message_for_user(
-              user,
-              "❌ **Intelligent Agent**: Failed to send email to #{to}. Error: #{reason}"
-            )
             create_agent_response(
               user,
               conversation_id,
@@ -269,19 +253,8 @@ defmodule AdvisorAi.AI.IntelligentAgent do
         end
 
       "create_calendar_event" ->
-        # Send notification about event creation
-        AdvisorAi.Chat.create_message_for_user(
-          user,
-          "📅 **Intelligent Agent**: Creating calendar event '#{params["summary"]}' from #{params["start_time"]} to #{params["end_time"]}..."
-        )
-
         case Calendar.create_event(user, params) do
           {:ok, event} ->
-            # Send success notification
-            AdvisorAi.Chat.create_message_for_user(
-              user,
-              "✅ **Intelligent Agent**: Successfully created calendar event '#{params["summary"]}' in your calendar."
-            )
             create_agent_response(
               user,
               conversation_id,
@@ -290,11 +263,6 @@ defmodule AdvisorAi.AI.IntelligentAgent do
             )
 
           {:error, reason} ->
-            # Send error notification
-            AdvisorAi.Chat.create_message_for_user(
-              user,
-              "❌ **Intelligent Agent**: Failed to create calendar event '#{params["summary"]}'. Error: #{reason}"
-            )
             create_agent_response(
               user,
               conversation_id,
