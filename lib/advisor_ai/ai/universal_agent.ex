@@ -2430,57 +2430,22 @@ IMPORTANT: When the user asks you to perform an action, you MUST use the univers
               "company" => company,
               "phone" => phone
             }
-            # Send notification about contact creation
-            AdvisorAi.Chat.create_message_for_user(
-              user,
-              "👤 **Creating Contact**: Adding #{first_name} #{last_name} (#{email}) to HubSpot..."
-            )
-
             case HubSpot.create_contact(user, contact_data) do
               {:ok, message} ->
-                # Send success notification
-                AdvisorAi.Chat.create_message_for_user(
-                  user,
-                  "✅ **Contact Created**: Successfully added #{first_name} #{last_name} (#{email}) to HubSpot."
-                )
-
                 # After contact creation, check for 'hubspot_contact_created' instructions
                 case AdvisorAi.AI.AgentInstruction.get_active_instructions_by_trigger(user.id, "hubspot_contact_created") do
                   {:ok, instructions} when is_list(instructions) and length(instructions) > 0 ->
                     Enum.each(instructions, fn instruction ->
                       if String.contains?(String.downcase(instruction.instruction), "send them an email") or String.contains?(String.downcase(instruction.instruction), "send email") do
-                        # Send notification about welcome email
-                        AdvisorAi.Chat.create_message_for_user(
-                          user,
-                          "📧 **Sending Welcome Email**: Automatically sending welcome email to #{first_name} (#{email})..."
-                        )
-
                         # Compose and send thank-you email
                         thank_you_body = "Hi #{first_name},\n\nThank you for being a client! If you have any questions or need assistance, feel free to reach out.\n\nBest regards,\n#{user.name}"
-                        case Gmail.send_email(user, email, "Thank you for being a client!", thank_you_body) do
-                          {:ok, _} ->
-                            AdvisorAi.Chat.create_message_for_user(
-                              user,
-                              "✅ **Welcome Email Sent**: Welcome email sent to #{first_name} (#{email})."
-                            )
-                          {:error, reason} ->
-                            AdvisorAi.Chat.create_message_for_user(
-                              user,
-                              "❌ **Welcome Email Failed**: Could not send welcome email to #{first_name}. Error: #{reason}"
-                            )
-                        end
+                        _ = Gmail.send_email(user, email, "Thank you for being a client!", thank_you_body)
                       end
                     end)
                   _ -> :ok
                 end
                 {:ok, "Contact created: #{first_name} #{last_name} (#{email})"}
-              {:error, reason} ->
-                # Send error notification
-                AdvisorAi.Chat.create_message_for_user(
-                  user,
-                  "❌ **Contact Creation Failed**: Could not create contact for #{first_name} #{last_name}. Error: #{reason}"
-                )
-                {:error, "Failed to create contact: #{reason}"}
+              {:error, reason} -> {:error, "Failed to create contact: #{reason}"}
             end
         end
 
@@ -2488,27 +2453,9 @@ IMPORTANT: When the user asks you to perform an action, you MUST use the univers
         contact_email = Map.get(args, "contact_email") || Map.get(args, :contact_email)
         note_content = Map.get(args, "note_content") || Map.get(args, :note_content)
 
-        # Send notification about note creation
-        AdvisorAi.Chat.create_message_for_user(
-          user,
-          "📝 **Adding Note**: Adding note to contact #{contact_email}..."
-        )
-
         case HubSpot.add_note(user, contact_email, note_content) do
-          {:ok, message} ->
-            # Send success notification
-            AdvisorAi.Chat.create_message_for_user(
-              user,
-              "✅ **Note Added**: Successfully added note to contact #{contact_email}."
-            )
-            {:ok, message}
-          {:error, reason} ->
-            # Send error notification
-            AdvisorAi.Chat.create_message_for_user(
-              user,
-              "❌ **Note Addition Failed**: Could not add note to contact #{contact_email}. Error: #{reason}"
-            )
-            {:error, "Failed to add note: #{reason}"}
+          {:ok, message} -> {:ok, message}
+          {:error, reason} -> {:error, "Failed to add note: #{reason}"}
         end
     end
   end
@@ -2729,27 +2676,11 @@ IMPORTANT: When the user asks you to perform an action, you MUST use the univers
     subject = args["subject"]
     body = args["body"]
 
-    # Send notification about email sending
-    AdvisorAi.Chat.create_message_for_user(
-      user,
-      "📧 **Sending Email**: Sending email to #{to} with subject: '#{subject}'..."
-    )
-
     case Gmail.send_email(user, to, subject, body) do
       {:ok, _} ->
-        # Send success notification
-        AdvisorAi.Chat.create_message_for_user(
-          user,
-          "✅ **Email Sent**: Successfully sent email to #{to} with subject: '#{subject}'."
-        )
         {:ok, "Email sent successfully to #{to}"}
 
       {:error, reason} ->
-        # Send error notification
-        AdvisorAi.Chat.create_message_for_user(
-          user,
-          "❌ **Email Failed**: Could not send email to #{to}. Error: #{reason}"
-        )
         {:error, "Failed to send email: #{reason}"}
     end
   end
@@ -2797,27 +2728,11 @@ IMPORTANT: When the user asks you to perform an action, you MUST use the univers
     subject = args["subject"]
     body = args["body"]
 
-    # Send notification about email sending
-    AdvisorAi.Chat.create_message_for_user(
-      user,
-      "📧 **Sending Email**: Sending email to #{to} with subject: '#{subject}'..."
-    )
-
     case Gmail.send_email(user, to, subject, body) do
       {:ok, _} ->
-        # Send success notification
-        AdvisorAi.Chat.create_message_for_user(
-          user,
-          "✅ **Email Sent**: Successfully sent email to #{to} with subject: '#{subject}'."
-        )
         {:ok, "Email sent successfully to #{to}"}
 
       {:error, reason} ->
-        # Send error notification
-        AdvisorAi.Chat.create_message_for_user(
-          user,
-          "❌ **Email Failed**: Could not send email to #{to}. Error: #{reason}"
-        )
         {:error, "Failed to send email: #{reason}"}
     end
   end
@@ -2863,27 +2778,9 @@ IMPORTANT: When the user asks you to perform an action, you MUST use the univers
       "attendees" => Map.get(args, "attendees", [])
     }
 
-    # Send notification about event creation
-    AdvisorAi.Chat.create_message_for_user(
-      user,
-      "📅 **Creating Calendar Event**: Creating event '#{args["summary"]}' from #{args["start_time"]} to #{args["end_time"]}..."
-    )
-
     case Calendar.create_event(user, event_data) do
-      {:ok, result} ->
-        # Send success notification
-        AdvisorAi.Chat.create_message_for_user(
-          user,
-          "✅ **Calendar Event Created**: Successfully created event '#{args["summary"]}' in your calendar."
-        )
-        {:ok, result}
-      {:error, reason} ->
-        # Send error notification
-        AdvisorAi.Chat.create_message_for_user(
-          user,
-          "❌ **Calendar Event Failed**: Could not create event '#{args["summary"]}'. Error: #{reason}"
-        )
-        {:error, "Failed to create event: #{reason}"}
+      {:ok, result} -> {:ok, result}
+      {:error, reason} -> {:error, "Failed to create event: #{reason}"}
     end
   end
 
@@ -2951,27 +2848,9 @@ IMPORTANT: When the user asks you to perform an action, you MUST use the univers
       "attendees" => Map.get(args, "attendees", [])
     }
 
-    # Send notification about event creation
-    AdvisorAi.Chat.create_message_for_user(
-      user,
-      "📅 **Creating Calendar Event**: Creating event '#{args["summary"]}' from #{args["start_time"]} to #{args["end_time"]}..."
-    )
-
     case Calendar.create_event(user, event_data) do
-      {:ok, result} ->
-        # Send success notification
-        AdvisorAi.Chat.create_message_for_user(
-          user,
-          "✅ **Calendar Event Created**: Successfully created event '#{args["summary"]}' in your calendar."
-        )
-        {:ok, result}
-      {:error, reason} ->
-        # Send error notification
-        AdvisorAi.Chat.create_message_for_user(
-          user,
-          "❌ **Calendar Event Failed**: Could not create event '#{args["summary"]}'. Error: #{reason}"
-        )
-        {:error, "Failed to create event: #{reason}"}
+      {:ok, result} -> {:ok, result}
+      {:error, reason} -> {:error, "Failed to create event: #{reason}"}
     end
   end
 
@@ -3616,46 +3495,13 @@ IMPORTANT: When the user asks you to perform an action, you MUST use the univers
 
   # Store the ongoing instruction in the database
   defp store_ongoing_instruction(user, instruction_data) do
-    # Send notification about instruction creation
-    AdvisorAi.Chat.create_message_for_user(
-      user,
-      "🤖 **Creating Automation**: Setting up automation for '#{instruction_data.instruction}'..."
-    )
-
-    case AgentInstruction.create(%{
+    AgentInstruction.create(%{
       user_id: user.id,
       instruction: instruction_data.instruction,
       trigger_type: instruction_data.trigger_type,
       conditions: instruction_data.conditions,
       is_active: true
-    }) do
-      {:ok, instruction} ->
-        # Send success notification
-        AdvisorAi.Chat.create_message_for_user(
-          user,
-          "✅ **Automation Created**: Successfully created automation rule for '#{instruction_data.instruction}'. This will trigger #{get_trigger_description(instruction_data.trigger_type)}."
-        )
-        {:ok, instruction}
-      {:error, reason} ->
-        # Send error notification
-        AdvisorAi.Chat.create_message_for_user(
-          user,
-          "❌ **Automation Creation Failed**: Could not create automation rule. Error: #{reason}"
-        )
-        {:error, reason}
-    end
-  end
-
-  # Helper function to get trigger description
-  defp get_trigger_description(trigger_type) do
-    case trigger_type do
-      "email_received" -> "when you receive emails"
-      "calendar_event_created" -> "when you create calendar events"
-      "hubspot_contact_created" -> "when you create HubSpot contacts"
-      "hubspot_company_created" -> "when you create HubSpot companies"
-      "hubspot_deal_created" -> "when you create HubSpot deals"
-      _ -> "when triggered"
-    end
+    })
   end
 
   # Build confirmation message for stored instruction
@@ -4371,26 +4217,10 @@ IMPORTANT: When the user asks you to perform an action, you MUST use the univers
 
   # Actually create the contact (HubSpot)
   defp execute_direct_contact_creation(user, contact_data) do
-    # Send notification about direct contact creation
-    AdvisorAi.Chat.create_message_for_user(
-      user,
-      "👤 **Direct Contact Creation**: Adding #{contact_data["first_name"]} #{contact_data["last_name"]} (#{contact_data["email"]}) to HubSpot..."
-    )
-
     case AdvisorAi.Integrations.HubSpot.create_contact(user, contact_data) do
       {:ok, _message} ->
-        # Send success notification
-        AdvisorAi.Chat.create_message_for_user(
-          user,
-          "✅ **Direct Contact Created**: Successfully added #{contact_data["first_name"]} #{contact_data["last_name"]} (#{contact_data["email"]}) to HubSpot."
-        )
         "✅ Contact created successfully: #{contact_data["first_name"]} #{contact_data["last_name"]} (#{contact_data["email"]})"
       {:error, reason} ->
-        # Send error notification
-        AdvisorAi.Chat.create_message_for_user(
-          user,
-          "❌ **Direct Contact Creation Failed**: Could not create contact for #{contact_data["first_name"]} #{contact_data["last_name"]}. Error: #{reason}"
-        )
         "❌ Failed to create contact: #{reason}"
     end
   end

@@ -242,12 +242,6 @@ defmodule AdvisorAi.Integrations.HubSpot do
                   id: created_contact["id"]
                 })
 
-                # Send notification to user
-                AdvisorAi.Chat.create_message_for_user(
-                  user,
-                  "✅ **HubSpot Contact Created**: Successfully created contact #{contact_data["first_name"]} #{contact_data["last_name"]} (#{contact_data["email"]}) in HubSpot."
-                )
-
                 {:ok, "Contact created successfully"}
 
               {:error, reason} ->
@@ -315,12 +309,6 @@ defmodule AdvisorAi.Integrations.HubSpot do
                       contact_email: contact_email,
                       id: created_note["id"]
                     })
-
-                    # Send notification to user
-                    AdvisorAi.Chat.create_message_for_user(
-                      user,
-                      "📝 **HubSpot Note Added**: Successfully added note to contact #{contact_email} in HubSpot."
-                    )
 
                     {:ok, "Note added successfully"}
 

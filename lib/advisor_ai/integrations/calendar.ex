@@ -57,12 +57,6 @@ defmodule AdvisorAi.Integrations.Calendar do
                   id: created_event["id"]
                 })
 
-                # Send notification to user
-                AdvisorAi.Chat.create_message_for_user(
-                  user,
-                  "✅ **Calendar Event Created**: Successfully created event '#{created_event["summary"]}' in your Google Calendar."
-                )
-
                 {:ok, created_event}
 
               {:error, reason} ->
