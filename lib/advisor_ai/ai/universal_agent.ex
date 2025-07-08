@@ -3214,32 +3214,55 @@ IMPORTANT: When the user asks you to perform an action, you MUST use the univers
     end
   end
 
-  # Recognize if a message is an ongoing instruction
+  # Enhanced instruction recognition with flexible trigger mapping
   defp recognize_ongoing_instruction(message) do
     message_lower = String.downcase(message)
 
-    # Check for instruction patterns
+    # Check for instruction patterns and map to appropriate triggers
     cond do
       # Email-related instructions
       String.contains?(message_lower, "when i get an email") or
         String.contains?(message_lower, "when someone emails me") or
         String.contains?(message_lower, "when an email comes in") or
-          String.contains?(message_lower, "when i receive an email") ->
+        String.contains?(message_lower, "when i receive an email") or
+        String.contains?(message_lower, "when emails are received") ->
         parse_email_instruction(message)
 
       # Calendar-related instructions
       (String.contains?(message_lower, "when i create") and
          String.contains?(message_lower, "calendar")) or
-          (String.contains?(message_lower, "when i add") and
-             String.contains?(message_lower, "event")) ->
+        (String.contains?(message_lower, "when i add") and
+           String.contains?(message_lower, "event")) or
+        (String.contains?(message_lower, "when") and
+           String.contains?(message_lower, "calendar event")) or
+        (String.contains?(message_lower, "when") and
+           String.contains?(message_lower, "meeting")) ->
         parse_calendar_instruction(message)
 
       # HubSpot-related instructions
       (String.contains?(message_lower, "when i create") and
          String.contains?(message_lower, "contact")) or
-          (String.contains?(message_lower, "when someone") and
-             String.contains?(message_lower, "hubspot")) ->
+        (String.contains?(message_lower, "when someone") and
+           String.contains?(message_lower, "hubspot")) or
+        (String.contains?(message_lower, "when") and
+           String.contains?(message_lower, "contact")) or
+        (String.contains?(message_lower, "when") and
+           String.contains?(message_lower, "new contact")) ->
         parse_hubspot_instruction(message)
+
+      # Company-related instructions
+      (String.contains?(message_lower, "when i create") and
+         String.contains?(message_lower, "company")) or
+        (String.contains?(message_lower, "when") and
+           String.contains?(message_lower, "company")) ->
+        parse_company_instruction(message)
+
+      # Deal-related instructions
+      (String.contains?(message_lower, "when i create") and
+         String.contains?(message_lower, "deal")) or
+        (String.contains?(message_lower, "when") and
+           String.contains?(message_lower, "deal")) ->
+        parse_deal_instruction(message)
 
       # Generic automation instructions
       String.contains?(message_lower, "automatically") and
@@ -3247,7 +3270,7 @@ IMPORTANT: When the user asks you to perform an action, you MUST use the univers
              String.contains?(message_lower, "add") or String.contains?(message_lower, "notify")) ->
         parse_generic_instruction(message)
 
-      # Direct HubSpot + email combinations
+      # Direct combinations
       (String.contains?(message_lower, "email") and String.contains?(message_lower, "hubspot")) or
           (String.contains?(message_lower, "email") and String.contains?(message_lower, "contact")) ->
         parse_generic_instruction(message)
@@ -3403,6 +3426,62 @@ IMPORTANT: When the user asks you to perform an action, you MUST use the univers
 
       true ->
         {:error, :not_instruction}
+    end
+  end
+
+  # Parse company-related instructions
+  defp parse_company_instruction(message) do
+    message_lower = String.downcase(message)
+
+    cond do
+      # "When I create a company in HubSpot, send them an email"
+      String.contains?(message_lower, "send them an email") or
+          String.contains?(message_lower, "send email") ->
+        {:ok,
+         %{
+           trigger_type: "hubspot_company_created",
+           instruction: message,
+           conditions: %{
+             "send_welcome_email" => true
+           }
+         }}
+
+      # Generic company instruction
+      true ->
+        {:ok,
+         %{
+           trigger_type: "hubspot_company_created",
+           instruction: message,
+           conditions: %{}
+         }}
+    end
+  end
+
+  # Parse deal-related instructions
+  defp parse_deal_instruction(message) do
+    message_lower = String.downcase(message)
+
+    cond do
+      # "When I create a deal in HubSpot, send notification"
+      String.contains?(message_lower, "send notification") or
+          String.contains?(message_lower, "notify") ->
+        {:ok,
+         %{
+           trigger_type: "hubspot_deal_created",
+           instruction: message,
+           conditions: %{
+             "send_notification" => true
+           }
+         }}
+
+      # Generic deal instruction
+      true ->
+        {:ok,
+         %{
+           trigger_type: "hubspot_deal_created",
+           instruction: message,
+           conditions: %{}
+         }}
     end
   end
 
