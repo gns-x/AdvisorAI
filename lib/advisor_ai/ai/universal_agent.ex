@@ -2375,7 +2375,20 @@ IMPORTANT: When the user asks you to perform an action, you MUST use the univers
               "phone" => phone
             }
             case HubSpot.create_contact(user, contact_data) do
-              {:ok, message} -> {:ok, "Contact created: #{first_name} #{last_name} (#{email})"}
+              {:ok, message} ->
+                # After contact creation, check for 'hubspot_contact_created' instructions
+                case AdvisorAi.AI.AgentInstruction.get_active_instructions_by_trigger(user.id, "hubspot_contact_created") do
+                  {:ok, instructions} when is_list(instructions) and length(instructions) > 0 ->
+                    Enum.each(instructions, fn instruction ->
+                      if String.contains?(String.downcase(instruction.instruction), "send them an email") or String.contains?(String.downcase(instruction.instruction), "send email") do
+                        # Compose and send thank-you email
+                        thank_you_body = "Hi #{first_name},\n\nThank you for being a client! If you have any questions or need assistance, feel free to reach out.\n\nBest regards,\n#{user.name}"
+                        _ = Gmail.send_email(user, email, "Thank you for being a client!", thank_you_body)
+                      end
+                    end)
+                  _ -> :ok
+                end
+                {:ok, "Contact created: #{first_name} #{last_name} (#{email})"}
               {:error, reason} -> {:error, "Failed to create contact: #{reason}"}
             end
         end
