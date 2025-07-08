@@ -293,7 +293,52 @@ defmodule AdvisorAi.AI.Agent do
           case Gmail.send_email(user, parsed_email, "Re: #{subject} - Appointment Scheduling", appointment_email) do
             {:ok, _} ->
               Logger.info("✅ Agent: Sent appointment scheduling email to #{parsed_email}")
-              {:ok, "Sent appointment scheduling email to #{parsed_email}"}
+
+              # --- New: Create calendar event (demo: tomorrow 10:00-11:00 UTC) ---
+              start_time =
+                DateTime.utc_now()
+                |> DateTime.add(60 * 60 * 24, :second) # tomorrow
+                |> DateTime.truncate(:second)
+                |> DateTime.to_iso8601()
+              end_time =
+                DateTime.utc_now()
+                |> DateTime.add(60 * 60 * 25, :second) # tomorrow + 1 hour
+                |> DateTime.truncate(:second)
+                |> DateTime.to_iso8601()
+              event_data = %{
+                "title" => "Appointment with #{parsed_name}",
+                "description" => "Auto-scheduled appointment for #{parsed_name} (#{parsed_email})",
+                "start_time" => start_time,
+                "end_time" => end_time,
+                "attendees" => [parsed_email]
+              }
+              case AdvisorAi.Integrations.Calendar.create_event(user, event_data) do
+                {:ok, event} ->
+                  Logger.info("📅 Agent: Created calendar event: #{event["summary"]}")
+                  # --- New: Add note to HubSpot ---
+                  note = "Appointment scheduled: #{event["summary"]} on #{start_time} (#{parsed_email})"
+                  case AdvisorAi.Integrations.HubSpot.add_note(user, parsed_email, note) do
+                    {:ok, _} ->
+                      Logger.info("📝 Agent: Added appointment note to HubSpot for #{parsed_email}")
+                      # --- New: Send follow-up email ---
+                      followup_subject = "Looking forward to our appointment!"
+                      followup_body = "Hi #{parsed_name || "there"},\n\nJust confirming our appointment scheduled for tomorrow at 10:00 AM UTC. If you need to reschedule, let me know!\n\nBest regards,\n#{user.name}"
+                      case Gmail.send_email(user, parsed_email, followup_subject, followup_body) do
+                        {:ok, _} ->
+                          Logger.info("📧 Agent: Sent follow-up email to #{parsed_email}")
+                          {:ok, "Appointment scheduled, calendar event created, HubSpot updated, and follow-up sent."}
+                        {:error, reason} ->
+                          Logger.error("❌ Agent: Failed to send follow-up email: #{reason}")
+                          {:ok, "Appointment scheduled, calendar event created, HubSpot updated, but failed to send follow-up: #{reason}"}
+                      end
+                    {:error, reason} ->
+                      Logger.error("❌ Agent: Failed to add note to HubSpot: #{reason}")
+                      {:ok, "Appointment scheduled, calendar event created, but failed to update HubSpot: #{reason}"}
+                  end
+                {:error, reason} ->
+                  Logger.error("❌ Agent: Failed to create calendar event: #{reason}")
+                  {:ok, "Appointment email sent, but failed to create calendar event: #{reason}"}
+              end
             {:error, reason} ->
               Logger.error("❌ Agent: Failed to send appointment email: #{reason}")
               {:error, "Failed to send appointment email: #{reason}"}
