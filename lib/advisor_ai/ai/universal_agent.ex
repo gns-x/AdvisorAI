@@ -1175,6 +1175,8 @@ IMPORTANT: When the user asks you to perform an action, you MUST use the univers
         # Process results intelligently
         response_text = process_tool_call_results(results, user_message, context)
         create_agent_response(user, conversation_id, response_text, "action")
+        # --- NEW: After response, check and execute related instructions ---
+        check_and_execute_related_instructions(user, conversation_id, user_message, results)
 
       {:ok, []} ->
         # No tool calls found, check if this is a fake response
@@ -4001,5 +4003,66 @@ IMPORTANT: When the user asks you to perform an action, you MUST use the univers
       [_, phone] -> String.trim(phone)
       _ -> ""
     end
+  end
+
+  # --- NEW: Strict post-request instruction check ---
+  defp check_and_execute_related_instructions(user, conversation_id, user_message, tool_call_results) do
+    # Get all active instructions for the user
+    case AgentInstruction.get_active_instructions_by_user(user.id) do
+      {:ok, instructions} when is_list(instructions) and length(instructions) > 0 ->
+        Enum.each(instructions, fn instruction ->
+          if strictly_related_instruction?(instruction, user_message, tool_call_results) do
+            # Use the main automation handler from Agent
+            trigger_type = instruction.trigger_type
+            trigger_data = build_trigger_data_from_request(user_message, tool_call_results, trigger_type)
+            AdvisorAi.AI.Agent.handle_trigger(user, trigger_type, trigger_data)
+          end
+        end)
+      _ -> :ok
+    end
+  end
+
+  # Strict matching: trigger type and intent/conditions must match
+  defp strictly_related_instruction?(instruction, user_message, tool_call_results) do
+    # 1. Trigger type must match the type of the just-completed request
+    # 2. Intent/conditions must match (keywords, context, or LLM similarity)
+    # We'll use a conservative approach: require both trigger and at least one key condition/keyword match
+    trigger_type = instruction.trigger_type
+    instruction_text = String.downcase(instruction.instruction || "")
+    message_text = String.downcase(user_message || "")
+    conditions = instruction.conditions || %{}
+
+    trigger_match =
+      cond do
+        trigger_type == "email_received" -> String.contains?(message_text, "email")
+        trigger_type == "calendar_event_created" -> String.contains?(message_text, "calendar") or String.contains?(message_text, "event")
+        trigger_type == "hubspot_contact_created" -> String.contains?(message_text, "contact") or String.contains?(message_text, "hubspot")
+        true -> false
+      end
+
+    # Check for strong intent/condition match
+    intent_match =
+      Enum.any?(Map.keys(conditions), fn key ->
+        String.contains?(message_text, String.replace(key, "_", " ")) or String.contains?(instruction_text, String.replace(key, "_", " "))
+      end)
+      or Enum.any?(Map.values(conditions), fn val ->
+        is_binary(val) and String.contains?(message_text, String.downcase(val))
+      end)
+      or (instruction_text != "" and String.contains?(message_text, instruction_text))
+
+    trigger_match and intent_match
+  end
+
+  # Build trigger data for automation execution
+  defp build_trigger_data_from_request(user_message, tool_call_results, trigger_type) do
+    # Try to extract relevant info from the message and results
+    # This is a simplified version; can be enhanced for more context
+    %{
+      from: AdvisorAi.AI.Agent.extract_email_address(user_message),
+      subject: AdvisorAi.AI.Agent.extract_subject(user_message),
+      body: user_message,
+      results: tool_call_results,
+      trigger_type: trigger_type
+    }
   end
 end
