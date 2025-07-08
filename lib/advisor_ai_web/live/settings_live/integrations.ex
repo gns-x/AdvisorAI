@@ -266,7 +266,7 @@ defmodule AdvisorAiWeb.SettingsLive.Integrations do
                 </div>
               <% else %>
                 <.link
-                  href={~p"/auth/hubspot"}
+                  href={~p"/hubspot/oauth/connect"}
                   class="w-full px-6 py-3 bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-xl hover:from-orange-600 hover:to-orange-700 text-center block font-medium transition-all hover:scale-105 shadow-lg hover:shadow-xl"
                 >
                   Connect HubSpot
