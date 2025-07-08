@@ -203,10 +203,10 @@ defmodule AdvisorAi.AI.Agent do
     Logger.info("🔍 Agent: Checking if contact exists in HubSpot: #{sender_email}")
 
     # Send initial notification to user in chat
-    AdvisorAi.Chat.create_message_for_user(
-      user,
-      "🔍 **HubSpot Automation**: Checking if #{sender_email} exists in HubSpot..."
-    )
+    # AdvisorAi.Chat.create_message_for_user(
+    #   user,
+    #   "🔍 **HubSpot Automation**: Checking if #{sender_email} exists in HubSpot..."
+    # )
 
     # Parse sender name and email
     {parsed_name, parsed_email} =
@@ -225,10 +225,10 @@ defmodule AdvisorAi.AI.Agent do
     case AdvisorAi.Integrations.HubSpot.get_contact_by_email(user, parsed_email) do
       {:ok, nil} ->
         Logger.info("👤 Contact not found in HubSpot. Creating new contact...")
-        AdvisorAi.Chat.create_message_for_user(
-          user,
-          "👤 **Contact Not Found**: #{parsed_name} (#{parsed_email}) not in HubSpot. Creating new contact..."
-        )
+        # AdvisorAi.Chat.create_message_for_user(
+        #   user,
+        #   "👤 **Contact Not Found**: #{parsed_name} (#{parsed_email}) not in HubSpot. Creating new contact..."
+        # )
         # Step 2: Create contact in HubSpot
         contact_data = %{
           "email" => parsed_email,
@@ -241,32 +241,32 @@ defmodule AdvisorAi.AI.Agent do
           {:ok, contact} ->
             Logger.info("✅ Contact created in HubSpot: #{inspect(contact)}")
             # Send notification to user in chat
-            AdvisorAi.Chat.create_message_for_user(
-              user,
-              "✅ **Contact Created**: Added #{parsed_name} (#{parsed_email}) to HubSpot with note about the email."
-            )
+            # AdvisorAi.Chat.create_message_for_user(
+            #   user,
+            #   "✅ **Contact Created**: Added #{parsed_name} (#{parsed_email}) to HubSpot with note about the email."
+            # )
             {:ok, "Contact created in HubSpot and user notified"}
           {:error, reason} ->
             Logger.error("❌ Failed to create contact in HubSpot: #{reason}")
-            AdvisorAi.Chat.create_message_for_user(
-              user,
-              "❌ **Contact Creation Failed**: Could not create HubSpot contact for #{parsed_name}. Error: #{reason}"
-            )
+            # AdvisorAi.Chat.create_message_for_user(
+            #   user,
+            #   "❌ **Contact Creation Failed**: Could not create HubSpot contact for #{parsed_name}. Error: #{reason}"
+            # )
             {:error, "Failed to create contact in HubSpot: #{reason}"}
         end
       {:ok, _contact} ->
         Logger.info("👤 Contact already exists in HubSpot: #{parsed_email}")
-        AdvisorAi.Chat.create_message_for_user(
-          user,
-          "👤 **Contact Found**: #{parsed_name} (#{parsed_email}) already exists in HubSpot."
-        )
+        # AdvisorAi.Chat.create_message_for_user(
+        #   user,
+        #   "👤 **Contact Found**: #{parsed_name} (#{parsed_email}) already exists in HubSpot."
+        # )
         {:ok, "Contact already exists in HubSpot"}
       {:error, reason} ->
         Logger.error("❌ Failed to check contact in HubSpot: #{reason}")
-        AdvisorAi.Chat.create_message_for_user(
-          user,
-          "❌ **HubSpot Check Failed**: Could not check if #{parsed_name} exists in HubSpot. Error: #{reason}"
-        )
+        # AdvisorAi.Chat.create_message_for_user(
+        #   user,
+        #   "❌ **HubSpot Check Failed**: Could not check if #{parsed_name} exists in HubSpot. Error: #{reason}"
+        # )
         {:error, "Failed to check contact in HubSpot: #{reason}"}
     end
   end
@@ -331,10 +331,10 @@ defmodule AdvisorAi.AI.Agent do
           case Gmail.send_email(user, parsed_email, "Re: #{subject} - Appointment Scheduling", appointment_email) do
             {:ok, _} ->
               Logger.info("✅ Agent: Sent appointment scheduling email to #{parsed_email}")
-              AdvisorAi.Chat.create_message_for_user(
-                user,
-                "✅ **Email Sent**: Appointment scheduling email sent to #{parsed_name} (#{parsed_email}). Creating calendar event..."
-              )
+              # AdvisorAi.Chat.create_message_for_user(
+              #   user,
+              #   "✅ **Email Sent**: Appointment scheduling email sent to #{parsed_name} (#{parsed_email}). Creating calendar event..."
+              # )
 
               # --- New: Create calendar event (demo: tomorrow 10:00-11:00 UTC) ---
               start_time =
@@ -407,19 +407,19 @@ defmodule AdvisorAi.AI.Agent do
               end
             {:error, reason} ->
               Logger.error("❌ Agent: Failed to send appointment email: #{reason}")
-              AdvisorAi.Chat.create_message_for_user(
-                user,
-                "❌ **Email Failed**: Could not send appointment scheduling email to #{parsed_name}. Error: #{reason}"
-              )
+              # AdvisorAi.Chat.create_message_for_user(
+              #   user,
+              #   "❌ **Email Failed**: Could not send appointment scheduling email to #{parsed_name}. Error: #{reason}"
+              # )
               {:error, "Failed to send appointment email: #{reason}"}
           end
 
         {:ok, nil} ->
           Logger.info("👤 Agent: Contact not found in HubSpot, creating new contact")
-          AdvisorAi.Chat.create_message_for_user(
-            user,
-            "👤 **Contact Not Found**: #{parsed_name} (#{parsed_email}) not in HubSpot. Creating new contact..."
-          )
+          # AdvisorAi.Chat.create_message_for_user(
+          #   user,
+          #   "👤 **Contact Not Found**: #{parsed_name} (#{parsed_email}) not in HubSpot. Creating new contact..."
+          # )
           # Create contact in HubSpot first
           contact_data = %{
             "email" => parsed_email,
@@ -432,27 +432,27 @@ defmodule AdvisorAi.AI.Agent do
           case AdvisorAi.Integrations.HubSpot.create_contact(user, contact_data) do
             {:ok, _contact} ->
               Logger.info("✅ Agent: Created contact in HubSpot, now sending appointment email")
-              AdvisorAi.Chat.create_message_for_user(
-                user,
-                "✅ **Contact Created**: Added #{parsed_name} (#{parsed_email}) to HubSpot. Continuing with appointment automation..."
-              )
+              # AdvisorAi.Chat.create_message_for_user(
+              #   user,
+              #   "✅ **Contact Created**: Added #{parsed_name} (#{parsed_email}) to HubSpot. Continuing with appointment automation..."
+              # )
               # Now send the appointment email
               execute_appointment_automation(user, sender_email, subject, body, params)
             {:error, reason} ->
               Logger.error("❌ Agent: Failed to create contact in HubSpot: #{reason}")
-              AdvisorAi.Chat.create_message_for_user(
-                user,
-                "❌ **Contact Creation Failed**: Could not create HubSpot contact for #{parsed_name}. Error: #{reason}"
-              )
+              # AdvisorAi.Chat.create_message_for_user(
+              #   user,
+              #   "❌ **Contact Creation Failed**: Could not create HubSpot contact for #{parsed_name}. Error: #{reason}"
+              # )
               {:error, "Failed to create contact in HubSpot: #{reason}"}
           end
 
         {:error, reason} ->
           Logger.error("❌ Agent: Failed to check contact in HubSpot: #{reason}")
-          AdvisorAi.Chat.create_message_for_user(
-            user,
-            "❌ **HubSpot Check Failed**: Could not check if #{parsed_name} exists in HubSpot. Error: #{reason}"
-          )
+          # AdvisorAi.Chat.create_message_for_user(
+          #   user,
+          #   "❌ **HubSpot Check Failed**: Could not check if #{parsed_name} exists in HubSpot. Error: #{reason}"
+          # )
           {:error, "Failed to check contact in HubSpot: #{reason}"}
       end
     end
@@ -465,10 +465,10 @@ defmodule AdvisorAi.AI.Agent do
     Logger.info("📧 Agent: Handling simple email automation for #{sender_email}")
 
     # Send initial notification to user in chat
-    AdvisorAi.Chat.create_message_for_user(
-      user,
-      "📧 **Email Automation Triggered**: Email received from #{sender_email} with subject: '#{subject}'"
-    )
+    # AdvisorAi.Chat.create_message_for_user(
+    #   user,
+    #   "📧 **Email Automation Triggered**: Email received from #{sender_email} with subject: '#{subject}'"
+    # )
 
     # Handle auto-reply logic
     if Map.get(params, "auto_reply", false) do
@@ -477,25 +477,25 @@ defmodule AdvisorAi.AI.Agent do
       case Gmail.send_email(user, sender_email, "Re: #{subject}", auto_reply_content) do
         {:ok, _} ->
           Logger.info("✅ Agent: Sent auto-reply to #{sender_email}")
-          AdvisorAi.Chat.create_message_for_user(
-            user,
-            "✅ **Auto-reply Sent**: Automatic response sent to #{sender_email}"
-          )
+          # AdvisorAi.Chat.create_message_for_user(
+          #   user,
+          #   "✅ **Auto-reply Sent**: Automatic response sent to #{sender_email}"
+          # )
           {:ok, "Sent auto-reply to #{sender_email}"}
         {:error, reason} ->
           Logger.error("❌ Agent: Failed to send auto-reply: #{reason}")
-          AdvisorAi.Chat.create_message_for_user(
-            user,
-            "❌ **Auto-reply Failed**: Could not send automatic response to #{sender_email}. Error: #{reason}"
-          )
+          # AdvisorAi.Chat.create_message_for_user(
+          #   user,
+          #   "❌ **Auto-reply Failed**: Could not send automatic response to #{sender_email}. Error: #{reason}"
+          # )
           {:error, "Failed to send auto-reply: #{reason}"}
       end
     else
       Logger.info("📧 Agent: Email received from #{sender_email}: #{subject}")
-      AdvisorAi.Chat.create_message_for_user(
-        user,
-        "📧 **Email Received**: Email from #{sender_email} with subject: '#{subject}' - no automation actions taken."
-      )
+      # AdvisorAi.Chat.create_message_for_user(
+      #   user,
+      #   "📧 **Email Received**: Email from #{sender_email} with subject: '#{subject}' - no automation actions taken."
+      # )
       {:ok, "Email received from #{sender_email}: #{subject}"}
     end
   end
