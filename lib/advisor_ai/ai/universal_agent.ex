@@ -2189,8 +2189,31 @@ IMPORTANT: When the user asks you to perform an action, you MUST use the univers
                     {:ok, "I found an email address (#{email}) but couldn't create the contact automatically: #{reason}. You can try creating it manually in HubSpot."}
                 end
               else
-                {:ok,
-                 "No contacts were found for '#{query}'. If you have an email address for this person, I can create a new contact for them. Just provide the email address."}
+                # Try to search emails for this person
+                case Gmail.search_emails(user, query, 5) do
+                  {:ok, emails} when is_list(emails) and length(emails) > 0 ->
+                    # Found emails - extract email addresses and offer to create contact
+                    email_addresses =
+                      emails
+                      |> Enum.map(fn email ->
+                        Map.get(email, "from", "") |> extract_email_from_string()
+                      end)
+                      |> Enum.filter(&(&1 != nil))
+                      |> Enum.uniq()
+
+                    if length(email_addresses) > 0 do
+                      email_list = Enum.join(email_addresses, ", ")
+                      {:ok, "I didn't find '#{query}' in your HubSpot contacts, but I found #{length(emails)} emails from this person. I can see email addresses: #{email_list}. Would you like me to create a HubSpot contact for them? Just let me know which email address to use."}
+                    else
+                      {:ok, "I didn't find '#{query}' in your HubSpot contacts, but I found #{length(emails)} emails from this person. However, I couldn't extract a clear email address. If you have their email address, I can create a new contact for them."}
+                    end
+
+                  {:ok, _} ->
+                    {:ok, "No contacts were found for '#{query}' in HubSpot, and I didn't find any emails from this person either. If you have an email address for them, I can create a new contact. Otherwise, you might want to check if the name is spelled correctly or try searching with a different variation."}
+
+                  {:error, _} ->
+                    {:ok, "No contacts were found for '#{query}'. If you have an email address for this person, I can create a new contact for them. Just provide the email address."}
+                end
               end
 
             {:error, reason} ->
@@ -2377,6 +2400,15 @@ IMPORTANT: When the user asks you to perform an action, you MUST use the univers
     start_time = Map.get(event, "start_time", "(no time)")
     "• #{summary} at #{start_time}"
   end
+
+  # Extract email from string
+  defp extract_email_from_string(string) when is_binary(string) do
+    case Regex.run(~r/\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/, string) do
+      [email] -> email
+      _ -> nil
+    end
+  end
+  defp extract_email_from_string(_), do: nil
 
   # Format contact for user-friendly output
   defp format_contact(contact) do
