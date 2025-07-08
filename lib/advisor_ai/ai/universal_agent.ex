@@ -432,37 +432,58 @@ defmodule AdvisorAi.AI.UniversalAgent do
 
   # Start a new workflow or process as normal
   defp process_or_start_workflow(user, conversation_id, user_message) do
-    # Use WorkflowGenerator to check if this is a complex request
-    case AI.WorkflowGenerator.generate_workflow(user_message) do
-      {:ok, workflow} ->
-        if is_map(workflow) and Map.has_key?(workflow, "steps") and is_list(workflow["steps"]) do
-          # Start new workflow state
-          workflow_state = %{
-            "active" => true,
-            "workflow" => workflow,
-            "current_step" => 0,
-            "results" => [],
-            "last_user_message" => user_message
+    # Detect 'Schedule an appointment with [Name]' and create persistent instruction
+    case Regex.run(~r/^schedule an appointment with ([a-zA-Z .'-]+)$/i, String.trim(user_message)) do
+      [_, name] ->
+        # Build a persistent instruction for this contact
+        instruction_text = "When I receive an email from #{name}, automatically handle appointment scheduling: look up in HubSpot, email with available times, add to calendar, update HubSpot, and follow up as needed."
+        instruction_data = %{
+          trigger_type: "email_received",
+          instruction: instruction_text,
+          conditions: %{
+            "appointment_workflow" => true,
+            "contact_name" => name
           }
-
-          Chat.update_conversation_context(
-            conversation_id,
-            Map.put(
-              Chat.get_conversation_context(conversation_id),
-              "workflow_state",
-              workflow_state
-            )
-          )
-
-          resume_workflow(user, conversation_id, user_message, workflow_state)
-        else
-          # Not a workflow, process as normal
-          process_normal_request(user, conversation_id, user_message)
-        end
-
-      _ ->
-        # Not a workflow, process as normal
+        }
+        store_ongoing_instruction(user, instruction_data)
+        # Show confirmation message in chat
+        confirmation = build_instruction_confirmation(instruction_data)
+        create_agent_response(user, conversation_id, confirmation, "conversation")
+        # Proceed with the normal workflow for this request as well
         process_normal_request(user, conversation_id, user_message)
+      _ ->
+        # Use WorkflowGenerator to check if this is a complex request
+        case AI.WorkflowGenerator.generate_workflow(user_message) do
+          {:ok, workflow} ->
+            if is_map(workflow) and Map.has_key?(workflow, "steps") and is_list(workflow["steps"]) do
+              # Start new workflow state
+              workflow_state = %{
+                "active" => true,
+                "workflow" => workflow,
+                "current_step" => 0,
+                "results" => [],
+                "last_user_message" => user_message
+              }
+
+              Chat.update_conversation_context(
+                conversation_id,
+                Map.put(
+                  Chat.get_conversation_context(conversation_id),
+                  "workflow_state",
+                  workflow_state
+                )
+              )
+
+              resume_workflow(user, conversation_id, user_message, workflow_state)
+            else
+              # Not a workflow, process as normal
+              process_normal_request(user, conversation_id, user_message)
+            end
+
+          _ ->
+            # Not a workflow, process as normal
+            process_normal_request(user, conversation_id, user_message)
+        end
     end
   end
 
