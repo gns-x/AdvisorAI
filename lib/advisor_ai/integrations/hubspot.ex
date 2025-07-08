@@ -40,26 +40,62 @@ defmodule AdvisorAi.Integrations.HubSpot do
                 after: 0
               }
             else
-              # Search by name (firstname or lastname)
-              %{
-                filterGroups: [
-                  %{
-                    filters: [
+              # Search by name (firstname or lastname) - more flexible search
+              # Split the query into parts for better matching
+              name_parts = String.split(query, " ") |> Enum.filter(&(&1 != ""))
+
+              filters =
+                case name_parts do
+                  [first_name] ->
+                    # Single word - search in both firstname and lastname
+                    [
+                      %{
+                        propertyName: "firstname",
+                        operator: "CONTAINS_TOKEN",
+                        value: first_name
+                      },
+                      %{
+                        propertyName: "lastname",
+                        operator: "CONTAINS_TOKEN",
+                        value: first_name
+                      }
+                    ]
+
+                  [first_name, last_name] ->
+                    # Two words - search for first name in firstname and last name in lastname
+                    [
+                      %{
+                        propertyName: "firstname",
+                        operator: "CONTAINS_TOKEN",
+                        value: first_name
+                      },
+                      %{
+                        propertyName: "lastname",
+                        operator: "CONTAINS_TOKEN",
+                        value: last_name
+                      }
+                    ]
+
+                  _ ->
+                    # Multiple words or complex query - search in both fields
+                    [
                       %{
                         propertyName: "firstname",
                         operator: "CONTAINS_TOKEN",
                         value: query
-                      }
-                    ]
-                  },
-                  %{
-                    filters: [
+                      },
                       %{
                         propertyName: "lastname",
                         operator: "CONTAINS_TOKEN",
                         value: query
                       }
                     ]
+                end
+
+              %{
+                filterGroups: [
+                  %{
+                    filters: filters
                   }
                 ],
                 properties: ["email", "firstname", "lastname", "company", "phone", "jobtitle"],
