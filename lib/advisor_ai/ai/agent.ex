@@ -87,12 +87,8 @@ defmodule AdvisorAi.AI.Agent do
     Logger.info("🎯 Agent: Handling trigger #{trigger_type} for user #{user.email}")
     Logger.info("📊 Agent: Trigger data: #{inspect(trigger_data)}")
 
-    # Map hubspot_update to hubspot_contact_created for backward compatibility
-    actual_trigger_type =
-      case trigger_type do
-        "hubspot_update" when trigger_data.type == "contact" -> "hubspot_contact_created"
-        _ -> trigger_type
-      end
+    # Universal trigger mapping - map various trigger types to standard ones
+    actual_trigger_type = map_trigger_type(trigger_type, trigger_data)
 
     case AgentInstruction.get_active_instructions_by_trigger(user.id, actual_trigger_type) do
       {:ok, instructions} ->
@@ -613,6 +609,76 @@ defmodule AdvisorAi.AI.Agent do
 
       {:error, reason} ->
         {:error, reason}
+    end
+  end
+
+  # Universal trigger mapping function
+  defp map_trigger_type(trigger_type, trigger_data) do
+    case trigger_type do
+      # HubSpot triggers
+      "hubspot_update" when trigger_data.type == "contact" -> "hubspot_contact_created"
+      "hubspot_contact_created" -> "hubspot_contact_created"
+      "hubspot_contact_updated" -> "hubspot_contact_updated"
+      "hubspot_contact_deleted" -> "hubspot_contact_deleted"
+      "hubspot_company_created" -> "hubspot_company_created"
+      "hubspot_company_updated" -> "hubspot_company_updated"
+      "hubspot_deal_created" -> "hubspot_deal_created"
+      "hubspot_deal_updated" -> "hubspot_deal_updated"
+      "hubspot_ticket_created" -> "hubspot_ticket_created"
+      "hubspot_ticket_updated" -> "hubspot_ticket_updated"
+
+      # Calendar triggers
+      "calendar_event_created" -> "calendar_event_created"
+      "calendar_event_updated" -> "calendar_event_updated"
+      "calendar_event_deleted" -> "calendar_event_deleted"
+      "calendar_event_started" -> "calendar_event_started"
+      "calendar_event_ended" -> "calendar_event_ended"
+
+      # Email triggers
+      "email_received" -> "email_received"
+      "email_sent" -> "email_sent"
+
+      # Generic triggers
+      "hubspot_update" -> "hubspot_update"
+      "calendar_update" -> "calendar_update"
+
+      # Fallback - try to map based on trigger_data content
+      _ ->
+        map_trigger_by_data(trigger_type, trigger_data)
+    end
+  end
+
+  # Map trigger based on data content when trigger_type is generic
+  defp map_trigger_by_data(trigger_type, trigger_data) do
+    cond do
+      # HubSpot contact events
+      trigger_type == "hubspot_update" and trigger_data.type == "contact" ->
+        case trigger_data.action do
+          "created" -> "hubspot_contact_created"
+          "updated" -> "hubspot_contact_updated"
+          "deleted" -> "hubspot_contact_deleted"
+          _ -> "hubspot_contact_created"
+        end
+
+      # Calendar events
+      trigger_type == "calendar_update" and trigger_data.eventType == "calendar#event" ->
+        case trigger_data.action do
+          "create" -> "calendar_event_created"
+          "update" -> "calendar_event_updated"
+          "delete" -> "calendar_event_deleted"
+          _ -> "calendar_event_created"
+        end
+
+      # Email events
+      trigger_type == "email_update" and trigger_data.type == "email" ->
+        case trigger_data.action do
+          "received" -> "email_received"
+          "sent" -> "email_sent"
+          _ -> "email_received"
+        end
+
+      # Default fallback
+      true -> trigger_type
     end
   end
 end

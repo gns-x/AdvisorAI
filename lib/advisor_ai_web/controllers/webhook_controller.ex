@@ -250,8 +250,64 @@ defmodule AdvisorAiWeb.WebhookController do
     end
   end
 
+  defp handle_proactive_hubspot_event(user, hubspot_data) do
+    # Universal trigger mapping for HubSpot events
+    trigger_type = map_hubspot_event_to_trigger(hubspot_data)
+
+    # First, trigger any automation rules for this event
+    case Agent.handle_trigger(user, trigger_type, hubspot_data) do
+      {:ok, results} when is_list(results) and length(results) > 0 ->
+        require Logger
+        Logger.info("✅ HubSpot automation triggered: #{length(results)} rules executed")
+      {:ok, _} ->
+        require Logger
+        Logger.info("✅ HubSpot automation triggered")
+      {:error, reason} ->
+        require Logger
+        Logger.error("❌ HubSpot automation failed: #{reason}")
+    end
+
+    # Then, create a proactive conversation for AI analysis
+    case AdvisorAi.Chat.create_conversation(%{
+      user_id: user.id,
+      title: "HubSpot Event - #{hubspot_data["type"] || "Update"}"
+    }) do
+      {:ok, conversation} ->
+        # Build a proactive prompt for the AI to analyze and respond
+        proactive_prompt = build_proactive_hubspot_prompt(hubspot_data)
+
+        # Use enhanced universal agent to handle the HubSpot event intelligently with memory and RAG
+        case AdvisorAi.AI.UniversalAgent.process_proactive_request(user, conversation.id, proactive_prompt) do
+          {:ok, _response} ->
+            {:ok, "Proactive HubSpot response generated"}
+
+          {:error, reason} ->
+            {:error, "Failed to generate proactive HubSpot response: #{reason}"}
+        end
+
+      {:error, reason} ->
+        {:error, "Failed to create conversation: #{reason}"}
+    end
+  end
+
   defp handle_proactive_calendar_event(user, event_data) do
-    # Create a temporary conversation for the proactive response
+    # Universal trigger mapping for Calendar events
+    trigger_type = map_calendar_event_to_trigger(event_data)
+
+    # First, trigger any automation rules for this event
+    case Agent.handle_trigger(user, trigger_type, event_data) do
+      {:ok, results} when is_list(results) and length(results) > 0 ->
+        require Logger
+        Logger.info("✅ Calendar automation triggered: #{length(results)} rules executed")
+      {:ok, _} ->
+        require Logger
+        Logger.info("✅ Calendar automation triggered")
+      {:error, reason} ->
+        require Logger
+        Logger.error("❌ Calendar automation failed: #{reason}")
+    end
+
+    # Then, create a proactive conversation for AI analysis
     case AdvisorAi.Chat.create_conversation(%{
       user_id: user.id,
       title: "Calendar Event - #{event_data["summary"] || "New Event"}"
@@ -274,27 +330,39 @@ defmodule AdvisorAiWeb.WebhookController do
     end
   end
 
-  defp handle_proactive_hubspot_event(user, hubspot_data) do
-    # Create a temporary conversation for the proactive response
-    case AdvisorAi.Chat.create_conversation(%{
-      user_id: user.id,
-      title: "HubSpot Event - #{hubspot_data["type"] || "Update"}"
-    }) do
-      {:ok, conversation} ->
-        # Build a proactive prompt for the AI to analyze and respond
-        proactive_prompt = build_proactive_hubspot_prompt(hubspot_data)
+  # Universal trigger mapping for HubSpot events
+  defp map_hubspot_event_to_trigger(hubspot_data) do
+    event_type = hubspot_data["type"] || hubspot_data["objectType"] || "unknown"
+    action = hubspot_data["action"] || hubspot_data["eventType"] || "unknown"
 
-        # Use enhanced universal agent to handle the HubSpot event intelligently with memory and RAG
-        case AdvisorAi.AI.UniversalAgent.process_proactive_request(user, conversation.id, proactive_prompt) do
-          {:ok, _response} ->
-            {:ok, "Proactive HubSpot response generated"}
+    case {event_type, action} do
+      {"contact", "create"} -> "hubspot_contact_created"
+      {"contact", "update"} -> "hubspot_contact_updated"
+      {"contact", "delete"} -> "hubspot_contact_deleted"
+      {"company", "create"} -> "hubspot_company_created"
+      {"company", "update"} -> "hubspot_company_updated"
+      {"deal", "create"} -> "hubspot_deal_created"
+      {"deal", "update"} -> "hubspot_deal_updated"
+      {"ticket", "create"} -> "hubspot_ticket_created"
+      {"ticket", "update"} -> "hubspot_ticket_updated"
+      # Fallback for any HubSpot event
+      {_, _} -> "hubspot_update"
+    end
+  end
 
-          {:error, reason} ->
-            {:error, "Failed to generate proactive HubSpot response: #{reason}"}
-        end
+  # Universal trigger mapping for Calendar events
+  defp map_calendar_event_to_trigger(event_data) do
+    event_type = event_data["eventType"] || "unknown"
+    action = event_data["action"] || "unknown"
 
-      {:error, reason} ->
-        {:error, "Failed to create conversation: #{reason}"}
+    case {event_type, action} do
+      {"calendar#event", "create"} -> "calendar_event_created"
+      {"calendar#event", "update"} -> "calendar_event_updated"
+      {"calendar#event", "delete"} -> "calendar_event_deleted"
+      {"calendar#event", "start"} -> "calendar_event_started"
+      {"calendar#event", "end"} -> "calendar_event_ended"
+      # Fallback for any calendar event
+      {_, _} -> "calendar_event_created"
     end
   end
 
