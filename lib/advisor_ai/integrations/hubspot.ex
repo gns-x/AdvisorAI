@@ -18,22 +18,55 @@ defmodule AdvisorAi.Integrations.HubSpot do
 
         request_body =
           if is_binary(query) and String.trim(query) != "" do
-            %{
-              filterGroups: [
-                %{
-                  filters: [
-                    %{
-                      propertyName: "email",
-                      operator: "CONTAINS_TOKEN",
-                      value: query
-                    }
-                  ]
-                }
-              ],
-              properties: ["email", "firstname", "lastname", "company", "phone", "jobtitle"],
-              limit: 10,
-              after: 0
-            }
+            # Check if query looks like an email
+            is_email = String.contains?(query, "@")
+
+            if is_email do
+              # Search by email
+              %{
+                filterGroups: [
+                  %{
+                    filters: [
+                      %{
+                        propertyName: "email",
+                        operator: "CONTAINS_TOKEN",
+                        value: query
+                      }
+                    ]
+                  }
+                ],
+                properties: ["email", "firstname", "lastname", "company", "phone", "jobtitle"],
+                limit: 10,
+                after: 0
+              }
+            else
+              # Search by name (firstname or lastname)
+              %{
+                filterGroups: [
+                  %{
+                    filters: [
+                      %{
+                        propertyName: "firstname",
+                        operator: "CONTAINS_TOKEN",
+                        value: query
+                      }
+                    ]
+                  },
+                  %{
+                    filters: [
+                      %{
+                        propertyName: "lastname",
+                        operator: "CONTAINS_TOKEN",
+                        value: query
+                      }
+                    ]
+                  }
+                ],
+                properties: ["email", "firstname", "lastname", "company", "phone", "jobtitle"],
+                limit: 10,
+                after: 0
+              }
+            end
           else
             %{
               properties: ["email", "firstname", "lastname", "company", "phone", "jobtitle"],
