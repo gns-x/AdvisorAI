@@ -16,31 +16,39 @@ defmodule AdvisorAi.AI.UniversalAgent do
     # Intercept greetings and respond immediately
     case check_for_greeting(user_message) do
       nil ->
-        # Check for ongoing workflow in conversation context
-        context = Chat.get_conversation_context(conversation_id)
-        workflow_state = Map.get(context, "workflow_state")
+        # Check for direct contact creation intent first
+        case parse_direct_contact_creation(user_message) do
+          {:ok, contact_data} ->
+            # Perform direct contact creation
+            result = execute_direct_contact_creation(user, contact_data)
+            create_agent_response(user, conversation_id, result, "action")
+            # After direct action, check for 100% matching instructions and execute them
+            check_and_execute_exact_matching_instructions(user, conversation_id, user_message)
+          :not_a_direct_action ->
+            # Check for ongoing workflow in conversation context
+            context = Chat.get_conversation_context(conversation_id)
+            workflow_state = Map.get(context, "workflow_state")
 
-        # Check if this is an automation instruction
-        case recognize_ongoing_instruction(user_message) do
-          {:ok, instruction_data} ->
-            # Store the instruction
-            store_ongoing_instruction(user, instruction_data)
-            # Show confirmation message in chat
-            confirmation = build_instruction_confirmation(instruction_data)
-            create_agent_response(user, conversation_id, confirmation, "conversation")
+            # Check if this is an automation instruction
+            case recognize_ongoing_instruction(user_message) do
+              {:ok, instruction_data} ->
+                # Store the instruction
+                store_ongoing_instruction(user, instruction_data)
+                # Show confirmation message in chat
+                confirmation = build_instruction_confirmation(instruction_data)
+                create_agent_response(user, conversation_id, confirmation, "conversation")
 
-          {:error, :not_instruction} ->
-            cond do
-              workflow_state && workflow_state["active"] ->
-                # Resume ongoing workflow
-                resume_workflow(user, conversation_id, user_message, workflow_state)
-
-              true ->
-                # No ongoing workflow, process as normal request
-                process_or_start_workflow(user, conversation_id, user_message)
-            end
-        end
-
+              {:error, :not_instruction} ->
+                cond do
+                  workflow_state && workflow_state["active"] ->
+                    # Resume ongoing workflow
+                    resume_workflow(user, conversation_id, user_message, workflow_state)
+                  true ->
+                    # No ongoing workflow, process as normal request
+                    process_or_start_workflow(user, conversation_id, user_message)
+                end
+          end
+      end
       greeting_response ->
         create_agent_response(user, conversation_id, greeting_response, "conversation")
     end
@@ -4064,5 +4072,43 @@ IMPORTANT: When the user asks you to perform an action, you MUST use the univers
       results: tool_call_results,
       trigger_type: trigger_type
     }
+  end
+
+  # Parse direct contact creation intent
+  # e.g., "create new contact amine code with email aminecode65@gmail.com"
+  defp parse_direct_contact_creation(message) do
+    regex = ~r/^create (new )?contact ([a-zA-Z .'-]+) with email ([^\s]+@[^\s]+)$/i
+    case Regex.run(regex, String.trim(message)) do
+      [_, _, name, email] ->
+        {first_name, last_name} = parse_name(name)
+        {:ok, %{"email" => email, "first_name" => first_name, "last_name" => last_name, "company" => ""}}
+      _ ->
+        :not_a_direct_action
+    end
+  end
+
+  # Actually create the contact (HubSpot)
+  defp execute_direct_contact_creation(user, contact_data) do
+    case AdvisorAi.Integrations.HubSpot.create_contact(user, contact_data) do
+      {:ok, _message} ->
+        "Contact created: #{contact_data["first_name"]} #{contact_data["last_name"]} (#{contact_data["email"]})"
+      {:error, reason} ->
+        "Failed to create contact: #{reason}"
+    end
+  end
+
+  # After direct action, check for instructions that 100% match the user request (case-insensitive exact match)
+  defp check_and_execute_exact_matching_instructions(user, conversation_id, user_message) do
+    case AgentInstruction.get_active_instructions_by_user(user.id) do
+      {:ok, instructions} when is_list(instructions) and length(instructions) > 0 ->
+        Enum.each(instructions, fn instruction ->
+          if String.downcase(String.trim(instruction.instruction || "")) == String.downcase(String.trim(user_message || "")) do
+            trigger_type = instruction.trigger_type
+            trigger_data = build_trigger_data_from_request(user_message, [], trigger_type)
+            AdvisorAi.AI.Agent.handle_trigger(user, trigger_type, trigger_data)
+          end
+        end)
+      _ -> :ok
+    end
   end
 end
