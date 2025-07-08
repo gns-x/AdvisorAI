@@ -19,9 +19,14 @@ defmodule AdvisorAi.AI.UniversalAgent do
         # Try to handle as a direct action first (universal tool call)
         case try_direct_action(user, conversation_id, user_message) do
           {:handled, result} ->
-            create_agent_response(user, conversation_id, result, "action")
-            check_and_execute_exact_matching_instructions(user, conversation_id, user_message)
-            {:ok, result}
+            # Create proper agent response instead of returning string directly
+            case create_agent_response(user, conversation_id, result, "action") do
+              {:ok, message} ->
+                check_and_execute_exact_matching_instructions(user, conversation_id, user_message)
+                {:ok, message}
+              {:error, reason} ->
+                {:error, reason}
+            end
           :not_a_direct_action ->
             # Check for ongoing workflow in conversation context
             context = Chat.get_conversation_context(conversation_id)
@@ -52,7 +57,7 @@ defmodule AdvisorAi.AI.UniversalAgent do
                     # No ongoing workflow, process as normal request
                     process_or_start_workflow(user, conversation_id, user_message)
                 end
-              end
+            end
         end
       greeting_response ->
         case create_agent_response(user, conversation_id, greeting_response, "conversation") do
@@ -4211,9 +4216,9 @@ IMPORTANT: When the user asks you to perform an action, you MUST use the univers
   defp execute_direct_contact_creation(user, contact_data) do
     case AdvisorAi.Integrations.HubSpot.create_contact(user, contact_data) do
       {:ok, _message} ->
-        "Contact created: #{contact_data["first_name"]} #{contact_data["last_name"]} (#{contact_data["email"]})"
+        "✅ Contact created successfully: #{contact_data["first_name"]} #{contact_data["last_name"]} (#{contact_data["email"]})"
       {:error, reason} ->
-        "Failed to create contact: #{reason}"
+        "❌ Failed to create contact: #{reason}"
     end
   end
 
