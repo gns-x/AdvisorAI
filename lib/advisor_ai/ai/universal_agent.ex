@@ -52,6 +52,7 @@ defmodule AdvisorAi.AI.UniversalAgent do
                     # No ongoing workflow, process as normal request
                     process_or_start_workflow(user, conversation_id, user_message)
                 end
+              end
         end
       greeting_response ->
         case create_agent_response(user, conversation_id, greeting_response, "conversation") do
