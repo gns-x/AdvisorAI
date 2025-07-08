@@ -610,10 +610,96 @@ defmodule AdvisorAi.Integrations.HubSpot do
 
   # Public: Get a single contact by email (returns the first match or nil)
   def get_contact_by_email(user, email) do
-    case search_contacts(user, email) do
-      {:ok, [contact | _]} -> {:ok, contact}
-      {:ok, []} -> {:ok, nil}
-      {:error, reason} -> {:error, reason}
+    require Logger
+
+    case get_access_token(user) do
+      {:ok, access_token} ->
+        url = "#{@hubspot_api_url}/crm/v3/objects/contacts/search"
+
+        request_body = %{
+          filterGroups: [
+            %{
+              filters: [
+                %{
+                  propertyName: "email",
+                  operator: "EQ",
+                  value: email
+                }
+              ]
+            }
+          ],
+          properties: ["email", "firstname", "lastname", "company", "phone", "jobtitle"],
+          limit: 1,
+          after: 0
+        }
+
+        case HTTPoison.post(url, Jason.encode!(request_body), [
+               {"Authorization", "Bearer #{access_token}"},
+               {"Content-Type", "application/json"}
+             ]) do
+          {:ok, %{status_code: 200, body: body}} ->
+            case Jason.decode(body) do
+              {:ok, %{"results" => [contact | _]}} ->
+                {:ok, contact}
+
+              {:ok, %{"results" => []}} ->
+                {:ok, nil}
+
+              {:ok, _} ->
+                {:ok, nil}
+
+              {:error, reason} ->
+                {:error, "Failed to parse response: #{reason}"}
+            end
+
+          {:ok, %{status_code: status_code}} ->
+            {:error, "HubSpot API error: #{status_code}"}
+
+          {:error, reason} ->
+            {:error, "HTTP error: #{reason}"}
+        end
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+  def get_contact_by_id(user, contact_id) do
+    require Logger
+
+    case get_access_token(user) do
+      {:ok, access_token} ->
+        url = "#{@hubspot_api_url}/crm/v3/objects/contacts/#{contact_id}"
+
+        params = URI.encode_query(%{
+          properties: "email,firstname,lastname,company,phone,jobtitle"
+        })
+
+        case HTTPoison.get("#{url}?#{params}", [
+               {"Authorization", "Bearer #{access_token}"},
+               {"Content-Type", "application/json"}
+             ]) do
+          {:ok, %{status_code: 200, body: body}} ->
+            case Jason.decode(body) do
+              {:ok, contact} ->
+                {:ok, contact}
+
+              {:error, reason} ->
+                {:error, "Failed to parse response: #{reason}"}
+            end
+
+          {:ok, %{status_code: 404}} ->
+            {:error, "Contact not found"}
+
+          {:ok, %{status_code: status_code}} ->
+            {:error, "HubSpot API error: #{status_code}"}
+
+          {:error, reason} ->
+            {:error, "HTTP error: #{reason}"}
+        end
+
+      {:error, reason} ->
+        {:error, reason}
     end
   end
 end

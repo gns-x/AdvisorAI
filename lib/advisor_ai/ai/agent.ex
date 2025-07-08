@@ -87,10 +87,17 @@ defmodule AdvisorAi.AI.Agent do
     Logger.info("🎯 Agent: Handling trigger #{trigger_type} for user #{user.email}")
     Logger.info("📊 Agent: Trigger data: #{inspect(trigger_data)}")
 
-    case AgentInstruction.get_active_instructions_by_trigger(user.id, trigger_type) do
+    # Map hubspot_update to hubspot_contact_created for backward compatibility
+    actual_trigger_type =
+      case trigger_type do
+        "hubspot_update" when trigger_data.type == "contact" -> "hubspot_contact_created"
+        _ -> trigger_type
+      end
+
+    case AgentInstruction.get_active_instructions_by_trigger(user.id, actual_trigger_type) do
       {:ok, instructions} ->
         Logger.info(
-          "📋 Agent: Found #{length(instructions)} active instructions for trigger #{trigger_type}"
+          "📋 Agent: Found #{length(instructions)} active instructions for trigger #{actual_trigger_type}"
         )
 
         if length(instructions) > 0 do
@@ -98,18 +105,18 @@ defmodule AdvisorAi.AI.Agent do
           results =
             Enum.map(instructions, fn instruction ->
               Logger.info("⚡ Agent: Executing instruction: #{instruction.instruction}")
-              execute_automation_rule(user, instruction, trigger_type, trigger_data)
+              execute_automation_rule(user, instruction, actual_trigger_type, trigger_data)
             end)
 
           Logger.info("✅ Agent: Executed #{length(results)} automation rules")
           {:ok, results}
         else
-          Logger.info("⏭️ Agent: No active instructions found for trigger #{trigger_type}")
+          Logger.info("⏭️ Agent: No active instructions found for trigger #{actual_trigger_type}")
           {:ok, nil}
         end
 
       {:error, reason} ->
-        Logger.error("❌ Agent: Failed to get instructions for trigger #{trigger_type}: #{reason}")
+        Logger.error("❌ Agent: Failed to get instructions for trigger #{actual_trigger_type}: #{reason}")
         {:error, reason}
     end
   end
@@ -461,6 +468,12 @@ defmodule AdvisorAi.AI.Agent do
 
     # Look for action type in the instruction
     cond do
+      # HubSpot contact creation + email triggers
+      Regex.match?(~r/(send them an email|send email|send an email)/, instruction_lower) and
+          Regex.match?(~r/(create.*contact|contact.*created)/, instruction_lower) ->
+        {:ok, "send_email",
+         %{"welcome_email" => true, "subject" => "Thank you for being a client!", "body" => "Welcome email template"}}
+
       # HubSpot contact creation triggers (more flexible)
       Regex.match?(~r/(add (them|contact|to) hubspot|create( a)? contact( in)? hubspot|not in hubspot|doesn'?t exist in hubspot|not already in hubspot)/, instruction_lower) ->
         {:ok, "email_received",
@@ -534,6 +547,37 @@ defmodule AdvisorAi.AI.Agent do
 
           {:error, reason} ->
             {:error, "Failed to get attendees: #{reason}"}
+        end
+
+      %{action: "created", type: "contact", name: contact_name, id: contact_id} ->
+        # HubSpot contact was created - send welcome email
+        if Map.get(params, "welcome_email", false) do
+          # Get contact details to get email
+          case AdvisorAi.Integrations.HubSpot.get_contact_by_id(user, contact_id) do
+            {:ok, contact} ->
+              email = get_in(contact, ["properties", "email"])
+              first_name = get_in(contact, ["properties", "firstname"]) || "there"
+
+              subject = "Thank you for being a client!"
+              body = """
+              Hi #{first_name},
+
+              Thank you for being a client! If you have any questions or need assistance, feel free to reach out.
+
+              Best regards,
+              #{user.name}
+              """
+
+              case Gmail.send_email(user, email, subject, body) do
+                {:ok, _} -> {:ok, "Welcome email sent to #{contact_name} (#{email})"}
+                {:error, reason} -> {:error, "Failed to send welcome email: #{reason}"}
+              end
+
+            {:error, reason} ->
+              {:error, "Failed to get contact details: #{reason}"}
+          end
+        else
+          {:ok, "Contact created: #{contact_name}"}
         end
 
       _ ->
