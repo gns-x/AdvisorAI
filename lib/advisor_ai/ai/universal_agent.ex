@@ -21,6 +21,7 @@ defmodule AdvisorAi.AI.UniversalAgent do
           {:handled, result} ->
             create_agent_response(user, conversation_id, result, "action")
             check_and_execute_exact_matching_instructions(user, conversation_id, user_message)
+            {:ok, result}
           :not_a_direct_action ->
             # Check for ongoing workflow in conversation context
             context = Chat.get_conversation_context(conversation_id)
@@ -30,10 +31,17 @@ defmodule AdvisorAi.AI.UniversalAgent do
             case recognize_ongoing_instruction(user_message) do
               {:ok, instruction_data} ->
                 # Store the instruction
-                store_ongoing_instruction(user, instruction_data)
-                # Show confirmation message in chat
-                confirmation = build_instruction_confirmation(instruction_data)
-                create_agent_response(user, conversation_id, confirmation, "conversation")
+                case store_ongoing_instruction(user, instruction_data) do
+                  {:ok, _instruction} ->
+                    # Show confirmation message in chat
+                    confirmation = build_instruction_confirmation(instruction_data)
+                    case create_agent_response(user, conversation_id, confirmation, "conversation") do
+                      {:ok, message} -> {:ok, message}
+                      {:error, reason} -> {:error, reason}
+                    end
+                  {:error, reason} ->
+                    {:error, "Failed to store instruction: #{reason}"}
+                end
 
               {:error, :not_instruction} ->
                 cond do
@@ -44,10 +52,12 @@ defmodule AdvisorAi.AI.UniversalAgent do
                     # No ongoing workflow, process as normal request
                     process_or_start_workflow(user, conversation_id, user_message)
                 end
-          end
-      end
+        end
       greeting_response ->
-        create_agent_response(user, conversation_id, greeting_response, "conversation")
+        case create_agent_response(user, conversation_id, greeting_response, "conversation") do
+          {:ok, message} -> {:ok, message}
+          {:error, reason} -> {:error, reason}
+        end
     end
   end
 
@@ -352,7 +362,10 @@ defmodule AdvisorAi.AI.UniversalAgent do
         # Ask user for update/clarification if needed
         case AI.WorkflowGenerator.next_action_llm(new_state, recent_memories) do
           {:ask_user, question} ->
-            create_agent_response(user, conversation_id, question, "conversation")
+            case create_agent_response(user, conversation_id, question, "conversation") do
+              {:ok, message} -> {:ok, message}
+              {:error, reason} -> {:error, reason}
+            end
 
           {:next_step, _llm_step} ->
             resume_workflow(user, conversation_id, user_message, new_state)
@@ -366,12 +379,15 @@ defmodule AdvisorAi.AI.UniversalAgent do
               Map.delete(context, "workflow_state")
             )
 
-            create_agent_response(
+            case create_agent_response(
               user,
               conversation_id,
               summarize_final_result(result, recent_memories),
               "action"
-            )
+            ) do
+              {:ok, message} -> {:ok, message}
+              {:error, reason} -> {:error, reason}
+            end
         end
 
       {:done, result} ->
@@ -388,17 +404,23 @@ defmodule AdvisorAi.AI.UniversalAgent do
           })
         )
 
-        create_agent_response(
+        case create_agent_response(
           user,
           conversation_id,
           summarize_final_result(result, recent_memories),
           "action"
-        )
+        ) do
+          {:ok, message} -> {:ok, message}
+          {:error, reason} -> {:error, reason}
+        end
 
       _ ->
         context = Chat.get_conversation_context(conversation_id)
         Chat.update_conversation_context(conversation_id, Map.delete(context, "workflow_state"))
-        create_agent_response(user, conversation_id, "Workflow error.", "error")
+        case create_agent_response(user, conversation_id, "Workflow error.", "error") do
+          {:ok, message} -> {:ok, message}
+          {:error, reason} -> {:error, reason}
+        end
     end
   end
 
@@ -464,12 +486,19 @@ defmodule AdvisorAi.AI.UniversalAgent do
             "contact_name" => name
           }
         }
-        store_ongoing_instruction(user, instruction_data)
-        # Show confirmation message in chat
-        confirmation = build_instruction_confirmation(instruction_data)
-        create_agent_response(user, conversation_id, confirmation, "conversation")
-        # Proceed with the normal workflow for this request as well
-        process_normal_request(user, conversation_id, user_message)
+        case store_ongoing_instruction(user, instruction_data) do
+          {:ok, _instruction} ->
+            # Show confirmation message in chat
+            confirmation = build_instruction_confirmation(instruction_data)
+            case create_agent_response(user, conversation_id, confirmation, "conversation") do
+              {:ok, message} -> {:ok, message}
+              {:error, reason} -> {:error, reason}
+            end
+            # Proceed with the normal workflow for this request as well
+            process_normal_request(user, conversation_id, user_message)
+          {:error, reason} ->
+            {:error, "Failed to store instruction: #{reason}"}
+        end
       _ ->
         # Use WorkflowGenerator to check if this is a complex request
         case AI.WorkflowGenerator.generate_workflow(user_message) do
