@@ -78,6 +78,24 @@ defmodule AdvisorAi.AI.Agent do
                 {:ok, error_message}
             end
         end
+      :ok ->
+        # Handle unexpected :ok return value gracefully
+        {:ok, error_message} =
+          create_message(conversation_id, %{
+            role: "assistant",
+            content:
+              "Sorry, I was unable to process your request due to an internal error. Please try again or rephrase your request."
+          })
+        {:ok, error_message}
+      other ->
+        # Handle any other unexpected return value
+        {:ok, error_message} =
+          create_message(conversation_id, %{
+            role: "assistant",
+            content:
+              "Sorry, I was unable to process your request (unexpected result: #{inspect(other)}). Please try again or rephrase your request."
+          })
+        {:ok, error_message}
     end
   end
 
