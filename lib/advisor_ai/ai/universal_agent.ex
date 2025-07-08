@@ -16,13 +16,10 @@ defmodule AdvisorAi.AI.UniversalAgent do
     # Intercept greetings and respond immediately
     case check_for_greeting(user_message) do
       nil ->
-        # Check for direct contact creation intent first
-        case parse_direct_contact_creation(user_message) do
-          {:ok, contact_data} ->
-            # Perform direct contact creation
-            result = execute_direct_contact_creation(user, contact_data)
+        # Try to handle as a direct action first (universal tool call)
+        case try_direct_action(user, conversation_id, user_message) do
+          {:handled, result} ->
             create_agent_response(user, conversation_id, result, "action")
-            # After direct action, check for 100% matching instructions and execute them
             check_and_execute_exact_matching_instructions(user, conversation_id, user_message)
           :not_a_direct_action ->
             # Check for ongoing workflow in conversation context
@@ -51,6 +48,20 @@ defmodule AdvisorAi.AI.UniversalAgent do
       end
       greeting_response ->
         create_agent_response(user, conversation_id, greeting_response, "conversation")
+    end
+  end
+
+  # Try to handle as a direct action (contact, event, email, etc.)
+  defp try_direct_action(user, conversation_id, user_message) do
+    # Try contact creation
+    case parse_direct_contact_creation(user_message) do
+      {:ok, contact_data} ->
+        result = execute_direct_contact_creation(user, contact_data)
+        {:handled, result}
+      :not_a_direct_action ->
+        # Try other direct actions (add more as needed)
+        # Example: parse_direct_event_creation, parse_direct_email_send, etc.
+        :not_a_direct_action
     end
   end
 
