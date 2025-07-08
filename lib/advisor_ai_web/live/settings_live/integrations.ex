@@ -82,10 +82,6 @@ defmodule AdvisorAiWeb.SettingsLive.Integrations do
     account != nil and account.access_token != nil and account.refresh_token != nil
   end
 
-  defp has_valid_hubspot_account?(account) do
-    account != nil and account.access_token != nil and account.refresh_token != nil
-  end
-
   defp has_valid_hubspot_tokens?(user) do
     user.hubspot_access_token != nil and user.hubspot_refresh_token != nil
   end
