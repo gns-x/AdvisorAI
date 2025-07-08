@@ -3343,7 +3343,22 @@ IMPORTANT: When the user asks you to perform an action, you MUST use the univers
         _ -> "when triggered"
       end
 
-    "Perfect! I've saved your instruction and will remember to #{instruction_data.instruction} #{trigger_description}. You can manage all your automated instructions in Settings > Instructions."
+    confirmation = "Perfect! I've saved your instruction and will remember to #{instruction_data.instruction} #{trigger_description}. You can manage all your automated instructions in Settings > Instructions."
+
+    # Suggest next logical step based on instruction
+    suggestion =
+      cond do
+        instruction_data.trigger_type == "hubspot_contact_created" and String.contains?(String.downcase(instruction_data.instruction), "send them an email") ->
+          "Would you like to create a new contact now so I can send them a welcome email? Please provide their name and email."
+        instruction_data.trigger_type == "email_received" and String.contains?(String.downcase(instruction_data.instruction), "appointment") ->
+          "Would you like to schedule an appointment now? Please provide the contact's name and email."
+        instruction_data.trigger_type == "calendar_event_created" and String.contains?(String.downcase(instruction_data.instruction), "notify attendees") ->
+          "Would you like to create a calendar event now and notify attendees? Please provide the event details."
+        true ->
+          "If you'd like to try out this automation now, just let me know what you'd like to do next!"
+      end
+
+    confirmation <> "\n\n" <> suggestion
   end
 
   defp format_datetime_for_chat(nil), do: "(No time)"
