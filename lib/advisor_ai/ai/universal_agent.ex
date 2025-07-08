@@ -527,7 +527,7 @@ defmodule AdvisorAi.AI.UniversalAgent do
           condition = Map.get(params, "condition")
           if evaluate_condition(condition, workflow_state) do
             tool_call = %{"name" => "universal_action", "arguments" => Map.put(params, "action", "create_event")}
-            result = execute_tool_call(user, tool_call)
+            result = execute_tool_call(user, tool_call, workflow_state["last_user_message"] || "")
             update_workflow_state(workflow_state, result)
           else
             update_workflow_state(workflow_state, {:ok, "Condition not met, skipping scheduling"})
@@ -1640,7 +1640,7 @@ IMPORTANT: When the user asks you to perform an action, you MUST use the univers
   end
 
   # Execute a single tool call
-  defp execute_tool_call(user, tool_call) do
+  defp execute_tool_call(user, tool_call, user_message \\ "") do
     function_name = tool_call["name"]
     raw_arguments = tool_call["arguments"] || %{}
 
@@ -1664,13 +1664,13 @@ IMPORTANT: When the user asks you to perform an action, you MUST use the univers
 
     # Universal dynamic execution - no hardcoded cases needed
     case function_name do
-      "universal_action" -> execute_universal_action(user, arguments)
-      _ -> execute_universal_action(user, function_name, arguments)
+      "universal_action" -> execute_universal_action(user, arguments, user_message)
+      _ -> execute_universal_action(user, function_name, arguments, user_message)
     end
   end
 
   # Universal Action Execution - Handles ANY request dynamically
-  defp execute_universal_action(user, args) do
+  defp execute_universal_action(user, args, user_message \\ "") do
     # Extract action from args
     action = Map.get(args, "action", "")
     action_lower = String.downcase(action)
@@ -1726,13 +1726,13 @@ IMPORTANT: When the user asks you to perform an action, you MUST use the univers
 
       # Contact actions
       String.contains?(action_lower, "search") and String.contains?(action_lower, "contact") ->
-        execute_contact_action(user, "search", args)
+        execute_contact_action(user, "search", args, user_message)
 
       String.contains?(action_lower, "create") and String.contains?(action_lower, "contact") ->
-        execute_contact_action(user, "create", args)
+        execute_contact_action(user, "create", args, user_message)
 
       String.contains?(action_lower, "add") and String.contains?(action_lower, "note") ->
-        execute_contact_action(user, "add_note", args)
+        execute_contact_action(user, "add_note", args, user_message)
 
       # OAuth actions
       String.contains?(action_lower, "check") and
@@ -1753,7 +1753,7 @@ IMPORTANT: When the user asks you to perform an action, you MUST use the univers
   end
 
   # Legacy support for old function names
-  defp execute_universal_action(user, action, args) do
+  defp execute_universal_action(user, action, args, user_message) do
     # Parse the action to determine what to do
     action_lower = String.downcase(action)
 
@@ -1779,13 +1779,13 @@ IMPORTANT: When the user asks you to perform an action, you MUST use the univers
 
       # Contact actions
       String.contains?(action_lower, "contact") and String.contains?(action_lower, "search") ->
-        execute_contact_action(user, "search", args)
+        execute_contact_action(user, "search", args, user_message)
 
       String.contains?(action_lower, "contact") and String.contains?(action_lower, "create") ->
-        execute_contact_action(user, "create", args)
+        execute_contact_action(user, "create", args, user_message)
 
       String.contains?(action_lower, "add") and String.contains?(action_lower, "note") ->
-        execute_contact_action(user, "add_note", args)
+        execute_contact_action(user, "add_note", args, user_message)
 
       # OAuth actions
       String.contains?(action_lower, "oauth") or String.contains?(action_lower, "scope") ->
@@ -2081,7 +2081,7 @@ IMPORTANT: When the user asks you to perform an action, you MUST use the univers
     end
   end
 
-  defp execute_contact_action(user, operation, args) do
+  defp execute_contact_action(user, operation, args, user_message \\ "") do
     case operation do
       "search" ->
         query = Map.get(args, "query") || Map.get(args, :query) || ""
@@ -2134,38 +2134,92 @@ IMPORTANT: When the user asks you to perform an action, you MUST use the univers
           # Query provided, use search_contacts
           case HubSpot.search_contacts(user, query) do
             {:ok, contacts} when is_list(contacts) and length(contacts) > 0 ->
-              contact_list =
-                Enum.map(contacts, fn contact ->
-                  properties = contact["properties"] || %{}
-                  firstname = properties["firstname"] || ""
-                  lastname = properties["lastname"] || ""
-                  email = properties["email"] || ""
-                  company = properties["company"] || ""
-                  phone = properties["phone"] || ""
-                  jobtitle = properties["jobtitle"] || ""
+              # Check if this is an appointment scheduling request
+              is_appointment_request =
+                String.contains?(String.downcase(user_message), "schedule") or
+                String.contains?(String.downcase(user_message), "appointment") or
+                String.contains?(String.downcase(user_message), "meeting")
 
-                  name = "#{firstname} #{lastname}" |> String.trim()
-                  name = if name == "", do: "Unknown", else: name
+              if is_appointment_request and length(contacts) == 1 do
+                # This is an appointment request with exactly one contact found
+                contact = List.first(contacts)
+                properties = contact["properties"] || %{}
+                firstname = properties["firstname"] || ""
+                lastname = properties["lastname"] || ""
+                email = properties["email"] || ""
+                name = "#{firstname} #{lastname}" |> String.trim()
 
-                  contact_info = "• #{name}"
+                if email != "" do
+                  # Found contact with email - proceed with appointment scheduling
+                  # Get available times for today and tomorrow
+                  today = Date.utc_today() |> Date.to_iso8601()
+                  tomorrow = Date.add(Date.utc_today(), 1) |> Date.to_iso8601()
 
-                  contact_info =
-                    if email != "", do: contact_info <> " (#{email})", else: contact_info
+                  case Calendar.get_availability(user, today, 60) do
+                    {:ok, today_times} ->
+                      case Calendar.get_availability(user, tomorrow, 60) do
+                        {:ok, tomorrow_times} ->
+                          # Format available times
+                          available_times =
+                            (today_times ++ tomorrow_times)
+                            |> Enum.take(6)  # Limit to 6 options
+                            |> Enum.map(fn slot ->
+                              start_time = slot["start"]
+                              case DateTime.from_iso8601(start_time) do
+                                {:ok, dt, _} ->
+                                  formatted = Calendar.strftime(dt, "%A, %B %d at %I:%M %p")
+                                  "• #{formatted}"
+                                _ -> nil
+                              end
+                            end)
+                            |> Enum.filter(&(&1 != nil))
+                            |> Enum.join("\n")
 
-                  contact_info =
-                    if company != "", do: contact_info <> " - #{company}", else: contact_info
+                          # Send appointment proposal email
+                          email_body = """
+                          Hi #{firstname},
 
-                  contact_info =
-                    if jobtitle != "", do: contact_info <> " (#{jobtitle})", else: contact_info
+                          I hope this email finds you well. I'd like to schedule an appointment with you.
 
-                  contact_info =
-                    if phone != "", do: contact_info <> " - #{phone}", else: contact_info
+                          Here are some available times I have:
 
-                  contact_info
-                end)
-                |> Enum.join("\n")
+                          #{available_times}
 
-              {:ok, "Found #{length(contacts)} HubSpot contacts:\n\n#{contact_list}"}
+                          Please let me know which time works best for you, or if you'd prefer a different day/time.
+
+                          Best regards,
+                          #{user.name}
+                          """
+
+                          case Gmail.send_email(user, email, "Appointment Scheduling", email_body) do
+                            {:ok, _} ->
+                              # Add note to HubSpot
+                              note_content = "Sent appointment scheduling email with available times. Waiting for response."
+                              HubSpot.add_note(user, email, note_content)
+
+                              {:ok, "Perfect! I found #{name} in your HubSpot contacts (#{email}). I've sent them an email with available appointment times and added a note to their contact record. I'll let you know when they respond so we can schedule the appointment."}
+
+                            {:error, reason} ->
+                              {:ok, "I found #{name} in your contacts (#{email}), but I couldn't send the email: #{reason}. You can send the appointment request manually."}
+                          end
+
+                        {:error, _} ->
+                          {:ok, "I found #{name} in your contacts (#{email}), but I couldn't get your calendar availability. You can send them an email manually to schedule the appointment."}
+                      end
+
+                    {:error, _} ->
+                      {:ok, "I found #{name} in your contacts (#{email}), but I couldn't get your calendar availability. You can send them an email manually to schedule the appointment."}
+                  end
+                else
+                  # Contact found but no email
+                  contact_list = format_contact_list(contacts)
+                  {:ok, "Found #{name} in your contacts, but they don't have an email address. Here are the contact details:\n\n#{contact_list}\n\nYou'll need to add their email address to schedule an appointment."}
+                end
+              else
+                # Regular contact search (not appointment scheduling)
+                contact_list = format_contact_list(contacts)
+                {:ok, "Found #{length(contacts)} HubSpot contacts:\n\n#{contact_list}"}
+              end
 
                         {:ok, _} ->
               # Try to extract email from query for proactive contact creation
@@ -2409,6 +2463,39 @@ IMPORTANT: When the user asks you to perform an action, you MUST use the univers
     end
   end
   defp extract_email_from_string(_), do: nil
+
+  # Format contact list for display
+  defp format_contact_list(contacts) do
+    Enum.map(contacts, fn contact ->
+      properties = contact["properties"] || %{}
+      firstname = properties["firstname"] || ""
+      lastname = properties["lastname"] || ""
+      email = properties["email"] || ""
+      company = properties["company"] || ""
+      phone = properties["phone"] || ""
+      jobtitle = properties["jobtitle"] || ""
+
+      name = "#{firstname} #{lastname}" |> String.trim()
+      name = if name == "", do: "Unknown", else: name
+
+      contact_info = "• #{name}"
+
+      contact_info =
+        if email != "", do: contact_info <> " (#{email})", else: contact_info
+
+      contact_info =
+        if company != "", do: contact_info <> " - #{company}", else: contact_info
+
+      contact_info =
+        if jobtitle != "", do: contact_info <> " (#{jobtitle})", else: contact_info
+
+      contact_info =
+        if phone != "", do: contact_info <> " - #{phone}", else: contact_info
+
+      contact_info
+    end)
+    |> Enum.join("\n")
+  end
 
   # Format contact for user-friendly output
   defp format_contact(contact) do
