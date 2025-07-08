@@ -235,24 +235,24 @@ defmodule AdvisorAiWeb.SettingsLive.Instructions do
                         <span class="flex items-center space-x-2">
                           <div class={"w-2 h-2 rounded-full #{if instruction.is_active, do: "bg-green-400", else: "bg-slate-300"}"}></div>
                           <span>{if instruction.is_active, do: "Active", else: "Inactive"}</span>
-                        </span>
-                      </div>
+                            </span>
+                    </div>
 
                       <div class="flex items-center space-x-3">
-                        <button
-                          phx-click="toggle_instruction"
-                          phx-value-id={instruction.id}
+                      <button
+                        phx-click="toggle_instruction"
+                        phx-value-id={instruction.id}
                           class={"px-4 py-2 text-sm rounded-xl transition-all hover:scale-105 #{if instruction.is_active, do: "bg-green-50 text-green-600 hover:bg-green-100", else: "bg-slate-50 text-slate-600 hover:bg-slate-100"}"}
-                        >
+                      >
                           {if instruction.is_active, do: "Deactivate", else: "Activate"}
-                        </button>
-                        <button
-                          phx-click="delete_instruction"
-                          phx-value-id={instruction.id}
+                      </button>
+                      <button
+                        phx-click="delete_instruction"
+                        phx-value-id={instruction.id}
                           class="px-4 py-2 text-sm bg-red-50 text-red-600 rounded-xl hover:bg-red-100 transition-all hover:scale-105"
-                        >
-                          Delete
-                        </button>
+                      >
+                        Delete
+                      </button>
                       </div>
                     </div>
                   </div>
