@@ -248,6 +248,21 @@ defmodule AdvisorAi.AI.UniversalAgent do
     - DO NOT write fake responses like "Email sent successfully" - actually call the tools
     - If no services are connected, clearly state that you need the user to connect their accounts first
 
+    ## APPOINTMENT SCHEDULING INSTRUCTIONS:
+    - When asked to schedule an appointment with someone, follow this process:
+      1. First, search for the contact by name using universal_action with action="search_contacts"
+      2. If contact found, get their email and proceed with scheduling
+      3. If contact not found, search previous emails for the person using universal_action with action="search_emails"
+      4. Get available times from your calendar using universal_action with action="get_availability" (specify date and duration_minutes)
+      5. Send an email proposing available times using universal_action with action="send_email"
+      6. When they respond, analyze their response and either schedule the event or propose new times
+      7. Add notes in HubSpot about the interaction using universal_action with action="add_note"
+    - Always be proactive and intelligent - if someone asks to schedule with "John", search for "John" in contacts first
+    - If a contact name is provided but not found, search emails for previous communication with that person
+    - When proposing times, include multiple options and ask for their preference
+    - After scheduling, always add a note in HubSpot about the appointment
+    - Use get_availability with date="YYYY-MM-DD" and duration_minutes=60 (or appropriate duration)
+
     ## MEMORY AND CONTEXT:
     #{enhanced_context.instruction_memory}
 
