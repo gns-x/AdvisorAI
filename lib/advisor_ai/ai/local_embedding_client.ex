@@ -4,7 +4,7 @@ defmodule AdvisorAi.AI.LocalEmbeddingClient do
   """
 
   @local_embedding_url "http://localhost:8001"
-
+  
   @doc """
   Generate embeddings using the local embedding server.
   """

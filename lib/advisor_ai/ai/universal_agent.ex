@@ -24,9 +24,11 @@ defmodule AdvisorAi.AI.UniversalAgent do
               {:ok, message} ->
                 check_and_execute_exact_matching_instructions(user, conversation_id, user_message)
                 {:ok, message}
+
               {:error, reason} ->
                 {:error, reason}
             end
+
           :not_a_direct_action ->
             # Check for ongoing workflow in conversation context
             context = Chat.get_conversation_context(conversation_id)
@@ -40,10 +42,17 @@ defmodule AdvisorAi.AI.UniversalAgent do
                   {:ok, _instruction} ->
                     # Show confirmation message in chat
                     confirmation = build_instruction_confirmation(instruction_data)
-                    case create_agent_response(user, conversation_id, confirmation, "conversation") do
+
+                    case create_agent_response(
+                           user,
+                           conversation_id,
+                           confirmation,
+                           "conversation"
+                         ) do
                       {:ok, message} -> {:ok, message}
                       {:error, reason} -> {:error, reason}
                     end
+
                   {:error, reason} ->
                     {:error, "Failed to store instruction: #{reason}"}
                 end
@@ -53,12 +62,14 @@ defmodule AdvisorAi.AI.UniversalAgent do
                   workflow_state && workflow_state["active"] ->
                     # Resume ongoing workflow
                     resume_workflow(user, conversation_id, user_message, workflow_state)
+
                   true ->
                     # No ongoing workflow, process as normal request
                     process_or_start_workflow(user, conversation_id, user_message)
                 end
             end
         end
+
       greeting_response ->
         case create_agent_response(user, conversation_id, greeting_response, "conversation") do
           {:ok, message} -> {:ok, message}
@@ -74,6 +85,7 @@ defmodule AdvisorAi.AI.UniversalAgent do
       {:ok, contact_data} ->
         result = execute_direct_contact_creation(user, contact_data)
         {:handled, result}
+
       :not_a_direct_action ->
         # Try other direct actions (add more as needed)
         # Example: parse_direct_event_creation, parse_direct_email_send, etc.
@@ -205,7 +217,13 @@ defmodule AdvisorAi.AI.UniversalAgent do
       # Get AI response with tool calls
       case get_ai_response_with_tools(prompt, tools) do
         {:ok, ai_response} ->
-          execute_ai_tool_calls(user, conversation_id, ai_response, user_message, enhanced_context)
+          execute_ai_tool_calls(
+            user,
+            conversation_id,
+            ai_response,
+            user_message,
+            enhanced_context
+          )
 
         {:error, reason} ->
           create_agent_response(
@@ -386,11 +404,11 @@ defmodule AdvisorAi.AI.UniversalAgent do
             )
 
             case create_agent_response(
-              user,
-              conversation_id,
-              summarize_final_result(result, recent_memories),
-              "action"
-            ) do
+                   user,
+                   conversation_id,
+                   summarize_final_result(result, recent_memories),
+                   "action"
+                 ) do
               {:ok, message} -> {:ok, message}
               {:error, reason} -> {:error, reason}
             end
@@ -411,11 +429,11 @@ defmodule AdvisorAi.AI.UniversalAgent do
         )
 
         case create_agent_response(
-          user,
-          conversation_id,
-          summarize_final_result(result, recent_memories),
-          "action"
-        ) do
+               user,
+               conversation_id,
+               summarize_final_result(result, recent_memories),
+               "action"
+             ) do
           {:ok, message} -> {:ok, message}
           {:error, reason} -> {:error, reason}
         end
@@ -423,6 +441,7 @@ defmodule AdvisorAi.AI.UniversalAgent do
       _ ->
         context = Chat.get_conversation_context(conversation_id)
         Chat.update_conversation_context(conversation_id, Map.delete(context, "workflow_state"))
+
         case create_agent_response(user, conversation_id, "Workflow error.", "error") do
           {:ok, message} -> {:ok, message}
           {:error, reason} -> {:error, reason}
@@ -441,13 +460,17 @@ defmodule AdvisorAi.AI.UniversalAgent do
     case result do
       {:ask_user, prompt} ->
         prompt
+
       {:ok, message} when is_binary(message) ->
         message
+
       message when is_binary(message) ->
         message
+
       _ ->
         # Fallback: summarize recent steps in a friendly way
         steps = Enum.map_join(recent_memories, ", ", fn m -> m["request"] end)
+
         "I've completed your request. If you need more details or want to clarify, just ask! (Recent steps: #{steps})"
     end
   end
@@ -483,7 +506,9 @@ defmodule AdvisorAi.AI.UniversalAgent do
     case Regex.run(~r/^schedule an appointment with ([a-zA-Z .'-]+)$/i, String.trim(user_message)) do
       [_, name] ->
         # Build a persistent instruction for this contact
-        instruction_text = "When I receive an email from #{name}, automatically handle appointment scheduling: look up in HubSpot, email with available times, add to calendar, update HubSpot, and follow up as needed."
+        instruction_text =
+          "When I receive an email from #{name}, automatically handle appointment scheduling: look up in HubSpot, email with available times, add to calendar, update HubSpot, and follow up as needed."
+
         instruction_data = %{
           trigger_type: "email_received",
           instruction: instruction_text,
@@ -492,19 +517,24 @@ defmodule AdvisorAi.AI.UniversalAgent do
             "contact_name" => name
           }
         }
+
         case store_ongoing_instruction(user, instruction_data) do
           {:ok, _instruction} ->
             # Show confirmation message in chat
             confirmation = build_instruction_confirmation(instruction_data)
+
             case create_agent_response(user, conversation_id, confirmation, "conversation") do
               {:ok, message} -> {:ok, message}
               {:error, reason} -> {:error, reason}
             end
+
             # Proceed with the normal workflow for this request as well
             process_normal_request(user, conversation_id, user_message)
+
           {:error, reason} ->
             {:error, "Failed to store instruction: #{reason}"}
         end
+
       _ ->
         # Use WorkflowGenerator to check if this is a complex request
         case AI.WorkflowGenerator.generate_workflow(user_message) do
@@ -600,8 +630,13 @@ defmodule AdvisorAi.AI.UniversalAgent do
         "conditional_schedule" ->
           # Check condition and schedule if met
           condition = Map.get(params, "condition")
+
           if evaluate_condition(condition, workflow_state) do
-            tool_call = %{"name" => "universal_action", "arguments" => Map.put(params, "action", "create_event")}
+            tool_call = %{
+              "name" => "universal_action",
+              "arguments" => Map.put(params, "action", "create_event")
+            }
+
             result = execute_tool_call(user, tool_call, workflow_state["last_user_message"] || "")
             update_workflow_state(workflow_state, result)
           else
@@ -611,8 +646,13 @@ defmodule AdvisorAi.AI.UniversalAgent do
         "conditional_send_new_times" ->
           # Check condition and send new times if needed
           condition = Map.get(params, "condition")
+
           if evaluate_condition(condition, workflow_state) do
-            tool_call = %{"name" => "universal_action", "arguments" => Map.put(params, "action", "send_email")}
+            tool_call = %{
+              "name" => "universal_action",
+              "arguments" => Map.put(params, "action", "send_email")
+            }
+
             result = execute_tool_call(user, tool_call)
             update_workflow_state(workflow_state, result)
           else
@@ -622,12 +662,20 @@ defmodule AdvisorAi.AI.UniversalAgent do
         "conditional_send_confirmation" ->
           # Check condition and send confirmation if appointment was scheduled
           condition = Map.get(params, "condition")
+
           if evaluate_condition(condition, workflow_state) do
-            tool_call = %{"name" => "universal_action", "arguments" => Map.put(params, "action", "send_email")}
+            tool_call = %{
+              "name" => "universal_action",
+              "arguments" => Map.put(params, "action", "send_email")
+            }
+
             result = execute_tool_call(user, tool_call)
             update_workflow_state(workflow_state, result)
           else
-            update_workflow_state(workflow_state, {:ok, "Condition not met, skipping confirmation"})
+            update_workflow_state(
+              workflow_state,
+              {:ok, "Condition not met, skipping confirmation"}
+            )
           end
 
         "analyze_email_response" ->
@@ -671,13 +719,18 @@ defmodule AdvisorAi.AI.UniversalAgent do
       "if_appointment_scheduled" ->
         # Check if any result indicates successful scheduling
         results = workflow_state["results"] || []
+
         Enum.any?(results, fn
-          {:ok, result} when is_binary(result) -> String.contains?(result, "scheduled") or String.contains?(result, "Appointment")
-          _ -> false
+          {:ok, result} when is_binary(result) ->
+            String.contains?(result, "scheduled") or String.contains?(result, "Appointment")
+
+          _ ->
+            false
         end)
 
       _ ->
-        true  # Default to executing
+        # Default to executing
+        true
     end
   end
 
@@ -716,7 +769,11 @@ defmodule AdvisorAi.AI.UniversalAgent do
 
           case OpenRouterClient.chat_completion(
                  messages: [
-                   %{role: "system", content: "You are an expert at analyzing email responses for appointment scheduling."},
+                   %{
+                     role: "system",
+                     content:
+                       "You are an expert at analyzing email responses for appointment scheduling."
+                   },
                    %{role: "user", content: analysis_prompt}
                  ]
                ) do
@@ -724,16 +781,24 @@ defmodule AdvisorAi.AI.UniversalAgent do
               case Jason.decode(response) do
                 {:ok, analysis} ->
                   {:ok, analysis}
+
                 {:error, _} ->
-                  {:ok, %{"response_type" => "unclear", "chosen_time" => "", "needs_new_times" => false}}
+                  {:ok,
+                   %{
+                     "response_type" => "unclear",
+                     "chosen_time" => "",
+                     "needs_new_times" => false
+                   }}
               end
 
             {:error, _} ->
-              {:ok, %{"response_type" => "unclear", "chosen_time" => "", "needs_new_times" => false}}
+              {:ok,
+               %{"response_type" => "unclear", "chosen_time" => "", "needs_new_times" => false}}
           end
 
         _ ->
-          {:ok, %{"response_type" => "no_response", "chosen_time" => "", "needs_new_times" => false}}
+          {:ok,
+           %{"response_type" => "no_response", "chosen_time" => "", "needs_new_times" => false}}
       end
     else
       {:ok, %{"response_type" => "no_contact", "chosen_time" => "", "needs_new_times" => false}}
@@ -1790,7 +1855,8 @@ IMPORTANT: When the user asks you to perform an action, you MUST use the univers
         execute_calendar_action(user, "delete", args)
 
       String.contains?(action_lower, "get") and
-          (String.contains?(action_lower, "availability") or String.contains?(action_lower, "available")) ->
+          (String.contains?(action_lower, "availability") or
+             String.contains?(action_lower, "available")) ->
         execute_calendar_action(user, "get_availability", args)
 
       String.contains?(action_lower, "find") and
@@ -1818,9 +1884,9 @@ IMPORTANT: When the user asks you to perform an action, you MUST use the univers
         execute_oauth_action(user, args)
 
       # Instruction management actions
-      (String.contains?(action_lower, "check_ongoing_instructions")) or
-        (action_lower == "check_ongoing_instructions") or
-        (Map.get(args, "check_ongoing_instructions", false) == true) ->
+      String.contains?(action_lower, "check_ongoing_instructions") or
+        action_lower == "check_ongoing_instructions" or
+          Map.get(args, "check_ongoing_instructions", false) == true ->
         execute_check_ongoing_instructions(user, args)
 
       # Default - try to infer from action name
@@ -2034,14 +2100,18 @@ IMPORTANT: When the user asks you to perform an action, you MUST use the univers
         end
 
       "get_availability" ->
-        date = Map.get(args, "date") || Map.get(args, :date) || Date.utc_today() |> Date.to_string()
-        duration_minutes = Map.get(args, "duration_minutes") || Map.get(args, :duration_minutes) || 30
+        date =
+          Map.get(args, "date") || Map.get(args, :date) || Date.utc_today() |> Date.to_string()
+
+        duration_minutes =
+          Map.get(args, "duration_minutes") || Map.get(args, :duration_minutes) || 30
 
         case Calendar.get_availability(user, date, duration_minutes) do
           {:ok, availability} ->
             # Format availability for display
             formatted_times = format_availability_times(availability)
             {:ok, formatted_times}
+
           {:error, reason} ->
             {:error, "Failed to get calendar availability: #{reason}"}
         end
@@ -2060,24 +2130,31 @@ IMPORTANT: When the user asks you to perform an action, you MUST use the univers
                 events
                 |> Enum.filter(fn event ->
                   attendees = event["attendees"] || []
+
                   Enum.any?(attendees, fn attendee ->
                     attendee["email"] == attendee_email
                   end)
                 end)
-                |> Enum.take(5)  # Limit to 5 most recent
+                # Limit to 5 most recent
+                |> Enum.take(5)
 
               if length(matching_events) > 0 do
                 event_list =
                   Enum.map(matching_events, fn event ->
-                    start_time = get_in(event, ["start", "dateTime"]) || get_in(event, ["start", "date"])
-                    end_time = get_in(event, ["end", "dateTime"]) || get_in(event, ["end", "date"])
+                    start_time =
+                      get_in(event, ["start", "dateTime"]) || get_in(event, ["start", "date"])
+
+                    end_time =
+                      get_in(event, ["end", "dateTime"]) || get_in(event, ["end", "date"])
+
                     summary = event["summary"] || "Untitled Event"
 
                     "• #{summary} (#{format_datetime_for_chat(start_time)} - #{format_datetime_for_chat(end_time)})"
                   end)
                   |> Enum.join("\n")
 
-                {:ok, "Found #{length(matching_events)} upcoming meetings with #{attendee_email}:\n\n#{event_list}"}
+                {:ok,
+                 "Found #{length(matching_events)} upcoming meetings with #{attendee_email}:\n\n#{event_list}"}
               else
                 {:ok, "No upcoming meetings found with #{attendee_email}"}
               end
@@ -2096,7 +2173,9 @@ IMPORTANT: When the user asks you to perform an action, you MUST use the univers
                 events
                 |> Enum.take(5)
                 |> Enum.map(fn event ->
-                  start_time = get_in(event, ["start", "dateTime"]) || get_in(event, ["start", "date"])
+                  start_time =
+                    get_in(event, ["start", "dateTime"]) || get_in(event, ["start", "date"])
+
                   summary = event["summary"] || "Untitled Event"
 
                   "• #{summary} (#{format_datetime_for_chat(start_time)})"
@@ -2127,21 +2206,25 @@ IMPORTANT: When the user asks you to perform an action, you MUST use the univers
                 description = String.downcase(event["description"] || "")
                 query_lower = String.downcase(query)
 
-                String.contains?(summary, query_lower) or String.contains?(description, query_lower)
+                String.contains?(summary, query_lower) or
+                  String.contains?(description, query_lower)
               end)
               |> Enum.take(5)
 
             if length(matching_events) > 0 do
               event_list =
                 Enum.map(matching_events, fn event ->
-                  start_time = get_in(event, ["start", "dateTime"]) || get_in(event, ["start", "date"])
+                  start_time =
+                    get_in(event, ["start", "dateTime"]) || get_in(event, ["start", "date"])
+
                   summary = event["summary"] || "Untitled Event"
 
                   "• #{summary} (#{format_datetime_for_chat(start_time)})"
                 end)
                 |> Enum.join("\n")
 
-              {:ok, "Found #{length(matching_events)} meetings matching '#{query}':\n\n#{event_list}"}
+              {:ok,
+               "Found #{length(matching_events)} meetings matching '#{query}':\n\n#{event_list}"}
             else
               {:ok, "No meetings found matching '#{query}'"}
             end
@@ -2214,8 +2297,8 @@ IMPORTANT: When the user asks you to perform an action, you MUST use the univers
               # Check if this is an appointment scheduling request
               is_appointment_request =
                 String.contains?(String.downcase(user_message), "schedule") or
-                String.contains?(String.downcase(user_message), "appointment") or
-                String.contains?(String.downcase(user_message), "meeting")
+                  String.contains?(String.downcase(user_message), "appointment") or
+                  String.contains?(String.downcase(user_message), "meeting")
 
               if is_appointment_request and length(contacts) == 1 do
                 # This is an appointment request with exactly one contact found
@@ -2239,14 +2322,18 @@ IMPORTANT: When the user asks you to perform an action, you MUST use the univers
                           # Format available times
                           available_times =
                             (today_times ++ tomorrow_times)
-                            |> Enum.take(6)  # Limit to 6 options
+                            # Limit to 6 options
+                            |> Enum.take(6)
                             |> Enum.map(fn slot ->
                               start_time = slot["start"]
+
                               case DateTime.from_iso8601(start_time) do
                                 {:ok, dt, _} ->
                                   formatted = Calendar.strftime(dt, "%A, %B %d at %I:%M %p")
                                   "• #{formatted}"
-                                _ -> nil
+
+                                _ ->
+                                  nil
                               end
                             end)
                             |> Enum.filter(&(&1 != nil))
@@ -2271,26 +2358,34 @@ IMPORTANT: When the user asks you to perform an action, you MUST use the univers
                           case Gmail.send_email(user, email, "Appointment Scheduling", email_body) do
                             {:ok, _} ->
                               # Add note to HubSpot
-                              note_content = "Sent appointment scheduling email with available times. Waiting for response."
+                              note_content =
+                                "Sent appointment scheduling email with available times. Waiting for response."
+
                               HubSpot.add_note(user, email, note_content)
 
-                              {:ok, "Perfect! I found #{name} in your HubSpot contacts (#{email}). I've sent them an email with available appointment times and added a note to their contact record. I'll let you know when they respond so we can schedule the appointment."}
+                              {:ok,
+                               "Perfect! I found #{name} in your HubSpot contacts (#{email}). I've sent them an email with available appointment times and added a note to their contact record. I'll let you know when they respond so we can schedule the appointment."}
 
                             {:error, reason} ->
-                              {:ok, "I found #{name} in your contacts (#{email}), but I couldn't send the email: #{reason}. You can send the appointment request manually."}
+                              {:ok,
+                               "I found #{name} in your contacts (#{email}), but I couldn't send the email: #{reason}. You can send the appointment request manually."}
                           end
 
                         {:error, _} ->
-                          {:ok, "I found #{name} in your contacts (#{email}), but I couldn't get your calendar availability. You can send them an email manually to schedule the appointment."}
+                          {:ok,
+                           "I found #{name} in your contacts (#{email}), but I couldn't get your calendar availability. You can send them an email manually to schedule the appointment."}
                       end
 
                     {:error, _} ->
-                      {:ok, "I found #{name} in your contacts (#{email}), but I couldn't get your calendar availability. You can send them an email manually to schedule the appointment."}
+                      {:ok,
+                       "I found #{name} in your contacts (#{email}), but I couldn't get your calendar availability. You can send them an email manually to schedule the appointment."}
                   end
                 else
                   # Contact found but no email
                   contact_list = format_contact_list(contacts)
-                  {:ok, "Found #{name} in your contacts, but they don't have an email address. Here are the contact details:\n\n#{contact_list}\n\nYou'll need to add their email address to schedule an appointment."}
+
+                  {:ok,
+                   "Found #{name} in your contacts, but they don't have an email address. Here are the contact details:\n\n#{contact_list}\n\nYou'll need to add their email address to schedule an appointment."}
                 end
               else
                 # Regular contact search (not appointment scheduling)
@@ -2298,7 +2393,7 @@ IMPORTANT: When the user asks you to perform an action, you MUST use the univers
                 {:ok, "Found #{length(contacts)} HubSpot contacts:\n\n#{contact_list}"}
               end
 
-                        {:ok, _} ->
+            {:ok, _} ->
               # Try to extract email from query for proactive contact creation
               email = extract_email_from_query(query)
               name = extract_name_from_query(query)
@@ -2306,6 +2401,7 @@ IMPORTANT: When the user asks you to perform an action, you MUST use the univers
               if email do
                 # Automatically create the contact if email is found
                 {first_name, last_name} = parse_name(name)
+
                 contact_data = %{
                   "email" => email,
                   "first_name" => first_name,
@@ -2315,9 +2411,12 @@ IMPORTANT: When the user asks you to perform an action, you MUST use the univers
 
                 case HubSpot.create_contact(user, contact_data) do
                   {:ok, _message} ->
-                    {:ok, "I've automatically created a new HubSpot contact for #{name} (#{email}). The contact has been added to your HubSpot account."}
+                    {:ok,
+                     "I've automatically created a new HubSpot contact for #{name} (#{email}). The contact has been added to your HubSpot account."}
+
                   {:error, reason} ->
-                    {:ok, "I found an email address (#{email}) but couldn't create the contact automatically: #{reason}. You can try creating it manually in HubSpot."}
+                    {:ok,
+                     "I found an email address (#{email}) but couldn't create the contact automatically: #{reason}. You can try creating it manually in HubSpot."}
                 end
               else
                 # Try to search emails for this person
@@ -2335,16 +2434,21 @@ IMPORTANT: When the user asks you to perform an action, you MUST use the univers
 
                     if length(email_addresses) > 0 do
                       email_list = Enum.join(email_addresses, ", ")
-                      {:ok, "I didn't find '#{query}' in your HubSpot contacts, but I found #{length(emails)} emails from this person. I can see email addresses: #{email_list}. Would you like me to create a HubSpot contact for them? Just let me know which email address to use."}
+
+                      {:ok,
+                       "I didn't find '#{query}' in your HubSpot contacts, but I found #{length(emails)} emails from this person. I can see email addresses: #{email_list}. Would you like me to create a HubSpot contact for them? Just let me know which email address to use."}
                     else
-                      {:ok, "I didn't find '#{query}' in your HubSpot contacts, but I found #{length(emails)} emails from this person. However, I couldn't extract a clear email address. If you have their email address, I can create a new contact for them."}
+                      {:ok,
+                       "I didn't find '#{query}' in your HubSpot contacts, but I found #{length(emails)} emails from this person. However, I couldn't extract a clear email address. If you have their email address, I can create a new contact for them."}
                     end
 
                   {:ok, _} ->
-                    {:ok, "No contacts were found for '#{query}' in HubSpot, and I didn't find any emails from this person either. If you have an email address for them, I can create a new contact. Otherwise, you might want to check if the name is spelled correctly or try searching with a different variation."}
+                    {:ok,
+                     "No contacts were found for '#{query}' in HubSpot, and I didn't find any emails from this person either. If you have an email address for them, I can create a new contact. Otherwise, you might want to check if the name is spelled correctly or try searching with a different variation."}
 
                   {:error, _} ->
-                    {:ok, "No contacts were found for '#{query}'. If you have an email address for this person, I can create a new contact for them. Just provide the email address."}
+                    {:ok,
+                     "No contacts were found for '#{query}'. If you have an email address for this person, I can create a new contact for them. Just provide the email address."}
                 end
               end
 
@@ -2407,21 +2511,42 @@ IMPORTANT: When the user asks you to perform an action, you MUST use the univers
                 {:ok, body_map} -> Map.merge(args, body_map)
                 _ -> args
               end
-            _ -> args
+
+            _ ->
+              args
           end
+
         # Enhanced: recognize a wide range of phrasings and extract info from any message
-        email = Map.get(args, "email") || Map.get(args, :email) || extract_email_from_query(user_message)
-        name = Map.get(args, "name") || Map.get(args, :name) || extract_name_from_query(user_message)
-        first_name = Map.get(args, "first_name") || Map.get(args, :first_name) || (name && String.split(name, " ") |> List.first() || "")
-        last_name = Map.get(args, "last_name") || Map.get(args, :last_name) || (name && String.split(name, " ") |> Enum.drop(1) |> Enum.join(" ") || "")
-        company = Map.get(args, "company") || Map.get(args, :company) || extract_company_from_query(user_message)
-        phone = Map.get(args, "phone") || Map.get(args, :phone) || extract_phone_from_query(user_message)
+        email =
+          Map.get(args, "email") || Map.get(args, :email) ||
+            extract_email_from_query(user_message)
+
+        name =
+          Map.get(args, "name") || Map.get(args, :name) || extract_name_from_query(user_message)
+
+        first_name =
+          Map.get(args, "first_name") || Map.get(args, :first_name) ||
+            ((name && String.split(name, " ") |> List.first()) || "")
+
+        last_name =
+          Map.get(args, "last_name") || Map.get(args, :last_name) ||
+            ((name && String.split(name, " ") |> Enum.drop(1) |> Enum.join(" ")) || "")
+
+        company =
+          Map.get(args, "company") || Map.get(args, :company) ||
+            extract_company_from_query(user_message)
+
+        phone =
+          Map.get(args, "phone") || Map.get(args, :phone) ||
+            extract_phone_from_query(user_message)
 
         cond do
           is_nil(email) or email == "" ->
             {:ask_user, "To create a contact, please provide their email address."}
+
           is_nil(first_name) or first_name == "" ->
             {:ask_user, "To create a contact, please provide their first name."}
+
           true ->
             contact_data = %{
               "email" => email,
@@ -2430,22 +2555,46 @@ IMPORTANT: When the user asks you to perform an action, you MUST use the univers
               "company" => company,
               "phone" => phone
             }
+
             case HubSpot.create_contact(user, contact_data) do
               {:ok, message} ->
                 # After contact creation, check for 'hubspot_contact_created' instructions
-                case AdvisorAi.AI.AgentInstruction.get_active_instructions_by_trigger(user.id, "hubspot_contact_created") do
+                case AdvisorAi.AI.AgentInstruction.get_active_instructions_by_trigger(
+                       user.id,
+                       "hubspot_contact_created"
+                     ) do
                   {:ok, instructions} when is_list(instructions) and length(instructions) > 0 ->
                     Enum.each(instructions, fn instruction ->
-                      if String.contains?(String.downcase(instruction.instruction), "send them an email") or String.contains?(String.downcase(instruction.instruction), "send email") do
+                      if String.contains?(
+                           String.downcase(instruction.instruction),
+                           "send them an email"
+                         ) or
+                           String.contains?(
+                             String.downcase(instruction.instruction),
+                             "send email"
+                           ) do
                         # Compose and send thank-you email
-                        thank_you_body = "Hi #{first_name},\n\nThank you for being a client! If you have any questions or need assistance, feel free to reach out.\n\nBest regards,\n#{user.name}"
-                        _ = Gmail.send_email(user, email, "Thank you for being a client!", thank_you_body)
+                        thank_you_body =
+                          "Hi #{first_name},\n\nThank you for being a client! If you have any questions or need assistance, feel free to reach out.\n\nBest regards,\n#{user.name}"
+
+                        _ =
+                          Gmail.send_email(
+                            user,
+                            email,
+                            "Thank you for being a client!",
+                            thank_you_body
+                          )
                       end
                     end)
-                  _ -> :ok
+
+                  _ ->
+                    :ok
                 end
+
                 {:ok, "Contact created: #{first_name} #{last_name} (#{email})"}
-              {:error, reason} -> {:error, "Failed to create contact: #{reason}"}
+
+              {:error, reason} ->
+                {:error, "Failed to create contact: #{reason}"}
             end
         end
 
@@ -2573,6 +2722,7 @@ IMPORTANT: When the user asks you to perform an action, you MUST use the univers
       _ -> nil
     end
   end
+
   defp extract_email_from_string(_), do: nil
 
   # Format contact list for display
@@ -3144,10 +3294,10 @@ IMPORTANT: When the user asks you to perform an action, you MUST use the univers
 
   def create_agent_response(_user, conversation_id, content, response_type) do
     case Chat.create_message(conversation_id, %{
-      role: "assistant",
-      content: content,
-      metadata: %{response_type: response_type}
-    }) do
+           role: "assistant",
+           content: content,
+           metadata: %{response_type: response_type}
+         }) do
       {:ok, message} -> {:ok, message}
       {:error, reason} -> {:error, reason}
     end
@@ -3233,7 +3383,7 @@ IMPORTANT: When the user asks you to perform an action, you MUST use the univers
         String.contains?(message_lower, "when someone emails me") or
         String.contains?(message_lower, "when an email comes in") or
         String.contains?(message_lower, "when i receive an email") or
-        String.contains?(message_lower, "when emails are received") ->
+          String.contains?(message_lower, "when emails are received") ->
         parse_email_instruction(message)
 
       # Calendar-related instructions
@@ -3243,8 +3393,8 @@ IMPORTANT: When the user asks you to perform an action, you MUST use the univers
            String.contains?(message_lower, "event")) or
         (String.contains?(message_lower, "when") and
            String.contains?(message_lower, "calendar event")) or
-        (String.contains?(message_lower, "when") and
-           String.contains?(message_lower, "meeting")) ->
+          (String.contains?(message_lower, "when") and
+             String.contains?(message_lower, "meeting")) ->
         parse_calendar_instruction(message)
 
       # HubSpot-related instructions
@@ -3254,22 +3404,22 @@ IMPORTANT: When the user asks you to perform an action, you MUST use the univers
            String.contains?(message_lower, "hubspot")) or
         (String.contains?(message_lower, "when") and
            String.contains?(message_lower, "contact")) or
-        (String.contains?(message_lower, "when") and
-           String.contains?(message_lower, "new contact")) ->
+          (String.contains?(message_lower, "when") and
+             String.contains?(message_lower, "new contact")) ->
         parse_hubspot_instruction(message)
 
       # Company-related instructions
       (String.contains?(message_lower, "when i create") and
          String.contains?(message_lower, "company")) or
-        (String.contains?(message_lower, "when") and
-           String.contains?(message_lower, "company")) ->
+          (String.contains?(message_lower, "when") and
+             String.contains?(message_lower, "company")) ->
         parse_company_instruction(message)
 
       # Deal-related instructions
       (String.contains?(message_lower, "when i create") and
          String.contains?(message_lower, "deal")) or
-        (String.contains?(message_lower, "when") and
-           String.contains?(message_lower, "deal")) ->
+          (String.contains?(message_lower, "when") and
+             String.contains?(message_lower, "deal")) ->
         parse_deal_instruction(message)
 
       # Generic automation instructions
@@ -3514,17 +3664,24 @@ IMPORTANT: When the user asks you to perform an action, you MUST use the univers
         _ -> "when triggered"
       end
 
-    confirmation = "Perfect! I've saved your instruction and will remember to #{instruction_data.instruction} #{trigger_description}. You can manage all your automated instructions in Settings > Instructions."
+    confirmation =
+      "Perfect! I've saved your instruction and will remember to #{instruction_data.instruction} #{trigger_description}. You can manage all your automated instructions in Settings > Instructions."
 
     # Suggest next logical step based on instruction
     suggestion =
       cond do
-        instruction_data.trigger_type == "hubspot_contact_created" and String.contains?(String.downcase(instruction_data.instruction), "send them an email") ->
+        instruction_data.trigger_type == "hubspot_contact_created" and
+            String.contains?(String.downcase(instruction_data.instruction), "send them an email") ->
           "Would you like to create a new contact now so I can send them a welcome email? Please provide their name and email."
-        instruction_data.trigger_type == "email_received" and String.contains?(String.downcase(instruction_data.instruction), "appointment") ->
+
+        instruction_data.trigger_type == "email_received" and
+            String.contains?(String.downcase(instruction_data.instruction), "appointment") ->
           "Would you like to schedule an appointment now? Please provide the contact's name and email."
-        instruction_data.trigger_type == "calendar_event_created" and String.contains?(String.downcase(instruction_data.instruction), "notify attendees") ->
+
+        instruction_data.trigger_type == "calendar_event_created" and
+            String.contains?(String.downcase(instruction_data.instruction), "notify attendees") ->
           "Would you like to create a calendar event now and notify attendees? Please provide the event details."
+
         true ->
           "If you'd like to try out this automation now, just let me know what you'd like to do next!"
       end
@@ -3574,7 +3731,7 @@ IMPORTANT: When the user asks you to perform an action, you MUST use the univers
     end
   end
 
-    defp extract_name_from_query(query) do
+  defp extract_name_from_query(query) do
     # Remove email from query to get name
     name = Regex.replace(~r/\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/, query, "")
     name = String.trim(name)
@@ -3583,7 +3740,12 @@ IMPORTANT: When the user asks you to perform an action, you MUST use the univers
       # If no name found, try to extract from email
       case extract_email_from_query(query) do
         email when is_binary(email) ->
-          email |> String.split("@") |> List.first() |> String.replace(".", " ") |> String.replace("_", " ")
+          email
+          |> String.split("@")
+          |> List.first()
+          |> String.replace(".", " ")
+          |> String.replace("_", " ")
+
         nil ->
           "Unknown"
       end
@@ -3601,7 +3763,7 @@ IMPORTANT: When the user asks you to perform an action, you MUST use the univers
     end
   end
 
-    # Get recent context for LLM decision making
+  # Get recent context for LLM decision making
   defp get_recent_context_for_llm(context) do
     # Extract relevant context from recent conversations and user patterns
     recent_context_parts = []
@@ -3626,12 +3788,14 @@ IMPORTANT: When the user asks you to perform an action, you MUST use the univers
 
     # Add time-based context
     current_hour = DateTime.utc_now().hour
-    time_context = cond do
-      current_hour < 12 -> "Morning hours"
-      current_hour < 17 -> "Afternoon hours"
-      current_hour < 21 -> "Evening hours"
-      true -> "Late evening hours"
-    end
+
+    time_context =
+      cond do
+        current_hour < 12 -> "Morning hours"
+        current_hour < 17 -> "Afternoon hours"
+        current_hour < 21 -> "Evening hours"
+        true -> "Late evening hours"
+      end
 
     recent_context_parts = recent_context_parts ++ [time_context]
 
@@ -3667,9 +3831,11 @@ IMPORTANT: When the user asks you to perform an action, you MUST use the univers
               {:ok, parsed} -> {:ok, parsed}
               {:error, _} -> {:error, "Invalid JSON"}
             end
+
           nil ->
             {:error, "No JSON found"}
         end
+
       _ ->
         {:error, "Unexpected response format"}
     end
@@ -3714,11 +3880,17 @@ IMPORTANT: When the user asks you to perform an action, you MUST use the univers
     # Validate and enhance the email
     case validate_and_enhance_email(to, subject, body) do
       {:ok, enhanced_email} ->
-        case Gmail.send_email(user, enhanced_email.to, enhanced_email.subject, enhanced_email.body) do
+        case Gmail.send_email(
+               user,
+               enhanced_email.to,
+               enhanced_email.subject,
+               enhanced_email.body
+             ) do
           {:ok, _} ->
             # Suggest follow-up actions
             follow_up = suggest_email_follow_ups(enhanced_email)
             {:ok, "Email sent successfully to #{enhanced_email.to}. #{follow_up}"}
+
           {:error, reason} ->
             {:error, "Failed to send email: #{reason}"}
         end
@@ -3743,7 +3915,11 @@ IMPORTANT: When the user asks you to perform an action, you MUST use the univers
         event_list =
           Enum.map(events_to_show, fn event ->
             summary = Map.get(event, "summary", "(no title)")
-            start_time = get_in(event, ["start", "dateTime"]) || get_in(event, ["start", "date"]) || "(no time)"
+
+            start_time =
+              get_in(event, ["start", "dateTime"]) || get_in(event, ["start", "date"]) ||
+                "(no time)"
+
             "• #{summary} at #{start_time}"
           end)
           |> Enum.join("\n")
@@ -3769,6 +3945,7 @@ IMPORTANT: When the user asks you to perform an action, you MUST use the univers
             # Suggest follow-up actions
             follow_up = suggest_event_follow_ups(enhanced_event)
             {:ok, "Calendar event '#{enhanced_event.summary}' created successfully. #{follow_up}"}
+
           {:error, reason} ->
             {:error, "Failed to create calendar event: #{reason}"}
         end
@@ -3797,7 +3974,9 @@ IMPORTANT: When the user asks you to perform an action, you MUST use the univers
 
             contact_info = "• #{name}"
             contact_info = if email != "", do: contact_info <> " (#{email})", else: contact_info
-            contact_info = if company != "", do: contact_info <> " - #{company}", else: contact_info
+
+            contact_info =
+              if company != "", do: contact_info <> " - #{company}", else: contact_info
 
             contact_info
           end)
@@ -3813,6 +3992,7 @@ IMPORTANT: When the user asks you to perform an action, you MUST use the univers
         if email do
           # Automatically create the contact if email is found
           {first_name, last_name} = parse_name(name)
+
           contact_data = %{
             "email" => email,
             "first_name" => first_name,
@@ -3822,12 +4002,16 @@ IMPORTANT: When the user asks you to perform an action, you MUST use the univers
 
           case HubSpot.create_contact(user, contact_data) do
             {:ok, _message} ->
-              {:ok, "I've automatically created a new HubSpot contact for #{name} (#{email}). The contact has been added to your HubSpot account."}
+              {:ok,
+               "I've automatically created a new HubSpot contact for #{name} (#{email}). The contact has been added to your HubSpot account."}
+
             {:error, reason} ->
-              {:ok, "I found an email address (#{email}) but couldn't create the contact automatically: #{reason}. You can try creating it manually in HubSpot."}
+              {:ok,
+               "I found an email address (#{email}) but couldn't create the contact automatically: #{reason}. You can try creating it manually in HubSpot."}
           end
         else
-          {:ok, "No contacts were found for '#{query}'. If you have an email address for this person, I can create a new contact for them. Just provide the email address."}
+          {:ok,
+           "No contacts were found for '#{query}'. If you have an email address for this person, I can create a new contact for them. Just provide the email address."}
         end
 
       {:error, reason} ->
@@ -3839,12 +4023,16 @@ IMPORTANT: When the user asks you to perform an action, you MUST use the univers
   defp enhance_search_query(query) do
     # Use LLM to enhance ambiguous search queries
     query_length = String.length(query)
+
     if query_length < 3 do
       # Query is too short, try to expand it
       case OpenRouterClient.chat_completion(
              messages: [
                %{role: "system", content: "You are an expert at enhancing email search queries."},
-               %{role: "user", content: "Enhance this email search query to be more specific: '#{query}'"}
+               %{
+                 role: "user",
+                 content: "Enhance this email search query to be more specific: '#{query}'"
+               }
              ],
              temperature: 0.1
            ) do
@@ -3853,9 +4041,11 @@ IMPORTANT: When the user asks you to perform an action, you MUST use the univers
             enhanced when is_binary(enhanced) ->
               enhanced_length = String.length(enhanced)
               if enhanced_length > 3, do: enhanced, else: query
+
             _ ->
               query
           end
+
         {:error, _} ->
           query
       end
@@ -3866,6 +4056,7 @@ IMPORTANT: When the user asks you to perform an action, you MUST use the univers
 
   defp generate_email_search_summary(emails, query) do
     count = length(emails)
+
     if count == 0 do
       "No emails found matching '#{query}'"
     else
@@ -3904,6 +4095,7 @@ IMPORTANT: When the user asks you to perform an action, you MUST use the univers
 
   defp generate_calendar_summary(events, date) do
     count = length(events)
+
     if count == 0 do
       "No events scheduled for #{date}"
     else
@@ -3947,13 +4139,22 @@ IMPORTANT: When the user asks you to perform an action, you MUST use the univers
         # Try to intelligently fix the error and retry
         case intelligently_fix_tool_call_error(user, tool_call, error, user_message, context) do
           {:ok, fixed_tool_call} ->
-            execute_tool_call_with_retry(user, fixed_tool_call, user_message, context, retry_count + 1)
+            execute_tool_call_with_retry(
+              user,
+              fixed_tool_call,
+              user_message,
+              context,
+              retry_count + 1
+            )
 
           {:error, _} ->
             # If we can't fix it, try alternative approaches
             case try_alternative_approach(user, tool_call, error, user_message, context) do
-              {:ok, result} -> {:ok, result}
-              {:error, final_error} -> {:error, "Failed after #{retry_count + 1} attempts: #{final_error}"}
+              {:ok, result} ->
+                {:ok, result}
+
+              {:error, final_error} ->
+                {:error, "Failed after #{retry_count + 1} attempts: #{final_error}"}
             end
         end
 
@@ -3994,6 +4195,7 @@ IMPORTANT: When the user asks you to perform an action, you MUST use the univers
         case extract_json_from_response(response) do
           {:ok, %{"fixed_tool_call" => fixed_tool_call}} ->
             {:ok, fixed_tool_call}
+
           {:error, _} ->
             {:error, "Could not parse fix suggestion"}
         end
@@ -4023,7 +4225,10 @@ IMPORTANT: When the user asks you to perform an action, you MUST use the univers
 
     case OpenRouterClient.chat_completion(
            messages: [
-             %{role: "system", content: "You are an expert at finding alternative approaches when tools fail."},
+             %{
+               role: "system",
+               content: "You are an expert at finding alternative approaches when tools fail."
+             },
              %{role: "user", content: alternative_prompt}
            ],
            temperature: 0.1
@@ -4032,6 +4237,7 @@ IMPORTANT: When the user asks you to perform an action, you MUST use the univers
         case extract_json_from_response(response) do
           {:ok, %{"alternative_tool_call" => alternative_tool_call}} ->
             execute_tool_call(user, alternative_tool_call)
+
           {:error, _} ->
             {:error, "Could not parse alternative suggestion"}
         end
@@ -4106,7 +4312,10 @@ IMPORTANT: When the user asks you to perform an action, you MUST use the univers
 
     case OpenRouterClient.chat_completion(
            messages: [
-             %{role: "system", content: "You are an expert at providing helpful suggestions when requests fail."},
+             %{
+               role: "system",
+               content: "You are an expert at providing helpful suggestions when requests fail."
+             },
              %{role: "user", content: suggestion_prompt}
            ],
            temperature: 0.1
@@ -4115,6 +4324,7 @@ IMPORTANT: When the user asks you to perform an action, you MUST use the univers
         case extract_text_response(response) do
           suggestions when is_binary(suggestions) ->
             suggestions
+
           _ ->
             "Try rephrasing your request or check that your accounts are properly connected."
         end
@@ -4142,7 +4352,12 @@ IMPORTANT: When the user asks you to perform an action, you MUST use the univers
   end
 
   # --- NEW: Strict post-request instruction check ---
-  defp check_and_execute_related_instructions(user, conversation_id, user_message, tool_call_results) do
+  defp check_and_execute_related_instructions(
+         user,
+         conversation_id,
+         user_message,
+         tool_call_results
+       ) do
     # Get all active instructions for the user
     case AgentInstruction.get_active_instructions_by_user(user.id) do
       {:ok, instructions} when is_list(instructions) and length(instructions) > 0 ->
@@ -4150,11 +4365,16 @@ IMPORTANT: When the user asks you to perform an action, you MUST use the univers
           if strictly_related_instruction?(instruction, user_message, tool_call_results) do
             # Use the main automation handler from Agent
             trigger_type = instruction.trigger_type
-            trigger_data = build_trigger_data_from_request(user_message, tool_call_results, trigger_type)
+
+            trigger_data =
+              build_trigger_data_from_request(user_message, tool_call_results, trigger_type)
+
             AdvisorAi.AI.Agent.handle_trigger(user, trigger_type, trigger_data)
           end
         end)
-      _ -> :ok
+
+      _ ->
+        :ok
     end
   end
 
@@ -4170,21 +4390,29 @@ IMPORTANT: When the user asks you to perform an action, you MUST use the univers
 
     trigger_match =
       cond do
-        trigger_type == "email_received" -> String.contains?(message_text, "email")
-        trigger_type == "calendar_event_created" -> String.contains?(message_text, "calendar") or String.contains?(message_text, "event")
-        trigger_type == "hubspot_contact_created" -> String.contains?(message_text, "contact") or String.contains?(message_text, "hubspot")
-        true -> false
+        trigger_type == "email_received" ->
+          String.contains?(message_text, "email")
+
+        trigger_type == "calendar_event_created" ->
+          String.contains?(message_text, "calendar") or String.contains?(message_text, "event")
+
+        trigger_type == "hubspot_contact_created" ->
+          String.contains?(message_text, "contact") or String.contains?(message_text, "hubspot")
+
+        true ->
+          false
       end
 
     # Check for strong intent/condition match
     intent_match =
       Enum.any?(Map.keys(conditions), fn key ->
-        String.contains?(message_text, String.replace(key, "_", " ")) or String.contains?(instruction_text, String.replace(key, "_", " "))
-      end)
-      or Enum.any?(Map.values(conditions), fn val ->
-        is_binary(val) and String.contains?(message_text, String.downcase(val))
-      end)
-      or (instruction_text != "" and String.contains?(message_text, instruction_text))
+        String.contains?(message_text, String.replace(key, "_", " ")) or
+          String.contains?(instruction_text, String.replace(key, "_", " "))
+      end) or
+        Enum.any?(Map.values(conditions), fn val ->
+          is_binary(val) and String.contains?(message_text, String.downcase(val))
+        end) or
+        (instruction_text != "" and String.contains?(message_text, instruction_text))
 
     trigger_match and intent_match
   end
@@ -4206,10 +4434,19 @@ IMPORTANT: When the user asks you to perform an action, you MUST use the univers
   # e.g., "create new contact amine code with email aminecode65@gmail.com"
   defp parse_direct_contact_creation(message) do
     regex = ~r/^create (new )?contact ([a-zA-Z .'-]+) with email ([^\s]+@[^\s]+)$/i
+
     case Regex.run(regex, String.trim(message)) do
       [_, _, name, email] ->
         {first_name, last_name} = parse_name(name)
-        {:ok, %{"email" => email, "first_name" => first_name, "last_name" => last_name, "company" => ""}}
+
+        {:ok,
+         %{
+           "email" => email,
+           "first_name" => first_name,
+           "last_name" => last_name,
+           "company" => ""
+         }}
+
       _ ->
         :not_a_direct_action
     end
@@ -4220,6 +4457,7 @@ IMPORTANT: When the user asks you to perform an action, you MUST use the univers
     case AdvisorAi.Integrations.HubSpot.create_contact(user, contact_data) do
       {:ok, _message} ->
         "✅ Contact created successfully: #{contact_data["first_name"]} #{contact_data["last_name"]} (#{contact_data["email"]})"
+
       {:error, reason} ->
         "❌ Failed to create contact: #{reason}"
     end
@@ -4230,13 +4468,16 @@ IMPORTANT: When the user asks you to perform an action, you MUST use the univers
     case AgentInstruction.get_active_instructions_by_user(user.id) do
       {:ok, instructions} when is_list(instructions) and length(instructions) > 0 ->
         Enum.each(instructions, fn instruction ->
-          if String.downcase(String.trim(instruction.instruction || "")) == String.downcase(String.trim(user_message || "")) do
+          if String.downcase(String.trim(instruction.instruction || "")) ==
+               String.downcase(String.trim(user_message || "")) do
             trigger_type = instruction.trigger_type
             trigger_data = build_trigger_data_from_request(user_message, [], trigger_type)
             AdvisorAi.AI.Agent.handle_trigger(user, trigger_type, trigger_data)
           end
         end)
-      _ -> :ok
+
+      _ ->
+        :ok
     end
   end
 end

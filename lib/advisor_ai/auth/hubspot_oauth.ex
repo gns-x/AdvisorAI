@@ -14,7 +14,10 @@ defmodule Ueberauth.Strategy.HubSpot.OAuth do
         authorize_url: "https://app.hubspot.com/oauth/authorize",
         token_url: "https://api.hubapi.com/oauth/v1/token",
         redirect_uri:
-          System.get_env("HUBSPOT_REDIRECT_URI", "https://advisorai-production.up.railway.app/hubspot/oauth/callback")
+          System.get_env(
+            "HUBSPOT_REDIRECT_URI",
+            "https://advisorai-production.up.railway.app/hubspot/oauth/callback"
+          )
       ]
       |> Keyword.merge(config)
       |> Keyword.merge(opts)

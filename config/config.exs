@@ -126,7 +126,11 @@ config :ueberauth, Ueberauth.Strategy.Google.OAuth,
 config :ueberauth, Ueberauth.Strategy.HubSpot.OAuth,
   client_id: System.get_env("HUBSPOT_CLIENT_ID", "your-hubspot-client-id"),
   client_secret: System.get_env("HUBSPOT_CLIENT_SECRET", "your-hubspot-client-secret"),
-  redirect_uri: System.get_env("HUBSPOT_REDIRECT_URI", "https://advisorai-production.up.railway.app/hubspot/oauth/callback")
+  redirect_uri:
+    System.get_env(
+      "HUBSPOT_REDIRECT_URI",
+      "https://advisorai-production.up.railway.app/hubspot/oauth/callback"
+    )
 
 # Oban configuration moved to runtime.exs
 

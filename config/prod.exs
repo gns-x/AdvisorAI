@@ -21,8 +21,7 @@ config :logger, level: :info
 # Runtime production configuration, including reading
 # of environment variables, is done on config/runtime.exs.
 
-config :advisor_ai, AdvisorAi.Repo,
-  prepare: :unnamed
+config :advisor_ai, AdvisorAi.Repo, prepare: :unnamed
 
 config :advisor_ai, :embedding_client,
   embedding_url: "https://openrouter.ai/api/v1/embeddings",

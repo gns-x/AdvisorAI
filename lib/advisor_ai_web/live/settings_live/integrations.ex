@@ -91,12 +91,18 @@ defmodule AdvisorAiWeb.SettingsLive.Integrations do
     <div class="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
       <div class="max-w-4xl mx-auto px-8 py-12">
         <div class="space-y-10">
-
+          
     <!-- Header -->
           <div class="text-center">
             <div class="w-16 h-16 mx-auto mb-6 bg-gradient-to-r from-blue-500 to-blue-600 rounded-2xl flex items-center justify-center shadow-lg">
               <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M13 10V3L4 14h7v7l9-11h-7z"
+                >
+                </path>
               </svg>
             </div>
             <h1 class="text-4xl font-bold gradient-text mb-4">Integrations</h1>
@@ -104,10 +110,10 @@ defmodule AdvisorAiWeb.SettingsLive.Integrations do
               Connect your accounts to access emails, calendar, and CRM data with seamless integration.
             </p>
           </div>
-
+          
     <!-- Integration Cards -->
           <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-
+            
     <!-- Google -->
             <div class="bg-white/90 backdrop-blur-sm rounded-2xl border border-slate-200/50 p-8 shadow-lg hover:shadow-xl transition-all hover:scale-[1.02]">
               <div class="flex items-center justify-between mb-6">
@@ -144,7 +150,12 @@ defmodule AdvisorAiWeb.SettingsLive.Integrations do
               <div class="space-y-3 mb-6 text-sm text-slate-600">
                 <div class="flex items-center space-x-3">
                   <div class="w-8 h-8 bg-blue-50 rounded-lg flex items-center justify-center">
-                    <svg class="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg
+                      class="w-4 h-4 text-blue-600"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
                       <path
                         stroke-linecap="round"
                         stroke-linejoin="round"
@@ -157,7 +168,12 @@ defmodule AdvisorAiWeb.SettingsLive.Integrations do
                 </div>
                 <div class="flex items-center space-x-3">
                   <div class="w-8 h-8 bg-blue-50 rounded-lg flex items-center justify-center">
-                    <svg class="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg
+                      class="w-4 h-4 text-blue-600"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
                       <path
                         stroke-linecap="round"
                         stroke-linejoin="round"
@@ -192,7 +208,7 @@ defmodule AdvisorAiWeb.SettingsLive.Integrations do
                 </.link>
               <% end %>
             </div>
-
+            
     <!-- HubSpot -->
             <div class="bg-white/90 backdrop-blur-sm rounded-2xl border border-slate-200/50 p-8 shadow-lg hover:shadow-xl transition-all hover:scale-[1.02]">
               <div class="flex items-center justify-between mb-6">
@@ -221,7 +237,12 @@ defmodule AdvisorAiWeb.SettingsLive.Integrations do
               <div class="space-y-3 mb-6 text-sm text-slate-600">
                 <div class="flex items-center space-x-3">
                   <div class="w-8 h-8 bg-orange-50 rounded-lg flex items-center justify-center">
-                    <svg class="w-4 h-4 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg
+                      class="w-4 h-4 text-orange-600"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
                       <path
                         stroke-linecap="round"
                         stroke-linejoin="round"
@@ -234,7 +255,12 @@ defmodule AdvisorAiWeb.SettingsLive.Integrations do
                 </div>
                 <div class="flex items-center space-x-3">
                   <div class="w-8 h-8 bg-orange-50 rounded-lg flex items-center justify-center">
-                    <svg class="w-4 h-4 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg
+                      class="w-4 h-4 text-orange-600"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
                       <path
                         stroke-linecap="round"
                         stroke-linejoin="round"
@@ -270,18 +296,24 @@ defmodule AdvisorAiWeb.SettingsLive.Integrations do
               <% end %>
             </div>
           </div>
-
+          
     <!-- Status Section -->
           <div class="bg-white/90 backdrop-blur-sm rounded-2xl border border-slate-200/50 p-8 shadow-lg">
             <h3 class="text-xl font-semibold text-slate-900 mb-6">Connection Status</h3>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div class="flex items-center space-x-4">
-                <div class={"w-3 h-3 rounded-full #{if @google_connected, do: "bg-green-400", else: "bg-slate-300"}"}></div>
-                <span class="text-sm text-slate-600">Google: <%= if @google_connected, do: "Connected", else: "Not connected" %></span>
+                <div class={"w-3 h-3 rounded-full #{if @google_connected, do: "bg-green-400", else: "bg-slate-300"}"}>
+                </div>
+                <span class="text-sm text-slate-600">
+                  Google: {if @google_connected, do: "Connected", else: "Not connected"}
+                </span>
               </div>
               <div class="flex items-center space-x-4">
-                <div class={"w-3 h-3 rounded-full #{if @hubspot_connected, do: "bg-green-400", else: "bg-slate-300"}"}></div>
-                <span class="text-sm text-slate-600">HubSpot: <%= if @hubspot_connected, do: "Connected", else: "Not connected" %></span>
+                <div class={"w-3 h-3 rounded-full #{if @hubspot_connected, do: "bg-green-400", else: "bg-slate-300"}"}>
+                </div>
+                <span class="text-sm text-slate-600">
+                  HubSpot: {if @hubspot_connected, do: "Connected", else: "Not connected"}
+                </span>
               </div>
             </div>
           </div>

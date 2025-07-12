@@ -83,16 +83,9 @@ defmodule AdvisorAiWeb.ChatLive.Index do
       socket = assign(socket, :loading, true)
       IO.puts("DEBUG: Loading state set to true")
 
-      # Process with AI agent, streaming step logs
+      # Process with AI agent
       task =
         Task.async(fn ->
-          # Example: simulate step-by-step logging (replace with real steps in production)
-          send(self(), {:system_step, "Step 1: Checking HubSpot contacts..."})
-          Process.sleep(500)
-          send(self(), {:system_step, "Step 2: Creating new contact if not found..."})
-          Process.sleep(500)
-          send(self(), {:system_step, "Step 3: Adding note about the email..."})
-          Process.sleep(500)
           result = Agent.process_user_message(user, conversation.id, message)
           IO.puts("DEBUG: Agent result: #{inspect(result)}")
           result
@@ -147,10 +140,13 @@ defmodule AdvisorAiWeb.ChatLive.Index do
       case action do
         "who_kid_baseball" ->
           "Who mentioned their kid plays baseball?"
+
         "why_greg_sell_aapl" ->
           "Why did Greg say he wanted to sell AAPL stock?"
+
         "schedule_appointment_sara" ->
           "Schedule an appointment with Sara Smith"
+
         _ ->
           "How can you help me with my financial needs?"
       end
@@ -350,11 +346,11 @@ defmodule AdvisorAiWeb.ChatLive.Index do
     {:noreply, socket}
   end
 
-  @impl true
-  def handle_info({:system_step, step_content}, socket) do
-    socket = insert_system_message(socket, step_content)
-    {:noreply, socket}
-  end
+  # @impl true
+  # def handle_info({:system_step, step_content}, socket) do
+  #   socket = insert_system_message(socket, step_content)
+  #   {:noreply, socket}
+  # end
 
   defp generate_conversation_title(content) do
     # Extract first few words as title
