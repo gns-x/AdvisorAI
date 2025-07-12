@@ -55,6 +55,7 @@ defmodule AdvisorAiWeb.Router do
     post "/webhooks/calendar", WebhookController, :calendar
     post "/webhooks/hubspot", WebhookController, :hubspot
     post "/test/email-automation", WebhookController, :test_email_automation
+    post "/test/hubspot-contact-creation", WebhookController, :test_hubspot_contact_creation
     post "/process-email", WebhookController, :process_manual_email
   end
 
