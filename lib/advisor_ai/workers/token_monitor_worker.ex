@@ -114,8 +114,7 @@ defmodule AdvisorAi.Workers.TokenMonitorWorker do
   defp create_notification_message(user, content, notification_type) do
     # Create a system conversation for notifications
     {:ok, conversation} =
-      Chat.create_conversation(%{
-        user_id: user.id,
+      Chat.create_conversation(user.id, %{
         title: "System Notifications"
       })
 
