@@ -478,12 +478,13 @@ defmodule AdvisorAi.Integrations.Calendar do
       slot_end = DateTime.add(current, 30 * 60, :second)
 
       if DateTime.compare(slot_end, end_dt) == :lt or DateTime.compare(slot_end, end_dt) == :eq do
+        # Check if this slot overlaps with any busy time
         is_available =
           Enum.all?(busy_ranges, fn {busy_start, busy_end} ->
-            DateTime.compare(current, busy_end) == :gt or
-              DateTime.compare(current, busy_end) == :eq or
-              DateTime.compare(slot_end, busy_start) == :lt or
-              DateTime.compare(slot_end, busy_start) == :eq
+            # Slot is available if it doesn't overlap with this busy time
+            # Slot ends before busy time starts OR slot starts after busy time ends
+            DateTime.compare(slot_end, busy_start) == :lt or
+              DateTime.compare(current, busy_end) == :gt
           end)
 
         new_slots =
