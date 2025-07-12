@@ -865,53 +865,14 @@ defmodule AdvisorAi.AI.UniversalAgent do
     Date.add(today, days_ahead)
   end
 
-  # Check availability and schedule appointment
+  # Schedule appointment automatically without availability checking
   defp check_and_schedule_appointment(user, conversation_id, contact_name, contact_email, date, time, duration_minutes) do
     # Create datetime for the requested time
     requested_datetime = DateTime.new!(date, time, DateTime.utc_now().time_zone)
     end_datetime = DateTime.add(requested_datetime, duration_minutes * 60, :second)
 
-    # Check if the requested time is available
-    case Calendar.get_availability(user, Date.to_string(date), duration_minutes) do
-      {:ok, available_slots} ->
-        # Check if requested time overlaps with any available slot
-        requested_start = DateTime.to_iso8601(requested_datetime)
-        requested_end = DateTime.to_iso8601(end_datetime)
-
-        is_available = Enum.any?(available_slots, fn slot ->
-          slot_start = slot["start"]
-          slot_end = slot["end"]
-
-          # Check if requested time fits within an available slot
-          requested_start >= slot_start and requested_end <= slot_end
-        end)
-
-        if is_available do
-          # Time is available, schedule the appointment
-          schedule_appointment_at_time(user, conversation_id, contact_name, contact_email, requested_datetime, end_datetime, duration_minutes)
-        else
-          # Time is busy, suggest alternative times
-          suggest_alternative_times(user, conversation_id, contact_name, contact_email, available_slots, duration_minutes)
-        end
-
-      {:error, reason} ->
-        # Error checking availability, try to schedule anyway
-        warning_message = """
-        ⚠️ I couldn't check your calendar availability, but I'll try to schedule the appointment for #{format_datetime_for_chat(DateTime.to_iso8601(requested_datetime))}.
-
-        If there's a conflict, you'll receive a calendar notification.
-        """
-
-        case schedule_appointment_at_time(user, conversation_id, contact_name, contact_email, requested_datetime, end_datetime, duration_minutes) do
-          {:ok, result} ->
-            # Combine warning with success message
-            combined_message = warning_message <> "\n\n" <> result
-            create_agent_response(user, conversation_id, combined_message, "action")
-
-          {:error, reason} ->
-            create_agent_response(user, conversation_id, "Failed to schedule appointment: #{reason}", "error")
-        end
-    end
+    # Automatically schedule the appointment
+    schedule_appointment_at_time(user, conversation_id, contact_name, contact_email, requested_datetime, end_datetime, duration_minutes)
   end
 
   # Schedule appointment at specific time
@@ -987,39 +948,7 @@ defmodule AdvisorAi.AI.UniversalAgent do
     end
   end
 
-  # Suggest alternative times when requested time is busy
-  defp suggest_alternative_times(user, conversation_id, contact_name, contact_email, available_slots, duration_minutes) do
-    # Format available times for display
-    formatted_times = available_slots
-    |> Enum.take(5)  # Show up to 5 alternatives
-    |> Enum.map(fn slot ->
-      start_time = slot["start"]
-      case DateTime.from_iso8601(start_time) do
-        {:ok, dt, _} ->
-          formatted = Calendar.strftime(dt, "%A, %B %d at %I:%M %p")
-          "• #{formatted}"
-        _ ->
-          nil
-      end
-    end)
-    |> Enum.filter(&(&1 != nil))
-    |> Enum.join("\n")
 
-    suggestion_message = """
-    ❌ The requested time is busy, but here are some available alternatives:
-
-    #{formatted_times}
-
-    **Please choose one of these times or provide a different date/time.**
-
-    **Example responses:**
-    - "Yes, Monday at 2 PM works"
-    - "How about Tuesday at 10 AM?"
-    - "Can we do Friday at 3 PM?"
-    """
-
-    create_agent_response(user, conversation_id, suggestion_message, "conversation")
-  end
 
   # Decide next workflow step using LLM and state
   defp get_next_workflow_step(workflow_state) do
