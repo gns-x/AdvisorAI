@@ -502,35 +502,11 @@ defmodule AdvisorAi.AI.UniversalAgent do
 
   # Start a new workflow or process as normal
   defp process_or_start_workflow(user, conversation_id, user_message) do
-    # Detect 'Schedule an appointment with [Name]' and create persistent instruction
+    # Detect 'Schedule an appointment with [Name]' and immediately schedule appointment
     case Regex.run(~r/^schedule an appointment with ([a-zA-Z .'-]+)$/i, String.trim(user_message)) do
       [_, name] ->
-        # Build a persistent instruction for this contact
-        instruction_text =
-          "When I receive an email from #{name}, automatically handle appointment scheduling: look up in HubSpot, email with available times, add to calendar, update HubSpot, and follow up as needed."
-
-        instruction_data = %{
-          trigger_type: "email_received",
-          instruction: instruction_text,
-          conditions: %{
-            "appointment_workflow" => true,
-            "contact_name" => name
-          }
-        }
-
-        case store_ongoing_instruction(user, instruction_data) do
-          {:ok, _instruction} ->
-            # Show confirmation message in chat
-            confirmation = build_instruction_confirmation(instruction_data)
-
-            case create_agent_response(user, conversation_id, confirmation, "conversation") do
-              {:ok, message} -> {:ok, message}
-              {:error, reason} -> {:error, reason}
-            end
-
-          {:error, reason} ->
-            {:error, "Failed to store instruction: #{reason}"}
-        end
+        # Immediately try to schedule appointment with the given name
+        schedule_appointment_with_name(user, conversation_id, name)
 
       _ ->
         # Use WorkflowGenerator to check if this is a complex request
@@ -565,6 +541,255 @@ defmodule AdvisorAi.AI.UniversalAgent do
             # Not a workflow, process as normal
             process_normal_request(user, conversation_id, user_message)
         end
+    end
+  end
+
+  # Schedule appointment with a specific name by searching contacts and emails
+  defp schedule_appointment_with_name(user, conversation_id, name) do
+    # First, search for the contact in HubSpot
+    case HubSpot.search_contacts(user, name) do
+      {:ok, [contact | _]} ->
+        # Contact found in HubSpot
+        properties = contact["properties"] || %{}
+        contact_email = properties["email"]
+        contact_name = "#{properties["firstname"] || ""} #{properties["lastname"] || ""}" |> String.trim()
+
+        if contact_email do
+          # Contact has email, proceed with scheduling
+          schedule_appointment_with_email(user, conversation_id, contact_name, contact_email)
+        else
+          # Contact found but no email
+          create_agent_response(
+            user,
+            conversation_id,
+            "I found #{contact_name} in your HubSpot contacts, but they don't have an email address. Please provide their email address to schedule an appointment.",
+            "error"
+          )
+        end
+
+      {:ok, []} ->
+        # Contact not found in HubSpot, search emails
+        case Gmail.search_emails(user, "from:#{name} OR subject:#{name}") do
+          {:ok, [email | _]} ->
+            # Found email from this person
+            contact_email = email.from
+            schedule_appointment_with_email(user, conversation_id, name, contact_email)
+
+          {:ok, []} ->
+            # No contact or email found
+            create_agent_response(
+              user,
+              conversation_id,
+              "I couldn't find any contact or email from #{name} in your HubSpot contacts or email history. Please provide their email address or create a contact first.",
+              "error"
+            )
+
+          {:error, _} ->
+            # Error searching emails
+            create_agent_response(
+              user,
+              conversation_id,
+              "I couldn't find #{name} in your HubSpot contacts, and there was an error searching your emails. Please provide their email address or create a contact first.",
+              "error"
+            )
+        end
+
+      {:error, _} ->
+        # Error searching HubSpot
+        create_agent_response(
+          user,
+          conversation_id,
+          "There was an error searching your HubSpot contacts for #{name}. Please provide their email address or try again later.",
+          "error"
+        )
+    end
+  end
+
+  # Schedule appointment with a specific email address
+  defp schedule_appointment_with_email(user, conversation_id, contact_name, contact_email) do
+    # Get available times for today and tomorrow
+    today = Date.utc_today() |> Date.to_string()
+    tomorrow = Date.add(Date.utc_today(), 1) |> Date.to_string()
+
+    case Calendar.get_availability(user, today, 60) do
+      {:ok, available_times} when length(available_times) > 0 ->
+        # Found available times, schedule the appointment
+        first_available = List.first(available_times)
+        start_time = first_available["start"]
+        end_time = first_available["end"]
+
+        # Create calendar event
+        event_params = %{
+          "summary" => "Appointment with #{contact_name}",
+          "start_time" => start_time,
+          "end_time" => end_time,
+          "attendees" => [contact_email]
+        }
+
+        case Calendar.create_event(user, event_params) do
+          {:ok, event} ->
+            # Send confirmation email
+            email_params = %{
+              "to" => contact_email,
+              "subject" => "Appointment Confirmed - #{event_params["summary"]}",
+              "body" => """
+              Hi #{contact_name},
+
+              Your appointment has been scheduled for #{format_datetime_for_chat(start_time)}.
+
+              I'll send you a calendar invitation shortly.
+
+              Best regards,
+              #{user.name}
+              """
+            }
+
+            case Gmail.send_email(user, email_params) do
+              {:ok, _} ->
+                # Success! Show confirmation in chat
+                confirmation_message = """
+                ✅ Appointment scheduled successfully!
+
+                **Details:**
+                - **Contact:** #{contact_name} (#{contact_email})
+                - **Time:** #{format_datetime_for_chat(start_time)}
+                - **Duration:** 1 hour
+
+                I've sent a confirmation email to #{contact_email} and added the appointment to your calendar.
+                """
+
+                create_agent_response(user, conversation_id, confirmation_message, "action")
+
+              {:error, email_error} ->
+                # Calendar event created but email failed
+                warning_message = """
+                ⚠️ Appointment scheduled but email failed to send
+
+                **Details:**
+                - **Contact:** #{contact_name} (#{contact_email})
+                - **Time:** #{format_datetime_for_chat(start_time)}
+                - **Duration:** 1 hour
+
+                The appointment was added to your calendar, but I couldn't send the confirmation email: #{email_error}
+                """
+
+                create_agent_response(user, conversation_id, warning_message, "action")
+            end
+
+          {:error, calendar_error} ->
+            # Failed to create calendar event
+            create_agent_response(
+              user,
+              conversation_id,
+              "I found #{contact_name} (#{contact_email}) but couldn't schedule the appointment: #{calendar_error}. Please try again or check your calendar settings.",
+              "error"
+            )
+        end
+
+      {:ok, []} ->
+        # No available times today, check tomorrow
+        case Calendar.get_availability(user, tomorrow, 60) do
+          {:ok, available_times} when length(available_times) > 0 ->
+            # Found available times tomorrow
+            first_available = List.first(available_times)
+            start_time = first_available["start"]
+            end_time = first_available["end"]
+
+            # Create calendar event for tomorrow
+            event_params = %{
+              "summary" => "Appointment with #{contact_name}",
+              "start_time" => start_time,
+              "end_time" => end_time,
+              "attendees" => [contact_email]
+            }
+
+            case Calendar.create_event(user, event_params) do
+              {:ok, event} ->
+                # Send confirmation email
+                email_params = %{
+                  "to" => contact_email,
+                  "subject" => "Appointment Confirmed - #{event_params["summary"]}",
+                  "body" => """
+                  Hi #{contact_name},
+
+                  Your appointment has been scheduled for #{format_datetime_for_chat(start_time)}.
+
+                  I'll send you a calendar invitation shortly.
+
+                  Best regards,
+                  #{user.name}
+                  """
+                }
+
+                case Gmail.send_email(user, email_params) do
+                  {:ok, _} ->
+                    # Success! Show confirmation in chat
+                    confirmation_message = """
+                    ✅ Appointment scheduled successfully!
+
+                    **Details:**
+                    - **Contact:** #{contact_name} (#{contact_email})
+                    - **Time:** #{format_datetime_for_chat(start_time)} (tomorrow)
+                    - **Duration:** 1 hour
+
+                    I've sent a confirmation email to #{contact_email} and added the appointment to your calendar.
+                    """
+
+                    create_agent_response(user, conversation_id, confirmation_message, "action")
+
+                  {:error, email_error} ->
+                    # Calendar event created but email failed
+                    warning_message = """
+                    ⚠️ Appointment scheduled but email failed to send
+
+                    **Details:**
+                    - **Contact:** #{contact_name} (#{contact_email})
+                    - **Time:** #{format_datetime_for_chat(start_time)} (tomorrow)
+                    - **Duration:** 1 hour
+
+                    The appointment was added to your calendar, but I couldn't send the confirmation email: #{email_error}
+                    """
+
+                    create_agent_response(user, conversation_id, warning_message, "action")
+                end
+
+              {:error, calendar_error} ->
+                # Failed to create calendar event
+                create_agent_response(
+                  user,
+                  conversation_id,
+                  "I found #{contact_name} (#{contact_email}) but couldn't schedule the appointment: #{calendar_error}. Please try again or check your calendar settings.",
+                  "error"
+                )
+            end
+
+          {:ok, []} ->
+            # No available times today or tomorrow
+            create_agent_response(
+              user,
+              conversation_id,
+              "I found #{contact_name} (#{contact_email}), but you don't have any available 1-hour slots today or tomorrow. Please provide a specific date and time for the appointment.",
+              "error"
+            )
+
+          {:error, _} ->
+            # Error checking availability
+            create_agent_response(
+              user,
+              conversation_id,
+              "I found #{contact_name} (#{contact_email}), but there was an error checking your calendar availability. Please try again or provide a specific date and time.",
+              "error"
+            )
+        end
+
+      {:error, _} ->
+        # Error checking availability
+        create_agent_response(
+          user,
+          conversation_id,
+          "I found #{contact_name} (#{contact_email}), but there was an error checking your calendar availability. Please try again or provide a specific date and time.",
+          "error"
+        )
     end
   end
 
