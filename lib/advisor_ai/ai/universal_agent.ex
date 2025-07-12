@@ -902,7 +902,7 @@ defmodule AdvisorAi.AI.UniversalAgent do
           """
         }
 
-        case Gmail.send_email(user, email_params) do
+        case Gmail.send_email(user, email_params["to"], email_params["subject"], email_params["body"]) do
           {:ok, _} ->
             # Success! Show confirmation in chat
             confirmation_message = """
