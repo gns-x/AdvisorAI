@@ -139,7 +139,8 @@ defmodule AdvisorAi.AI.WorkflowGenerator do
         "params" => %{
           "to" => "contact_email",
           "subject" => "Let's set up an appointment",
-          "body" => "Here are my available times: {available_times}. Please reply with what works for you."
+          "body" =>
+            "Here are my available times: {available_times}. Please reply with what works for you."
         },
         "description" => "Send an email to the contact proposing available times.",
         "depends_on" => 3
@@ -203,7 +204,8 @@ defmodule AdvisorAi.AI.WorkflowGenerator do
           "condition" => "if_appointment_scheduled",
           "to" => "contact_email",
           "subject" => "Appointment Confirmed",
-          "body" => "Your appointment is confirmed for {chosen_time}. Looking forward to speaking with you!"
+          "body" =>
+            "Your appointment is confirmed for {chosen_time}. Looking forward to speaking with you!"
         },
         "description" => "Send a confirmation email to the contact if appointment was scheduled.",
         "depends_on" => 8
@@ -220,7 +222,6 @@ defmodule AdvisorAi.AI.WorkflowGenerator do
          String.contains?(message_lower, "arrange a meeting") or
          String.contains?(message_lower, "schedule with") or
          String.contains?(message_lower, "meet with") do
-
       # Use LLM to generate a more sophisticated workflow for appointment scheduling
       system_prompt = """
       You are an expert workflow generator for appointment scheduling. Generate a detailed, flexible workflow that can handle edge cases.
@@ -413,6 +414,7 @@ defmodule AdvisorAi.AI.WorkflowGenerator do
     cond do
       String.contains?(request, "with") ->
         parts = String.split(request, "with")
+
         if length(parts) > 1 do
           contact_part = Enum.at(parts, 1) |> String.trim()
           %{"contact_name_or_email" => contact_part}

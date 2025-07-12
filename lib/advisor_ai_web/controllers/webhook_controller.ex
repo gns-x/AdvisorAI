@@ -203,8 +203,8 @@ defmodule AdvisorAiWeb.WebhookController do
     # Extract user from the message
     case get_user_from_message(message) do
       {:ok, user} ->
-              # Extract email data for automation
-              email_data = extract_email_data_for_automation(message)
+        # Extract email data for automation
+        email_data = extract_email_data_for_automation(message)
 
         # Use universal agent to proactively handle the email
         case handle_proactive_email_response(user, email_data) do
@@ -229,15 +229,19 @@ defmodule AdvisorAiWeb.WebhookController do
   defp handle_proactive_email_response(user, email_data) do
     # Create a temporary conversation for the proactive response
     case AdvisorAi.Chat.create_conversation(%{
-      user_id: user.id,
-      title: "Proactive Response - #{email_data.subject}"
-    }) do
+           user_id: user.id,
+           title: "Proactive Response - #{email_data.subject}"
+         }) do
       {:ok, conversation} ->
         # Build a proactive prompt for the AI to analyze and respond
         proactive_prompt = build_proactive_email_prompt(email_data)
 
         # Use enhanced universal agent to handle the email intelligently with memory and RAG
-        case AdvisorAi.AI.UniversalAgent.process_proactive_request(user, conversation.id, proactive_prompt) do
+        case AdvisorAi.AI.UniversalAgent.process_proactive_request(
+               user,
+               conversation.id,
+               proactive_prompt
+             ) do
           {:ok, _response} ->
             {:ok, "Proactive response generated"}
 
@@ -259,9 +263,11 @@ defmodule AdvisorAiWeb.WebhookController do
       {:ok, results} when is_list(results) and length(results) > 0 ->
         require Logger
         Logger.info("✅ HubSpot automation triggered: #{length(results)} rules executed")
+
       {:ok, _} ->
         require Logger
         Logger.info("✅ HubSpot automation triggered")
+
       {:error, reason} ->
         require Logger
         Logger.error("❌ HubSpot automation failed: #{reason}")
@@ -269,15 +275,19 @@ defmodule AdvisorAiWeb.WebhookController do
 
     # Then, create a proactive conversation for AI analysis
     case AdvisorAi.Chat.create_conversation(%{
-      user_id: user.id,
-      title: "HubSpot Event - #{hubspot_data["type"] || "Update"}"
-    }) do
+           user_id: user.id,
+           title: "HubSpot Event - #{hubspot_data["type"] || "Update"}"
+         }) do
       {:ok, conversation} ->
         # Build a proactive prompt for the AI to analyze and respond
         proactive_prompt = build_proactive_hubspot_prompt(hubspot_data)
 
         # Use enhanced universal agent to handle the HubSpot event intelligently with memory and RAG
-        case AdvisorAi.AI.UniversalAgent.process_proactive_request(user, conversation.id, proactive_prompt) do
+        case AdvisorAi.AI.UniversalAgent.process_proactive_request(
+               user,
+               conversation.id,
+               proactive_prompt
+             ) do
           {:ok, _response} ->
             {:ok, "Proactive HubSpot response generated"}
 
@@ -299,9 +309,11 @@ defmodule AdvisorAiWeb.WebhookController do
       {:ok, results} when is_list(results) and length(results) > 0 ->
         require Logger
         Logger.info("✅ Calendar automation triggered: #{length(results)} rules executed")
+
       {:ok, _} ->
         require Logger
         Logger.info("✅ Calendar automation triggered")
+
       {:error, reason} ->
         require Logger
         Logger.error("❌ Calendar automation failed: #{reason}")
@@ -309,15 +321,19 @@ defmodule AdvisorAiWeb.WebhookController do
 
     # Then, create a proactive conversation for AI analysis
     case AdvisorAi.Chat.create_conversation(%{
-      user_id: user.id,
-      title: "Calendar Event - #{event_data["summary"] || "New Event"}"
-    }) do
+           user_id: user.id,
+           title: "Calendar Event - #{event_data["summary"] || "New Event"}"
+         }) do
       {:ok, conversation} ->
         # Build a proactive prompt for the AI to analyze and respond
         proactive_prompt = build_proactive_calendar_prompt(event_data)
 
         # Use enhanced universal agent to handle the calendar event intelligently with memory and RAG
-        case AdvisorAi.AI.UniversalAgent.process_proactive_request(user, conversation.id, proactive_prompt) do
+        case AdvisorAi.AI.UniversalAgent.process_proactive_request(
+               user,
+               conversation.id,
+               proactive_prompt
+             ) do
           {:ok, _response} ->
             {:ok, "Proactive calendar response generated"}
 

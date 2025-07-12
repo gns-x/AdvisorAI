@@ -671,9 +671,10 @@ defmodule AdvisorAi.Integrations.HubSpot do
       {:ok, access_token} ->
         url = "#{@hubspot_api_url}/crm/v3/objects/contacts/#{contact_id}"
 
-        params = URI.encode_query(%{
-          properties: "email,firstname,lastname,company,phone,jobtitle"
-        })
+        params =
+          URI.encode_query(%{
+            properties: "email,firstname,lastname,company,phone,jobtitle"
+          })
 
         case HTTPoison.get("#{url}?#{params}", [
                {"Authorization", "Bearer #{access_token}"},

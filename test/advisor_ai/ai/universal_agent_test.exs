@@ -658,13 +658,18 @@ defmodule AdvisorAi.AI.UniversalAgentTest do
       email_data = %{
         from: "client@example.com",
         subject: "When is our meeting?",
-        body: "Hi, I was wondering when our upcoming meeting is scheduled for. Can you let me know the details?"
+        body:
+          "Hi, I was wondering when our upcoming meeting is scheduled for. Can you let me know the details?"
       }
 
       # This would normally be called by the webhook controller
       # For testing, we'll simulate the proactive response
-      result = UniversalAgent.process_proactive_request(user, conversation.id,
-        "A new email was received from client@example.com asking about an upcoming meeting. Please look up their meeting details and respond.")
+      result =
+        UniversalAgent.process_proactive_request(
+          user,
+          conversation.id,
+          "A new email was received from client@example.com asking about an upcoming meeting. Please look up their meeting details and respond."
+        )
 
       assert is_tuple(result)
       # Should attempt to find meetings and respond
@@ -680,8 +685,12 @@ defmodule AdvisorAi.AI.UniversalAgentTest do
       }
 
       # Simulate proactive calendar event handling
-      result = UniversalAgent.process_proactive_request(user, conversation.id,
-        "A new calendar event was created: Client Meeting with client@example.com. Please notify attendees and add notes to HubSpot.")
+      result =
+        UniversalAgent.process_proactive_request(
+          user,
+          conversation.id,
+          "A new calendar event was created: Client Meeting with client@example.com. Please notify attendees and add notes to HubSpot."
+        )
 
       assert is_tuple(result)
       # Should attempt to notify attendees and add notes
@@ -698,8 +707,12 @@ defmodule AdvisorAi.AI.UniversalAgentTest do
       }
 
       # Simulate proactive HubSpot event handling
-      result = UniversalAgent.process_proactive_request(user, conversation.id,
-        "A new contact was created in HubSpot: New Client (newclient@example.com). Please send them a welcome email.")
+      result =
+        UniversalAgent.process_proactive_request(
+          user,
+          conversation.id,
+          "A new contact was created in HubSpot: New Client (newclient@example.com). Please send them a welcome email."
+        )
 
       assert is_tuple(result)
       # Should attempt to send welcome email

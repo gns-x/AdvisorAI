@@ -14,14 +14,18 @@ defmodule AdvisorAi.Integrations.Calendar do
             case event_data["attendees"] do
               [first | _] ->
                 if String.contains?(first, "@"), do: first, else: "Attendee"
+
               _ ->
                 "Attendee"
             end
+
           time = event_data["start_time"] || "(No time)"
           "Meeting with #{contact} on #{time}"
+
         t ->
           t
       end
+
     event = %{
       summary: title,
       description: event_data["description"],

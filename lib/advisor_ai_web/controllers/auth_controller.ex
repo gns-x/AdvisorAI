@@ -93,15 +93,23 @@ defmodule AdvisorAiWeb.AuthController do
 
             # Set up Gmail push notifications for this user
             webhook_url = "https://advisorai-production.up.railway.app/webhook/gmail"
+
             case AdvisorAi.Integrations.Gmail.setup_push_notifications(updated_user, webhook_url) do
               {:ok, _} ->
                 conn
-                |> put_flash(:info, "Google connected successfully! Real-time email automation is now enabled.")
+                |> put_flash(
+                  :info,
+                  "Google connected successfully! Real-time email automation is now enabled."
+                )
                 |> assign(:current_user, updated_user)
                 |> redirect(to: ~p"/settings/integrations")
+
               {:error, reason} ->
                 conn
-                |> put_flash(:error, "Google connected, but real-time email automation could not be enabled: #{reason}")
+                |> put_flash(
+                  :error,
+                  "Google connected, but real-time email automation could not be enabled: #{reason}"
+                )
                 |> assign(:current_user, updated_user)
                 |> redirect(to: ~p"/settings/integrations")
             end
