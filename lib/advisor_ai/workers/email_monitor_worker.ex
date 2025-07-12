@@ -157,22 +157,15 @@ defmodule AdvisorAi.Workers.EmailMonitorWorker do
            title: "Meeting Inquiry - #{email_data.subject}"
          }) do
       {:ok, conversation} ->
-        # Build a proactive prompt for meeting lookup
-        proactive_prompt = build_meeting_lookup_prompt(email_data)
-
-        # Use universal agent to handle the meeting lookup
-        case UniversalAgent.process_proactive_request(
-               user,
-               conversation.id,
-               proactive_prompt
-             ) do
-          {:ok, _response} ->
-            Logger.info("✅ Email Monitor: Meeting lookup completed for #{email_data.from}")
-            {:ok, "Meeting lookup completed"}
+        # First, look up calendar events for this person
+        case lookup_calendar_events_for_person(user, email_data.from) do
+          {:ok, events} ->
+            # Send email with meeting details
+            send_meeting_response_email(user, email_data.from, events)
 
           {:error, reason} ->
-            Logger.error("❌ Email Monitor: Meeting lookup failed: #{reason}")
-            {:error, "Meeting lookup failed: #{reason}"}
+            # Send email saying we couldn't check
+            send_error_response_email(user, email_data.from, reason)
         end
 
       {:error, reason} ->
@@ -181,31 +174,156 @@ defmodule AdvisorAi.Workers.EmailMonitorWorker do
     end
   end
 
+  defp lookup_calendar_events_for_person(user, email_address) do
+    # Search for calendar events that include this email address
+    case AdvisorAi.Integrations.Calendar.list_events(user, [
+           q: email_address,
+           time_min: DateTime.utc_now() |> DateTime.to_iso8601(),
+           max_results: 10
+         ]) do
+      {:ok, events} ->
+        # Filter events that actually include this person as an attendee
+        relevant_events = Enum.filter(events, fn event ->
+          attendees = get_in(event, ["attendees"]) || []
+          Enum.any?(attendees, fn attendee ->
+            attendee_email = get_in(attendee, ["email"])
+            String.downcase(attendee_email || "") == String.downcase(email_address)
+          end)
+        end)
+
+        {:ok, relevant_events}
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+  defp send_meeting_response_email(user, recipient_email, events) do
+    if length(events) > 0 do
+      # Format meeting details
+      meeting_details = Enum.map_join(events, "\n", fn event ->
+        summary = event["summary"] || "Meeting"
+        start_time = get_in(event, ["start", "dateTime"]) || get_in(event, ["start", "date"])
+        end_time = get_in(event, ["end", "dateTime"]) || get_in(event, ["end", "date"])
+
+        "• #{summary} on #{start_time}"
+      end)
+
+      subject = "Re: Your upcoming meetings"
+      body = """
+      Hi there,
+
+      I found your upcoming meetings:
+
+      #{meeting_details}
+
+      Let me know if you need anything else!
+
+      Best regards,
+      #{user.name || "Hamza"}
+      """
+
+      case AdvisorAi.Integrations.Gmail.send_email(user, recipient_email, subject, body) do
+        {:ok, _} ->
+          Logger.info("✅ Email Monitor: Sent meeting details to #{recipient_email}")
+          {:ok, "Meeting response sent"}
+
+        {:error, reason} ->
+          Logger.error("❌ Email Monitor: Failed to send meeting response: #{reason}")
+          {:error, "Failed to send email: #{reason}"}
+      end
+    else
+      # No meetings found
+      subject = "Re: Your upcoming meetings"
+      body = """
+      Hi there,
+
+      I checked our calendar and I don't see any upcoming meetings scheduled with you. Would you like me to help you schedule one?
+
+      Best regards,
+      #{user.name || "Hamza"}
+      """
+
+      case AdvisorAi.Integrations.Gmail.send_email(user, recipient_email, subject, body) do
+        {:ok, _} ->
+          Logger.info("✅ Email Monitor: Sent no-meetings response to #{recipient_email}")
+          {:ok, "No meetings response sent"}
+
+        {:error, reason} ->
+          Logger.error("❌ Email Monitor: Failed to send no-meetings response: #{reason}")
+          {:error, "Failed to send email: #{reason}"}
+      end
+    end
+  end
+
+  defp send_error_response_email(user, recipient_email, error) do
+    subject = "Re: Your upcoming meetings"
+    body = """
+    Hi there,
+
+    I'm having trouble checking our calendar right now. Please try again later or contact me directly.
+
+    Best regards,
+    #{user.name || "Hamza"}
+    """
+
+    case AdvisorAi.Integrations.Gmail.send_email(user, recipient_email, subject, body) do
+      {:ok, _} ->
+        Logger.info("✅ Email Monitor: Sent error response to #{recipient_email}")
+        {:ok, "Error response sent"}
+
+      {:error, reason} ->
+        Logger.error("❌ Email Monitor: Failed to send error response: #{reason}")
+        {:error, "Failed to send email: #{reason}"}
+    end
+  end
+
   defp build_meeting_lookup_prompt(email_data) do
     """
-    A client has emailed asking about an upcoming meeting. You MUST help them by looking up their meeting details and sending them a response.
+    A client has emailed asking about an upcoming meeting. You MUST look up their calendar events and send them a specific response.
 
     **Email Details:**
     From: #{email_data.from}
     Subject: #{email_data.subject}
     Body: #{email_data.body}
 
-    **REQUIRED ACTIONS (you MUST do both):**
-    1. First, use universal_action with action="list_events" and query="#{email_data.from}" to search for calendar events with this person
-    2. Then, use universal_action with action="send_email" to send a response to #{email_data.from}
+    **STEP-BY-STEP INSTRUCTIONS (follow exactly):**
 
-    **Email Response Guidelines:**
-    - If meetings are found: Send a friendly email with the meeting details
-    - If no meetings found: Send a friendly email saying no meetings are scheduled and offer to help schedule one
-    - Be professional but warm
-    - Include the meeting time, date, and any other relevant details
-    - Sign off appropriately
+    STEP 1: Search for calendar events
+    - Use universal_action with action="list_events" and query="#{email_data.from}"
+    - This will find any calendar events that include #{email_data.from} as an attendee
+    - Wait for the results before proceeding
 
-    **CRITICAL**: You MUST use the universal_action tool TWICE:
-    1. First call: action="list_events" to find meetings
-    2. Second call: action="send_email" to respond to the client
+    STEP 2: Send email response based on results
+    - If events are found: Send email with specific meeting details (date, time, title)
+    - If no events found: Send email saying "I don't see any upcoming meetings scheduled with you"
+    - Use universal_action with action="send_email", to="#{email_data.from}"
 
-    Do not generate fake responses - actually call the tools and send the email.
+    **EXAMPLE EMAIL RESPONSES:**
+
+    If meetings found:
+    "Hi Mark,
+
+    I found your upcoming meeting: [Meeting Title] on [Date] at [Time].
+
+    Let me know if you need anything else!
+
+    Best regards,
+    Hamza"
+
+    If no meetings found:
+    "Hi Mark,
+
+    I checked our calendar and I don't see any upcoming meetings scheduled with you. Would you like me to help you schedule one?
+
+    Best regards,
+    Hamza"
+
+    **CRITICAL**:
+    - DO NOT send generic "I will get back to you" messages
+    - DO NOT say "I am currently checking" - actually check and provide results
+    - You MUST call list_events first, then send_email with the specific results
+    - Always include actual meeting details or clearly state no meetings found
     """
   end
 
