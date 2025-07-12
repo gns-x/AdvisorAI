@@ -528,8 +528,8 @@ defmodule AdvisorAi.AI.UniversalAgent do
               {:error, reason} -> {:error, reason}
             end
 
-            # Proceed with the normal workflow for this request as well
-            process_normal_request(user, conversation_id, user_message)
+            # Don't proceed with normal workflow - we've already handled this as an instruction
+            {:ok, nil}
 
           {:error, reason} ->
             {:error, "Failed to store instruction: #{reason}"}

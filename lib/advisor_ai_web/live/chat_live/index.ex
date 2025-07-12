@@ -151,8 +151,40 @@ defmodule AdvisorAiWeb.ChatLive.Index do
           "How can you help me with my financial needs?"
       end
 
-    # Trigger the send_message event with the quick action message
-    handle_event("send_message", %{"message" => message}, socket)
+    # Process the quick action message directly without creating duplicate user message
+    if String.trim(message) != "" do
+      user = socket.assigns.current_user
+      conversation = socket.assigns.current_conversation
+
+      # Create user message
+      {:ok, user_message} =
+        Chat.create_message(conversation.id, %{
+          role: "user",
+          content: message
+        })
+
+      # Add user message to stream
+      socket = stream_insert(socket, :messages, user_message, at: -1)
+
+      # Set loading state
+      socket = assign(socket, :loading, true)
+      IO.puts("DEBUG: Loading state set to true")
+
+      # Process with AI agent
+      task =
+        Task.async(fn ->
+          result = Agent.process_user_message(user, conversation.id, message)
+          IO.puts("DEBUG: Agent result: #{inspect(result)}")
+          result
+        end)
+
+      {:noreply,
+       socket
+       |> assign(:new_message, "")
+       |> assign(:loading, true)}
+    else
+      {:noreply, socket}
+    end
   end
 
   @impl true
