@@ -410,8 +410,9 @@ defmodule AdvisorAiWeb.WebhookController do
     - If no meetings are found, let them know and offer to help schedule one
 
     **SPECIFIC INSTRUCTIONS FOR NEW CONTACTS:**
-    - If the sender is not in HubSpot, add them using universal_action with action="create_contact"
-    - Send them a welcome email using universal_action with action="send_email"
+    - If the sender is not in HubSpot and this is NOT an appointment scheduling request, add them using universal_action with action="create_contact"
+    - If the sender is not in HubSpot and this IS an appointment scheduling request, stop and inform the user to manually schedule the appointment
+    - Send them a welcome email using universal_action with action="send_email" (only for non-appointment requests)
     - Add a note to HubSpot about this interaction
 
     Use the available tools to:
