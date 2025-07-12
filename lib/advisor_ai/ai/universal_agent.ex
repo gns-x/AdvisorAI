@@ -607,42 +607,48 @@ defmodule AdvisorAi.AI.UniversalAgent do
 
     # Schedule appointment with a specific email address
   defp schedule_appointment_with_email(user, conversation_id, contact_name, contact_email) do
+    # Store contact information in conversation context for later use
+    context = Chat.get_conversation_context(conversation_id)
+    updated_context = Map.put(context, "pending_appointment", %{
+      "contact_name" => contact_name,
+      "contact_email" => contact_email
+    })
+    Chat.update_conversation_context(conversation_id, updated_context)
+
     # Check if calendar is connected and accessible
-    case Calendar.get_events(user, Date.utc_today() |> Date.to_string(), Date.add(Date.utc_today(), 7) |> Date.to_string()) do
-      {:ok, _events} ->
-        # Calendar is accessible, ask user for preferred time and duration
-        request_message = """
-        ✅ Great! I found #{contact_name} (#{contact_email}) and your calendar is connected.
+    if has_calendar_access?(user) do
+      # Calendar is accessible, ask user for preferred time and duration
+      request_message = """
+      ✅ Great! I found #{contact_name} (#{contact_email}) and your calendar is connected.
 
-        **Please provide:**
-        - **Preferred date and time** (e.g., "tomorrow at 2 PM" or "Friday at 10 AM")
-        - **Duration** (e.g., "30 minutes" or "1 hour")
+      **Please provide:**
+      - **Preferred date and time** (e.g., "tomorrow at 2 PM" or "Friday at 10 AM")
+      - **Duration** (e.g., "30 minutes" or "1 hour")
 
-        **Examples:**
-        - "Tomorrow at 3 PM for 1 hour"
-        - "Friday at 10 AM for 30 minutes"
-        - "Next Monday at 2 PM for 45 minutes"
+      **Examples:**
+      - "Tomorrow at 3 PM for 1 hour"
+      - "Friday at 10 AM for 30 minutes"
+      - "Next Monday at 2 PM for 45 minutes"
 
-        I'll check your calendar availability and schedule the appointment if the time is free, or suggest alternative times if it's busy.
-        """
+      I'll check your calendar availability and schedule the appointment if the time is free, or suggest alternative times if it's busy.
+      """
 
-        create_agent_response(user, conversation_id, request_message, "conversation")
+      create_agent_response(user, conversation_id, request_message, "conversation")
+    else
+      # Calendar not accessible, ask user to provide time manually
+      fallback_message = """
+      ✅ I found #{contact_name} (#{contact_email}), but I can't access your calendar right now.
 
-      {:error, _} ->
-        # Calendar not accessible, ask user to provide time manually
-        fallback_message = """
-        ✅ I found #{contact_name} (#{contact_email}), but I can't access your calendar right now.
+      **Please provide:**
+      - **Date and time** for the appointment
+      - **Duration** of the meeting
 
-        **Please provide:**
-        - **Date and time** for the appointment
-        - **Duration** of the meeting
+      **Example:** "Tomorrow at 2 PM for 1 hour"
 
-        **Example:** "Tomorrow at 2 PM for 1 hour"
+      Once you provide the details, I can help you schedule it manually.
+      """
 
-        Once you provide the details, I can help you schedule it manually.
-        """
-
-        create_agent_response(user, conversation_id, fallback_message, "conversation")
+      create_agent_response(user, conversation_id, fallback_message, "conversation")
     end
   end
 
@@ -653,7 +659,10 @@ defmodule AdvisorAi.AI.UniversalAgent do
       {:ok, %{date: date, time: time, duration_minutes: duration}} ->
         # Check if the requested time is available
         case check_and_schedule_appointment(user, conversation_id, contact_name, contact_email, date, time, duration) do
-          {:ok, result} -> {:ok, result}
+          {:ok, result} ->
+            # Clear the pending appointment context after successful scheduling
+            clear_pending_appointment_context(conversation_id)
+            {:ok, result}
           {:error, reason} -> {:error, reason}
         end
 
@@ -710,7 +719,7 @@ defmodule AdvisorAi.AI.UniversalAgent do
   defp extract_date_time_from_message(message) do
     message_lower = String.downcase(message)
 
-    # Handle "tomorrow at X"
+    # Try "tomorrow at X" pattern
     case Regex.run(~r/tomorrow\s+at\s+(\d{1,2})(?::(\d{2}))?\s*(am|pm)?/i, message_lower) do
       [_, hour, minute, ampm] ->
         tomorrow = Date.add(Date.utc_today(), 1)
@@ -739,70 +748,73 @@ defmodule AdvisorAi.AI.UniversalAgent do
         hour_int = String.to_integer(hour)
         time = Time.new!(hour_int, 0, 0)
         {:ok, tomorrow, time}
-    end
 
-    # Handle "today at X"
-    case Regex.run(~r/today\s+at\s+(\d{1,2})(?::(\d{2}))?\s*(am|pm)?/i, message_lower) do
-      [_, hour, minute, ampm] ->
-        today = Date.utc_today()
-        hour_int = String.to_integer(hour)
-        minute_int = if minute, do: String.to_integer(minute), else: 0
+      nil ->
+        # Try "today at X" pattern
+        case Regex.run(~r/today\s+at\s+(\d{1,2})(?::(\d{2}))?\s*(am|pm)?/i, message_lower) do
+          [_, hour, minute, ampm] ->
+            today = Date.utc_today()
+            hour_int = String.to_integer(hour)
+            minute_int = if minute, do: String.to_integer(minute), else: 0
 
-        hour_24 = case String.downcase(ampm) do
-          "pm" when hour_int < 12 -> hour_int + 12
-          "am" when hour_int == 12 -> 0
-          _ -> hour_int
+            hour_24 = case String.downcase(ampm) do
+              "pm" when hour_int < 12 -> hour_int + 12
+              "am" when hour_int == 12 -> 0
+              _ -> hour_int
+            end
+
+            time = Time.new!(hour_24, minute_int, 0)
+            {:ok, today, time}
+
+          [_, hour, minute] ->
+            today = Date.utc_today()
+            hour_int = String.to_integer(hour)
+            minute_int = if minute, do: String.to_integer(minute), else: 0
+            time = Time.new!(hour_int, minute_int, 0)
+            {:ok, today, time}
+
+          [_, hour] ->
+            today = Date.utc_today()
+            hour_int = String.to_integer(hour)
+            time = Time.new!(hour_int, 0, 0)
+            {:ok, today, time}
+
+          nil ->
+            # Try specific day pattern like "Friday at X"
+            case Regex.run(~r/(monday|tuesday|wednesday|thursday|friday|saturday|sunday)\s+at\s+(\d{1,2})(?::(\d{2}))?\s*(am|pm)?/i, message_lower) do
+              [_, day_name, hour, minute, ampm] ->
+                target_date = get_next_day_of_week(day_name)
+                hour_int = String.to_integer(hour)
+                minute_int = if minute, do: String.to_integer(minute), else: 0
+
+                hour_24 = case String.downcase(ampm) do
+                  "pm" when hour_int < 12 -> hour_int + 12
+                  "am" when hour_int == 12 -> 0
+                  _ -> hour_int
+                end
+
+                time = Time.new!(hour_24, minute_int, 0)
+                {:ok, target_date, time}
+
+              [_, day_name, hour, minute] ->
+                target_date = get_next_day_of_week(day_name)
+                hour_int = String.to_integer(hour)
+                minute_int = if minute, do: String.to_integer(minute), else: 0
+                time = Time.new!(hour_int, minute_int, 0)
+                {:ok, target_date, time}
+
+              [_, day_name, hour] ->
+                target_date = get_next_day_of_week(day_name)
+                hour_int = String.to_integer(hour)
+                time = Time.new!(hour_int, 0, 0)
+                {:ok, target_date, time}
+
+              nil ->
+                # If no patterns match, return error
+                {:error, "Could not parse date and time from message"}
+            end
         end
-
-        time = Time.new!(hour_24, minute_int, 0)
-        {:ok, today, time}
-
-      [_, hour, minute] ->
-        today = Date.utc_today()
-        hour_int = String.to_integer(hour)
-        minute_int = if minute, do: String.to_integer(minute), else: 0
-        time = Time.new!(hour_int, minute_int, 0)
-        {:ok, today, time}
-
-      [_, hour] ->
-        today = Date.utc_today()
-        hour_int = String.to_integer(hour)
-        time = Time.new!(hour_int, 0, 0)
-        {:ok, today, time}
     end
-
-    # Handle specific dates like "Friday at X"
-    case Regex.run(~r/(monday|tuesday|wednesday|thursday|friday|saturday|sunday)\s+at\s+(\d{1,2})(?::(\d{2}))?\s*(am|pm)?/i, message_lower) do
-      [_, day_name, hour, minute, ampm] ->
-        target_date = get_next_day_of_week(day_name)
-        hour_int = String.to_integer(hour)
-        minute_int = if minute, do: String.to_integer(minute), else: 0
-
-        hour_24 = case String.downcase(ampm) do
-          "pm" when hour_int < 12 -> hour_int + 12
-          "am" when hour_int == 12 -> 0
-          _ -> hour_int
-        end
-
-        time = Time.new!(hour_24, minute_int, 0)
-        {:ok, target_date, time}
-
-      [_, day_name, hour, minute] ->
-        target_date = get_next_day_of_week(day_name)
-        hour_int = String.to_integer(hour)
-        minute_int = if minute, do: String.to_integer(minute), else: 0
-        time = Time.new!(hour_int, minute_int, 0)
-        {:ok, target_date, time}
-
-      [_, day_name, hour] ->
-        target_date = get_next_day_of_week(day_name)
-        hour_int = String.to_integer(hour)
-        time = Time.new!(hour_int, 0, 0)
-        {:ok, target_date, time}
-    end
-
-    # If no patterns match, return error
-    {:error, "Could not parse date and time from message"}
   end
 
   # Get the next occurrence of a day of the week
@@ -1290,7 +1302,7 @@ defmodule AdvisorAi.AI.UniversalAgent do
   # Process normal requests (non-instruction requests)
   defp process_normal_request(user, conversation_id, user_message) do
     # Check if this is an appointment scheduling response
-    case detect_appointment_scheduling_response(user_message) do
+    case detect_appointment_scheduling_response(user, conversation_id, user_message) do
       {:ok, contact_name, contact_email} ->
         # This is a response to an appointment scheduling request
         handle_appointment_scheduling(user, conversation_id, user_message, contact_name, contact_email)
@@ -1342,7 +1354,7 @@ defmodule AdvisorAi.AI.UniversalAgent do
   end
 
   # Detect if this is a response to an appointment scheduling request
-  defp detect_appointment_scheduling_response(user_message) do
+  defp detect_appointment_scheduling_response(user, conversation_id, user_message) do
     # Check if the message contains time-related patterns
     time_patterns = [
       ~r/\d{1,2}(?::\d{2})?\s*(am|pm)/i,
@@ -1357,9 +1369,8 @@ defmodule AdvisorAi.AI.UniversalAgent do
     end)
 
     if is_time_response do
-      # Try to extract contact info from recent conversation context
-      # For now, we'll use a simple approach - this could be enhanced with conversation memory
-      case extract_contact_from_context(user_message) do
+      # Check if there's pending appointment info in conversation context
+      case get_pending_appointment_from_context(conversation_id) do
         {:ok, contact_name, contact_email} ->
           {:ok, contact_name, contact_email}
 
@@ -1372,23 +1383,25 @@ defmodule AdvisorAi.AI.UniversalAgent do
     end
   end
 
-  # Extract contact information from context (simplified version)
-  defp extract_contact_from_context(user_message) do
-    # This is a simplified version - in a real implementation, you'd want to:
-    # 1. Look at recent conversation history
-    # 2. Check if the last message was asking for appointment time
-    # 3. Extract contact info from that context
+      # Get pending appointment information from conversation context
+  defp get_pending_appointment_from_context(conversation_id) do
+    # Get the conversation context and check for pending appointment info
+    context = Chat.get_conversation_context(conversation_id)
 
-    # For now, we'll look for email patterns in the message
-    case Regex.run(~r/\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/, user_message) do
-      [email] ->
-        # Try to extract name from the email or use a default
-        name = extract_name_from_email(email)
-        {:ok, name, email}
+    case Map.get(context, "pending_appointment") do
+      %{"contact_name" => contact_name, "contact_email" => contact_email} ->
+        {:ok, contact_name, contact_email}
 
-      nil ->
+      _ ->
         :not_found
     end
+  end
+
+  # Clear pending appointment context after scheduling
+  defp clear_pending_appointment_context(conversation_id) do
+    context = Chat.get_conversation_context(conversation_id)
+    updated_context = Map.delete(context, "pending_appointment")
+    Chat.update_conversation_context(conversation_id, updated_context)
   end
 
   # Extract name from email address
