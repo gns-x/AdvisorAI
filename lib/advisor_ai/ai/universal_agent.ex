@@ -721,10 +721,10 @@ defmodule AdvisorAi.AI.UniversalAgent do
 
     # Try "tomorrow at X" pattern
     case Regex.run(~r/tomorrow\s+at\s+(\d{1,2})(?::(\d{2}))?\s*(am|pm)?/i, message_lower) do
-      [_, hour, minute, ampm] ->
+      [_, hour, minute, ampm] when minute != nil ->
         tomorrow = Date.add(Date.utc_today(), 1)
         hour_int = String.to_integer(hour)
-        minute_int = if minute, do: String.to_integer(minute), else: 0
+        minute_int = String.to_integer(minute)
 
         # Convert to 24-hour format
         hour_24 = case String.downcase(ampm) do
@@ -736,11 +736,31 @@ defmodule AdvisorAi.AI.UniversalAgent do
         time = Time.new!(hour_24, minute_int, 0)
         {:ok, tomorrow, time}
 
-      [_, hour, minute] ->
+      [_, hour, minute, ampm] when minute == nil ->
         tomorrow = Date.add(Date.utc_today(), 1)
         hour_int = String.to_integer(hour)
-        minute_int = if minute, do: String.to_integer(minute), else: 0
+
+        # Convert to 24-hour format
+        hour_24 = case String.downcase(ampm) do
+          "pm" when hour_int < 12 -> hour_int + 12
+          "am" when hour_int == 12 -> 0
+          _ -> hour_int
+        end
+
+        time = Time.new!(hour_24, 0, 0)
+        {:ok, tomorrow, time}
+
+      [_, hour, minute] when minute != nil ->
+        tomorrow = Date.add(Date.utc_today(), 1)
+        hour_int = String.to_integer(hour)
+        minute_int = String.to_integer(minute)
         time = Time.new!(hour_int, minute_int, 0)
+        {:ok, tomorrow, time}
+
+      [_, hour, minute] when minute == nil ->
+        tomorrow = Date.add(Date.utc_today(), 1)
+        hour_int = String.to_integer(hour)
+        time = Time.new!(hour_int, 0, 0)
         {:ok, tomorrow, time}
 
       [_, hour] ->
@@ -752,10 +772,10 @@ defmodule AdvisorAi.AI.UniversalAgent do
       nil ->
         # Try "today at X" pattern
         case Regex.run(~r/today\s+at\s+(\d{1,2})(?::(\d{2}))?\s*(am|pm)?/i, message_lower) do
-          [_, hour, minute, ampm] ->
+          [_, hour, minute, ampm] when minute != nil ->
             today = Date.utc_today()
             hour_int = String.to_integer(hour)
-            minute_int = if minute, do: String.to_integer(minute), else: 0
+            minute_int = String.to_integer(minute)
 
             hour_24 = case String.downcase(ampm) do
               "pm" when hour_int < 12 -> hour_int + 12
@@ -766,11 +786,30 @@ defmodule AdvisorAi.AI.UniversalAgent do
             time = Time.new!(hour_24, minute_int, 0)
             {:ok, today, time}
 
-          [_, hour, minute] ->
+          [_, hour, minute, ampm] when minute == nil ->
             today = Date.utc_today()
             hour_int = String.to_integer(hour)
-            minute_int = if minute, do: String.to_integer(minute), else: 0
+
+            hour_24 = case String.downcase(ampm) do
+              "pm" when hour_int < 12 -> hour_int + 12
+              "am" when hour_int == 12 -> 0
+              _ -> hour_int
+            end
+
+            time = Time.new!(hour_24, 0, 0)
+            {:ok, today, time}
+
+          [_, hour, minute] when minute != nil ->
+            today = Date.utc_today()
+            hour_int = String.to_integer(hour)
+            minute_int = String.to_integer(minute)
             time = Time.new!(hour_int, minute_int, 0)
+            {:ok, today, time}
+
+          [_, hour, minute] when minute == nil ->
+            today = Date.utc_today()
+            hour_int = String.to_integer(hour)
+            time = Time.new!(hour_int, 0, 0)
             {:ok, today, time}
 
           [_, hour] ->
@@ -782,10 +821,10 @@ defmodule AdvisorAi.AI.UniversalAgent do
           nil ->
             # Try specific day pattern like "Friday at X"
             case Regex.run(~r/(monday|tuesday|wednesday|thursday|friday|saturday|sunday)\s+at\s+(\d{1,2})(?::(\d{2}))?\s*(am|pm)?/i, message_lower) do
-              [_, day_name, hour, minute, ampm] ->
+              [_, day_name, hour, minute, ampm] when minute != nil ->
                 target_date = get_next_day_of_week(day_name)
                 hour_int = String.to_integer(hour)
-                minute_int = if minute, do: String.to_integer(minute), else: 0
+                minute_int = String.to_integer(minute)
 
                 hour_24 = case String.downcase(ampm) do
                   "pm" when hour_int < 12 -> hour_int + 12
@@ -796,11 +835,30 @@ defmodule AdvisorAi.AI.UniversalAgent do
                 time = Time.new!(hour_24, minute_int, 0)
                 {:ok, target_date, time}
 
-              [_, day_name, hour, minute] ->
+              [_, day_name, hour, minute, ampm] when minute == nil ->
                 target_date = get_next_day_of_week(day_name)
                 hour_int = String.to_integer(hour)
-                minute_int = if minute, do: String.to_integer(minute), else: 0
+
+                hour_24 = case String.downcase(ampm) do
+                  "pm" when hour_int < 12 -> hour_int + 12
+                  "am" when hour_int == 12 -> 0
+                  _ -> hour_int
+                end
+
+                time = Time.new!(hour_24, 0, 0)
+                {:ok, target_date, time}
+
+              [_, day_name, hour, minute] when minute != nil ->
+                target_date = get_next_day_of_week(day_name)
+                hour_int = String.to_integer(hour)
+                minute_int = String.to_integer(minute)
                 time = Time.new!(hour_int, minute_int, 0)
+                {:ok, target_date, time}
+
+              [_, day_name, hour, minute] when minute == nil ->
+                target_date = get_next_day_of_week(day_name)
+                hour_int = String.to_integer(hour)
+                time = Time.new!(hour_int, 0, 0)
                 {:ok, target_date, time}
 
               [_, day_name, hour] ->
