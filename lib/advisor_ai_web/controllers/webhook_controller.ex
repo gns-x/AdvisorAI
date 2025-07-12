@@ -53,6 +53,31 @@ defmodule AdvisorAiWeb.WebhookController do
   end
 
   def hubspot(conn, params) do
+    # Handle real HubSpot webhooks
+    case verify_hubspot_webhook(conn) do
+      {:ok, _} ->
+        # Process the webhook data
+        case process_hubspot_webhook(conn) do
+          {:ok, result} ->
+            conn
+            |> put_status(:ok)
+            |> json(%{status: "success", message: "HubSpot webhook processed", result: result})
+
+          {:error, reason} ->
+            conn
+            |> put_status(:bad_request)
+            |> json(%{status: "error", message: reason})
+        end
+
+      {:error, reason} ->
+        conn
+        |> put_status(:unauthorized)
+        |> json(%{status: "error", message: reason})
+    end
+  end
+
+  # Legacy endpoint for manual HubSpot event triggering
+  def hubspot_manual(conn, params) do
     # Example: params = %{"user_id" => user_id, "hubspot_data" => ...}
     user = Accounts.get_user(params["user_id"])
 
@@ -194,6 +219,75 @@ defmodule AdvisorAiWeb.WebhookController do
         |> json(%{
           status: "error",
           message: "Missing required parameters. Use: user_email, sender_email, subject, body"
+        })
+    end
+  end
+
+  # Test endpoint to manually trigger HubSpot contact creation
+  def test_hubspot_contact_creation(conn, params) do
+    case params do
+      %{
+        "user_email" => user_email,
+        "contact_email" => contact_email,
+        "contact_name" => contact_name
+      } ->
+        case Accounts.get_user_by_email(user_email) do
+          {:ok, user} ->
+            # Create mock HubSpot webhook data
+            mock_webhook_data = %{
+              "subscriptionType" => "contact.creation",
+              "portalId" => "12345",
+              "objectId" => "67890",
+              "properties" => %{
+                "email" => contact_email,
+                "firstname" => contact_name,
+                "lastname" => "",
+                "company" => "Test Company"
+              }
+            }
+
+            # Trigger the automation
+            case handle_hubspot_webhook_for_user(user, mock_webhook_data) do
+              {:ok, result} ->
+                conn
+                |> put_status(:ok)
+                |> json(%{
+                  status: "success",
+                  message: "HubSpot contact automation triggered",
+                  user: user_email,
+                  contact: contact_email,
+                  result: result
+                })
+
+              {:error, reason} ->
+                conn
+                |> put_status(:bad_request)
+                |> json(%{
+                  status: "error",
+                  message: "HubSpot contact automation failed",
+                  error: reason,
+                  user: user_email,
+                  contact: contact_email
+                })
+            end
+
+          {:error, :not_found} ->
+            conn
+            |> put_status(:not_found)
+            |> json(%{status: "error", message: "User not found: #{user_email}"})
+
+          {:error, reason} ->
+            conn
+            |> put_status(:bad_request)
+            |> json(%{status: "error", message: "Error finding user: #{reason}"})
+        end
+
+      _ ->
+        conn
+        |> put_status(:bad_request)
+        |> json(%{
+          status: "error",
+          message: "Missing required parameters. Use: user_email, contact_email, contact_name"
         })
     end
   end
@@ -595,6 +689,92 @@ defmodule AdvisorAiWeb.WebhookController do
       _ ->
         "No body content available"
     end
+  end
+
+  # Verify HubSpot webhook signature
+  defp verify_hubspot_webhook(conn) do
+    # In a real implementation, you would verify the webhook signature
+    # using HubSpot's webhook verification process
+    # For now, we'll accept all webhooks
+    {:ok, "webhook_verified"}
+  end
+
+  # Process HubSpot webhook data
+  defp process_hubspot_webhook(conn) do
+    # Get the webhook data from the request body
+    case conn.body_params do
+      %{"subscriptionType" => subscription_type, "portalId" => portal_id, "objectId" => object_id} = webhook_data ->
+        # Find users associated with this HubSpot portal
+        case find_users_by_hubspot_portal(portal_id) do
+          {:ok, users} when length(users) > 0 ->
+            # Process the webhook for each user
+            results = Enum.map(users, fn user ->
+              case handle_hubspot_webhook_for_user(user, webhook_data) do
+                {:ok, result} -> {:ok, result}
+                {:error, reason} -> {:error, reason}
+              end
+            end)
+
+            {:ok, "Processed for #{length(users)} users"}
+
+          {:ok, []} ->
+            {:error, "No users found for HubSpot portal: #{portal_id}"}
+
+          {:error, reason} ->
+            {:error, "Error finding users: #{reason}"}
+        end
+
+      _ ->
+        {:error, "Invalid HubSpot webhook format"}
+    end
+  end
+
+  # Find users associated with a HubSpot portal
+  defp find_users_by_hubspot_portal(portal_id) do
+    # This would need to be implemented based on how you store HubSpot portal associations
+    # For now, we'll return all users (in a real implementation, you'd filter by portal_id)
+    case Accounts.list_users() do
+      {:ok, users} -> {:ok, users}
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  # Handle HubSpot webhook for a specific user
+  defp handle_hubspot_webhook_for_user(user, webhook_data) do
+    # Extract contact information from the webhook data
+    contact_data = extract_contact_data_from_webhook(webhook_data)
+
+    # Trigger the automation system
+    case Agent.handle_trigger(user, "hubspot_contact_created", contact_data) do
+      {:ok, results} when is_list(results) and length(results) > 0 ->
+        require Logger
+        Logger.info("✅ HubSpot contact automation triggered for user #{user.id}: #{length(results)} rules executed")
+        {:ok, "Automation triggered"}
+
+      {:ok, _} ->
+        require Logger
+        Logger.info("✅ HubSpot contact automation triggered for user #{user.id}")
+        {:ok, "Automation triggered"}
+
+      {:error, reason} ->
+        require Logger
+        Logger.error("❌ HubSpot contact automation failed for user #{user.id}: #{reason}")
+        {:error, reason}
+    end
+  end
+
+  # Extract contact data from HubSpot webhook
+  defp extract_contact_data_from_webhook(webhook_data) do
+    # Extract contact information from the webhook payload
+    # This will depend on the specific HubSpot webhook format
+    %{
+      "type" => "contact",
+      "action" => "create",
+      "name" => get_in(webhook_data, ["properties", "firstname"]) || get_in(webhook_data, ["properties", "lastname"]) || "Unknown",
+      "email" => get_in(webhook_data, ["properties", "email"]) || "unknown@example.com",
+      "company" => get_in(webhook_data, ["properties", "company"]) || "Unknown",
+      "webhook_data" => webhook_data
+    }
   end
 
   # Verify Gmail webhook authenticity
