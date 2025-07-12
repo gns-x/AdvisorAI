@@ -4297,6 +4297,10 @@ IMPORTANT: When the user asks you to perform an action, you MUST use the univers
           |> List.first()
           |> String.replace(".", " ")
           |> String.replace("_", " ")
+          |> String.replace("-", " ")
+          |> String.split(" ")
+          |> Enum.map(&String.capitalize/1)
+          |> Enum.join(" ")
 
         nil ->
           "Unknown"
@@ -4307,12 +4311,31 @@ IMPORTANT: When the user asks you to perform an action, you MUST use the univers
   end
 
   defp parse_name(name) do
-    # Split name into first and last name
+    # First, try to split on spaces (normal name format)
     case String.split(name, " ", parts: 2) do
       [first, last] -> {first, last}
-      [first] when first != "" -> {first, ""}
+      [first] when first != "" ->
+        # If only one part, try to split on common email separators
+        case parse_email_style_name(first) do
+          {first_name, last_name} when first_name != "" -> {first_name, last_name}
+          _ -> {first, ""}
+        end
       _ -> {"", ""}
     end
+  end
+
+  # Parse email-style names (e.g., "john.doe", "john_doe", "john-doe")
+  defp parse_email_style_name(name) do
+    # Try different separators
+    separators = [".", "_", "-"]
+
+    Enum.find_value(separators, {"", ""}, fn separator ->
+      case String.split(name, separator, parts: 2) do
+        [first, last] when first != "" and last != "" ->
+          {String.capitalize(first), String.capitalize(last)}
+        _ -> nil
+      end
+    end)
   end
 
   # Get recent context for LLM decision making
