@@ -222,7 +222,7 @@ defmodule AdvisorAi.Workers.EmailMonitorWorker do
       from: from,
       subject: subject,
       body: body,
-      received_at: DateTime.utc_now(),
+      received_at: DateTime.utc_now() |> DateTime.truncate(:second),
       message_id: email[:id]
     }
   end
