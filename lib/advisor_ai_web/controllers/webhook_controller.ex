@@ -113,7 +113,7 @@ defmodule AdvisorAiWeb.WebhookController do
               from: sender_email,
               subject: subject,
               body: body,
-              received_at: DateTime.utc_now()
+              received_at: DateTime.utc_now() |> DateTime.truncate(:second)
             }
 
             # Trigger automation system
@@ -186,7 +186,7 @@ defmodule AdvisorAiWeb.WebhookController do
               from: sender_email,
               subject: subject,
               body: body,
-              received_at: DateTime.utc_now()
+              received_at: DateTime.utc_now() |> DateTime.truncate(:second)
             }
 
             # Create a conversation for the proactive response
