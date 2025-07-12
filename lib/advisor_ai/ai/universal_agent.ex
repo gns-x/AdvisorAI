@@ -2394,49 +2394,61 @@ IMPORTANT: When the user asks you to perform an action, you MUST use the univers
               end
 
             {:ok, _} ->
-              # Try to extract email from query for proactive contact creation
-              email = extract_email_from_query(query)
-              name = extract_name_from_query(query)
+              # Check if this is an appointment scheduling request
+              is_appointment_request =
+                String.contains?(String.downcase(user_message), "schedule") or
+                  String.contains?(String.downcase(user_message), "appointment") or
+                  String.contains?(String.downcase(user_message), "meeting")
 
-              if email do
-                # Automatically create the contact if email is found
-                {first_name, last_name} = parse_name(name)
-
-                contact_data = %{
-                  "email" => email,
-                  "first_name" => first_name,
-                  "last_name" => last_name,
-                  "company" => ""
-                }
-
-                case HubSpot.create_contact(user, contact_data) do
-                  {:ok, _message} ->
-                    {:ok,
-                     "I've automatically created a new HubSpot contact for #{name} (#{email}). The contact has been added to your HubSpot account."}
-
-                  {:error, reason} ->
-                    {:ok,
-                     "I found an email address (#{email}) but couldn't create the contact automatically: #{reason}. You can try creating it manually in HubSpot."}
-                end
+              if is_appointment_request do
+                # For appointment requests, stop and ask user to manually schedule
+                contact_name = extract_name_from_query(query)
+                {:ok,
+                 "I couldn't find '#{contact_name}' in your HubSpot contacts. Since this appears to be an appointment scheduling request, I recommend you manually schedule the appointment with them. You can add them to HubSpot first if needed, then schedule the meeting through your calendar."}
               else
-                # Try to search emails for this person
-                case Gmail.search_emails(user, query) do
-                  {:ok, emails} when is_list(emails) and length(emails) > 0 ->
-                    emails = Enum.take(emails, 5)
-                    # Found emails - extract email addresses and offer to create contact
-                    email_addresses =
-                      emails
-                      |> Enum.map(fn email ->
-                        Map.get(email, "from", "") |> extract_email_from_string()
-                      end)
-                      |> Enum.filter(&(&1 != nil))
-                      |> Enum.uniq()
+                # For non-appointment requests, try to extract email and create contact
+                email = extract_email_from_query(query)
+                name = extract_name_from_query(query)
 
-                    if length(email_addresses) > 0 do
-                      email_list = Enum.join(email_addresses, ", ")
+                if email do
+                  # Automatically create the contact if email is found
+                  {first_name, last_name} = parse_name(name)
 
+                  contact_data = %{
+                    "email" => email,
+                    "first_name" => first_name,
+                    "last_name" => last_name,
+                    "company" => ""
+                  }
+
+                  case HubSpot.create_contact(user, contact_data) do
+                    {:ok, _message} ->
                       {:ok,
-                       "I didn't find '#{query}' in your HubSpot contacts, but I found #{length(emails)} emails from this person. I can see email addresses: #{email_list}. Would you like me to create a HubSpot contact for them? Just let me know which email address to use."}
+                       "I've automatically created a new HubSpot contact for #{name} (#{email}). The contact has been added to your HubSpot account."}
+
+                    {:error, reason} ->
+                      {:ok,
+                       "I found an email address (#{email}) but couldn't create the contact automatically: #{reason}. You can try creating it manually in HubSpot."}
+                  end
+                else
+                  # Try to search emails for this person
+                  case Gmail.search_emails(user, query) do
+                    {:ok, emails} when is_list(emails) and length(emails) > 0 ->
+                      emails = Enum.take(emails, 5)
+                      # Found emails - extract email addresses and offer to create contact
+                      email_addresses =
+                        emails
+                        |> Enum.map(fn email ->
+                          Map.get(email, "from", "") |> extract_email_from_string()
+                        end)
+                        |> Enum.filter(&(&1 != nil))
+                        |> Enum.uniq()
+
+                      if length(email_addresses) > 0 do
+                        email_list = Enum.join(email_addresses, ", ")
+
+                        {:ok,
+                         "I didn't find '#{query}' in your HubSpot contacts, but I found #{length(emails)} emails from this person. I can see email addresses: #{email_list}. Would you like me to create a HubSpot contact for them? Just let me know which email address to use."}
                     else
                       {:ok,
                        "I didn't find '#{query}' in your HubSpot contacts, but I found #{length(emails)} emails from this person. However, I couldn't extract a clear email address. If you have their email address, I can create a new contact for them."}
@@ -2451,6 +2463,7 @@ IMPORTANT: When the user asks you to perform an action, you MUST use the univers
                      "No contacts were found for '#{query}'. If you have an email address for this person, I can create a new contact for them. Just provide the email address."}
                 end
               end
+            end
 
             {:error, reason} ->
               {:error, "Failed to search HubSpot contacts: #{reason}"}
