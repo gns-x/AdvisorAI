@@ -57,6 +57,7 @@ defmodule AdvisorAiWeb.Router do
     post "/test/email-automation", WebhookController, :test_email_automation
     post "/test/hubspot-contact-creation", WebhookController, :test_hubspot_contact_creation
     post "/process-email", WebhookController, :process_manual_email
+    post "/test/meeting-inquiry", WebhookController, :test_meeting_inquiry
   end
 
   # Health check endpoint
