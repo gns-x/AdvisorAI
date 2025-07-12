@@ -1290,9 +1290,10 @@ IMPORTANT: When the user asks you to perform an action, you MUST use the univers
 
         # Process results intelligently
         response_text = process_tool_call_results(results, user_message, context)
-        create_agent_response(user, conversation_id, response_text, "action")
+        result = create_agent_response(user, conversation_id, response_text, "action")
         # --- NEW: After response, check and execute related instructions ---
         check_and_execute_related_instructions(user, conversation_id, user_message, results)
+        result
 
       {:ok, []} ->
         # No tool calls found, check if this is a fake response
@@ -1323,7 +1324,8 @@ IMPORTANT: When the user asks you to perform an action, you MUST use the univers
               end)
               |> Enum.join("\n\n")
 
-            create_agent_response(user, conversation_id, response_text, "action")
+            result = create_agent_response(user, conversation_id, response_text, "action")
+            result
 
           _ ->
             # Only return a conversation if there is no tool call pattern in the text
@@ -1356,17 +1358,19 @@ IMPORTANT: When the user asks you to perform an action, you MUST use the univers
                     end)
                     |> Enum.join("\n\n")
 
-                  create_agent_response(user, conversation_id, response_text, "action")
+                  result = create_agent_response(user, conversation_id, response_text, "action")
+                  result
 
                 _ ->
                   IO.puts("DEBUG: No tool call could be extracted from pattern. Returning error.")
 
-                  create_agent_response(
+                  result = create_agent_response(
                     user,
                     conversation_id,
                     "Sorry, I could not execute your request. Please try again.",
                     "error"
                   )
+                  result
               end
             else
               if is_fake_response?(response_text) do
@@ -1393,7 +1397,8 @@ IMPORTANT: When the user asks you to perform an action, you MUST use the univers
                       end)
                       |> Enum.join("\n\n")
 
-                    create_agent_response(user, conversation_id, response_text, "action")
+                    result = create_agent_response(user, conversation_id, response_text, "action")
+                    result
 
                   _ ->
                     # Force the AI to use tools by retrying with a more explicit prompt
@@ -1404,17 +1409,19 @@ IMPORTANT: When the user asks you to perform an action, you MUST use the univers
                 # Try to extract JSON from the AI's text response
                 case extract_and_execute_json_from_text(user, response_text, context) do
                   {:ok, result} ->
-                    create_agent_response(user, conversation_id, result, "action")
+                    result = create_agent_response(user, conversation_id, result, "action")
+                    result
 
                   {:error, _} ->
                     # If no JSON found, just return the LLM's conversational response
-                    create_agent_response(
+                    result = create_agent_response(
                       user,
                       conversation_id,
                       response_text ||
                         "I'm not sure how to help with that yet, but I'm learning!",
                       "conversation"
                     )
+                    result
                 end
               end
             end
@@ -1448,7 +1455,8 @@ IMPORTANT: When the user asks you to perform an action, you MUST use the univers
               end)
               |> Enum.join("\n\n")
 
-            create_agent_response(user, conversation_id, response_text, "action")
+            result = create_agent_response(user, conversation_id, response_text, "action")
+            result
 
           _ ->
             if is_fake_response?(response_text) do
@@ -1475,26 +1483,29 @@ IMPORTANT: When the user asks you to perform an action, you MUST use the univers
                     end)
                     |> Enum.join("\n\n")
 
-                  create_agent_response(user, conversation_id, response_text, "action")
+                  result = create_agent_response(user, conversation_id, response_text, "action")
+                  result
 
                 _ ->
                   IO.puts("DEBUG: Forcing tool usage with explicit prompt...")
                   force_tool_usage(user, conversation_id, user_message, context)
               end
             else
-              case extract_and_execute_json_from_text(user, response_text, context) do
-                {:ok, result} ->
-                  create_agent_response(user, conversation_id, result, "action")
+                              case extract_and_execute_json_from_text(user, response_text, context) do
+                  {:ok, result} ->
+                    result = create_agent_response(user, conversation_id, result, "action")
+                    result
 
-                {:error, _} ->
-                  # If no JSON found, just return the LLM's conversational response
-                  create_agent_response(
-                    user,
-                    conversation_id,
-                    response_text || "I'm not sure how to help with that yet, but I'm learning!",
-                    "conversation"
-                  )
-              end
+                  {:error, _} ->
+                    # If no JSON found, just return the LLM's conversational response
+                    result = create_agent_response(
+                      user,
+                      conversation_id,
+                      response_text || "I'm not sure how to help with that yet, but I'm learning!",
+                      "conversation"
+                    )
+                    result
+                end
             end
         end
     end
@@ -1540,12 +1551,13 @@ IMPORTANT: When the user asks you to perform an action, you MUST use the univers
     tools = get_available_tools(user)
 
     if Enum.empty?(tools) do
-      create_agent_response(
+      result = create_agent_response(
         user,
         conversation_id,
         "I need you to connect your accounts first so I can perform real actions. Please go to Settings > Integrations to connect your Gmail, Google Calendar, or HubSpot accounts.",
         "error"
       )
+      result
     else
       # Create a more explicit prompt that forces tool usage
       explicit_prompt = """
@@ -1618,24 +1630,27 @@ IMPORTANT: When the user asks you to perform an action, you MUST use the univers
                 end)
                 |> Enum.join("\n\n")
 
-              create_agent_response(user, conversation_id, response_text, "action")
+              result = create_agent_response(user, conversation_id, response_text, "action")
+              result
 
             _ ->
-              create_agent_response(
+              result = create_agent_response(
                 user,
                 conversation_id,
                 "I'm having trouble performing the requested action. Please check that your accounts are properly connected and try again.",
                 "error"
               )
+              result
           end
 
         {:error, _} ->
-          create_agent_response(
+          result = create_agent_response(
             user,
             conversation_id,
             "I'm having trouble performing the requested action. Please check that your accounts are properly connected and try again.",
             "error"
           )
+          result
       end
     end
   end
