@@ -605,192 +605,384 @@ defmodule AdvisorAi.AI.UniversalAgent do
     end
   end
 
-  # Schedule appointment with a specific email address
+    # Schedule appointment with a specific email address
   defp schedule_appointment_with_email(user, conversation_id, contact_name, contact_email) do
-    # Get available times for today and tomorrow
-    today = Date.utc_today() |> Date.to_string()
-    tomorrow = Date.add(Date.utc_today(), 1) |> Date.to_string()
+    # Check if calendar is connected and accessible
+    case Calendar.get_events(user, Date.utc_today() |> Date.to_string(), Date.add(Date.utc_today(), 7) |> Date.to_string()) do
+      {:ok, _events} ->
+        # Calendar is accessible, ask user for preferred time and duration
+        request_message = """
+        ✅ Great! I found #{contact_name} (#{contact_email}) and your calendar is connected.
 
-    case Calendar.get_availability(user, today, 60) do
-      {:ok, available_times} when length(available_times) > 0 ->
-        # Found available times, schedule the appointment
-        first_available = List.first(available_times)
-        start_time = first_available["start"]
-        end_time = first_available["end"]
+        **Please provide:**
+        - **Preferred date and time** (e.g., "tomorrow at 2 PM" or "Friday at 10 AM")
+        - **Duration** (e.g., "30 minutes" or "1 hour")
 
-        # Create calendar event
-        event_params = %{
-          "summary" => "Appointment with #{contact_name}",
-          "start_time" => start_time,
-          "end_time" => end_time,
-          "attendees" => [contact_email]
-        }
+        **Examples:**
+        - "Tomorrow at 3 PM for 1 hour"
+        - "Friday at 10 AM for 30 minutes"
+        - "Next Monday at 2 PM for 45 minutes"
 
-        case Calendar.create_event(user, event_params) do
-          {:ok, event} ->
-            # Send confirmation email
-            email_params = %{
-              "to" => contact_email,
-              "subject" => "Appointment Confirmed - #{event_params["summary"]}",
-              "body" => """
-              Hi #{contact_name},
+        I'll check your calendar availability and schedule the appointment if the time is free, or suggest alternative times if it's busy.
+        """
 
-              Your appointment has been scheduled for #{format_datetime_for_chat(start_time)}.
-
-              I'll send you a calendar invitation shortly.
-
-              Best regards,
-              #{user.name}
-              """
-            }
-
-            case Gmail.send_email(user, email_params) do
-              {:ok, _} ->
-                # Success! Show confirmation in chat
-                confirmation_message = """
-                ✅ Appointment scheduled successfully!
-
-                **Details:**
-                - **Contact:** #{contact_name} (#{contact_email})
-                - **Time:** #{format_datetime_for_chat(start_time)}
-                - **Duration:** 1 hour
-
-                I've sent a confirmation email to #{contact_email} and added the appointment to your calendar.
-                """
-
-                create_agent_response(user, conversation_id, confirmation_message, "action")
-
-              {:error, email_error} ->
-                # Calendar event created but email failed
-                warning_message = """
-                ⚠️ Appointment scheduled but email failed to send
-
-                **Details:**
-                - **Contact:** #{contact_name} (#{contact_email})
-                - **Time:** #{format_datetime_for_chat(start_time)}
-                - **Duration:** 1 hour
-
-                The appointment was added to your calendar, but I couldn't send the confirmation email: #{email_error}
-                """
-
-                create_agent_response(user, conversation_id, warning_message, "action")
-            end
-
-          {:error, calendar_error} ->
-            # Failed to create calendar event
-            create_agent_response(
-              user,
-              conversation_id,
-              "I found #{contact_name} (#{contact_email}) but couldn't schedule the appointment: #{calendar_error}. Please try again or check your calendar settings.",
-              "error"
-            )
-        end
-
-      {:ok, []} ->
-        # No available times today, check tomorrow
-        case Calendar.get_availability(user, tomorrow, 60) do
-          {:ok, available_times} when length(available_times) > 0 ->
-            # Found available times tomorrow
-            first_available = List.first(available_times)
-            start_time = first_available["start"]
-            end_time = first_available["end"]
-
-            # Create calendar event for tomorrow
-            event_params = %{
-              "summary" => "Appointment with #{contact_name}",
-              "start_time" => start_time,
-              "end_time" => end_time,
-              "attendees" => [contact_email]
-            }
-
-            case Calendar.create_event(user, event_params) do
-              {:ok, event} ->
-                # Send confirmation email
-                email_params = %{
-                  "to" => contact_email,
-                  "subject" => "Appointment Confirmed - #{event_params["summary"]}",
-                  "body" => """
-                  Hi #{contact_name},
-
-                  Your appointment has been scheduled for #{format_datetime_for_chat(start_time)}.
-
-                  I'll send you a calendar invitation shortly.
-
-                  Best regards,
-                  #{user.name}
-                  """
-                }
-
-                case Gmail.send_email(user, email_params) do
-                  {:ok, _} ->
-                    # Success! Show confirmation in chat
-                    confirmation_message = """
-                    ✅ Appointment scheduled successfully!
-
-                    **Details:**
-                    - **Contact:** #{contact_name} (#{contact_email})
-                    - **Time:** #{format_datetime_for_chat(start_time)} (tomorrow)
-                    - **Duration:** 1 hour
-
-                    I've sent a confirmation email to #{contact_email} and added the appointment to your calendar.
-                    """
-
-                    create_agent_response(user, conversation_id, confirmation_message, "action")
-
-                  {:error, email_error} ->
-                    # Calendar event created but email failed
-                    warning_message = """
-                    ⚠️ Appointment scheduled but email failed to send
-
-                    **Details:**
-                    - **Contact:** #{contact_name} (#{contact_email})
-                    - **Time:** #{format_datetime_for_chat(start_time)} (tomorrow)
-                    - **Duration:** 1 hour
-
-                    The appointment was added to your calendar, but I couldn't send the confirmation email: #{email_error}
-                    """
-
-                    create_agent_response(user, conversation_id, warning_message, "action")
-                end
-
-              {:error, calendar_error} ->
-                # Failed to create calendar event
-                create_agent_response(
-                  user,
-                  conversation_id,
-                  "I found #{contact_name} (#{contact_email}) but couldn't schedule the appointment: #{calendar_error}. Please try again or check your calendar settings.",
-                  "error"
-                )
-            end
-
-          {:ok, []} ->
-            # No available times today or tomorrow
-            create_agent_response(
-              user,
-              conversation_id,
-              "I found #{contact_name} (#{contact_email}), but you don't have any available 1-hour slots today or tomorrow. Please provide a specific date and time for the appointment.",
-              "error"
-            )
-
-          {:error, _} ->
-            # Error checking availability
-            create_agent_response(
-              user,
-              conversation_id,
-              "I found #{contact_name} (#{contact_email}), but there was an error checking your calendar availability. Please try again or provide a specific date and time.",
-              "error"
-            )
-        end
+        create_agent_response(user, conversation_id, request_message, "conversation")
 
       {:error, _} ->
-        # Error checking availability
+        # Calendar not accessible, ask user to provide time manually
+        fallback_message = """
+        ✅ I found #{contact_name} (#{contact_email}), but I can't access your calendar right now.
+
+        **Please provide:**
+        - **Date and time** for the appointment
+        - **Duration** of the meeting
+
+        **Example:** "Tomorrow at 2 PM for 1 hour"
+
+        Once you provide the details, I can help you schedule it manually.
+        """
+
+        create_agent_response(user, conversation_id, fallback_message, "conversation")
+    end
+  end
+
+  # Handle appointment scheduling with specific time and duration
+  defp handle_appointment_scheduling(user, conversation_id, user_message, contact_name, contact_email) do
+    # Parse time and duration from user message
+    case parse_appointment_request(user_message) do
+      {:ok, %{date: date, time: time, duration_minutes: duration}} ->
+        # Check if the requested time is available
+        case check_and_schedule_appointment(user, conversation_id, contact_name, contact_email, date, time, duration) do
+          {:ok, result} -> {:ok, result}
+          {:error, reason} -> {:error, reason}
+        end
+
+      {:error, reason} ->
+        # Couldn't parse the request, ask for clarification
+        clarification_message = """
+        I couldn't understand the appointment details. Please provide:
+
+        **Date and time** (e.g., "tomorrow at 2 PM", "Friday at 10 AM")
+        **Duration** (e.g., "30 minutes", "1 hour")
+
+        **Example:** "Tomorrow at 3 PM for 1 hour"
+        """
+
+        create_agent_response(user, conversation_id, clarification_message, "conversation")
+    end
+  end
+
+  # Parse appointment request from user message
+  defp parse_appointment_request(message) do
+    message_lower = String.downcase(message)
+
+    # Extract duration
+    duration_minutes =
+      cond do
+        Regex.match?(~r/\d+\s*hour/, message_lower) ->
+          Regex.run(~r/(\d+)\s*hour/, message_lower)
+          |> case do
+            [_, hours] -> String.to_integer(hours) * 60
+            _ -> 60
+          end
+
+        Regex.match?(~r/\d+\s*minute/, message_lower) ->
+          Regex.run(~r/(\d+)\s*minute/, message_lower)
+          |> case do
+            [_, minutes] -> String.to_integer(minutes)
+            _ -> 30
+          end
+
+        true -> 60  # Default to 1 hour
+      end
+
+    # Extract date and time
+    case extract_date_time_from_message(message) do
+      {:ok, date, time} ->
+        {:ok, %{date: date, time: time, duration_minutes: duration_minutes}}
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+  # Extract date and time from natural language
+  defp extract_date_time_from_message(message) do
+    message_lower = String.downcase(message)
+
+    # Handle "tomorrow at X"
+    case Regex.run(~r/tomorrow\s+at\s+(\d{1,2})(?::(\d{2}))?\s*(am|pm)?/i, message_lower) do
+      [_, hour, minute, ampm] ->
+        tomorrow = Date.add(Date.utc_today(), 1)
+        hour_int = String.to_integer(hour)
+        minute_int = if minute, do: String.to_integer(minute), else: 0
+
+        # Convert to 24-hour format
+        hour_24 = case String.downcase(ampm) do
+          "pm" when hour_int < 12 -> hour_int + 12
+          "am" when hour_int == 12 -> 0
+          _ -> hour_int
+        end
+
+        time = Time.new!(hour_24, minute_int, 0)
+        {:ok, tomorrow, time}
+
+      [_, hour, minute] ->
+        tomorrow = Date.add(Date.utc_today(), 1)
+        hour_int = String.to_integer(hour)
+        minute_int = if minute, do: String.to_integer(minute), else: 0
+        time = Time.new!(hour_int, minute_int, 0)
+        {:ok, tomorrow, time}
+
+      [_, hour] ->
+        tomorrow = Date.add(Date.utc_today(), 1)
+        hour_int = String.to_integer(hour)
+        time = Time.new!(hour_int, 0, 0)
+        {:ok, tomorrow, time}
+    end
+
+    # Handle "today at X"
+    case Regex.run(~r/today\s+at\s+(\d{1,2})(?::(\d{2}))?\s*(am|pm)?/i, message_lower) do
+      [_, hour, minute, ampm] ->
+        today = Date.utc_today()
+        hour_int = String.to_integer(hour)
+        minute_int = if minute, do: String.to_integer(minute), else: 0
+
+        hour_24 = case String.downcase(ampm) do
+          "pm" when hour_int < 12 -> hour_int + 12
+          "am" when hour_int == 12 -> 0
+          _ -> hour_int
+        end
+
+        time = Time.new!(hour_24, minute_int, 0)
+        {:ok, today, time}
+
+      [_, hour, minute] ->
+        today = Date.utc_today()
+        hour_int = String.to_integer(hour)
+        minute_int = if minute, do: String.to_integer(minute), else: 0
+        time = Time.new!(hour_int, minute_int, 0)
+        {:ok, today, time}
+
+      [_, hour] ->
+        today = Date.utc_today()
+        hour_int = String.to_integer(hour)
+        time = Time.new!(hour_int, 0, 0)
+        {:ok, today, time}
+    end
+
+    # Handle specific dates like "Friday at X"
+    case Regex.run(~r/(monday|tuesday|wednesday|thursday|friday|saturday|sunday)\s+at\s+(\d{1,2})(?::(\d{2}))?\s*(am|pm)?/i, message_lower) do
+      [_, day_name, hour, minute, ampm] ->
+        target_date = get_next_day_of_week(day_name)
+        hour_int = String.to_integer(hour)
+        minute_int = if minute, do: String.to_integer(minute), else: 0
+
+        hour_24 = case String.downcase(ampm) do
+          "pm" when hour_int < 12 -> hour_int + 12
+          "am" when hour_int == 12 -> 0
+          _ -> hour_int
+        end
+
+        time = Time.new!(hour_24, minute_int, 0)
+        {:ok, target_date, time}
+
+      [_, day_name, hour, minute] ->
+        target_date = get_next_day_of_week(day_name)
+        hour_int = String.to_integer(hour)
+        minute_int = if minute, do: String.to_integer(minute), else: 0
+        time = Time.new!(hour_int, minute_int, 0)
+        {:ok, target_date, time}
+
+      [_, day_name, hour] ->
+        target_date = get_next_day_of_week(day_name)
+        hour_int = String.to_integer(hour)
+        time = Time.new!(hour_int, 0, 0)
+        {:ok, target_date, time}
+    end
+
+    # If no patterns match, return error
+    {:error, "Could not parse date and time from message"}
+  end
+
+  # Get the next occurrence of a day of the week
+  defp get_next_day_of_week(day_name) do
+    today = Date.utc_today()
+    today_weekday = Date.day_of_week(today)
+
+    target_weekday = case String.downcase(day_name) do
+      "monday" -> 1
+      "tuesday" -> 2
+      "wednesday" -> 3
+      "thursday" -> 4
+      "friday" -> 5
+      "saturday" -> 6
+      "sunday" -> 7
+    end
+
+    days_ahead = if target_weekday > today_weekday do
+      target_weekday - today_weekday
+    else
+      7 - today_weekday + target_weekday
+    end
+
+    Date.add(today, days_ahead)
+  end
+
+  # Check availability and schedule appointment
+  defp check_and_schedule_appointment(user, conversation_id, contact_name, contact_email, date, time, duration_minutes) do
+    # Create datetime for the requested time
+    requested_datetime = DateTime.new!(date, time, DateTime.utc_now().time_zone)
+    end_datetime = DateTime.add(requested_datetime, duration_minutes * 60, :second)
+
+    # Check if the requested time is available
+    case Calendar.get_availability(user, Date.to_string(date), duration_minutes) do
+      {:ok, available_slots} ->
+        # Check if requested time overlaps with any available slot
+        requested_start = DateTime.to_iso8601(requested_datetime)
+        requested_end = DateTime.to_iso8601(end_datetime)
+
+        is_available = Enum.any?(available_slots, fn slot ->
+          slot_start = slot["start"]
+          slot_end = slot["end"]
+
+          # Check if requested time fits within an available slot
+          requested_start >= slot_start and requested_end <= slot_end
+        end)
+
+        if is_available do
+          # Time is available, schedule the appointment
+          schedule_appointment_at_time(user, conversation_id, contact_name, contact_email, requested_datetime, end_datetime, duration_minutes)
+        else
+          # Time is busy, suggest alternative times
+          suggest_alternative_times(user, conversation_id, contact_name, contact_email, available_slots, duration_minutes)
+        end
+
+      {:error, reason} ->
+        # Error checking availability, try to schedule anyway
+        warning_message = """
+        ⚠️ I couldn't check your calendar availability, but I'll try to schedule the appointment for #{format_datetime_for_chat(DateTime.to_iso8601(requested_datetime))}.
+
+        If there's a conflict, you'll receive a calendar notification.
+        """
+
+        case schedule_appointment_at_time(user, conversation_id, contact_name, contact_email, requested_datetime, end_datetime, duration_minutes) do
+          {:ok, result} ->
+            # Combine warning with success message
+            combined_message = warning_message <> "\n\n" <> result
+            create_agent_response(user, conversation_id, combined_message, "action")
+
+          {:error, reason} ->
+            create_agent_response(user, conversation_id, "Failed to schedule appointment: #{reason}", "error")
+        end
+    end
+  end
+
+  # Schedule appointment at specific time
+  defp schedule_appointment_at_time(user, conversation_id, contact_name, contact_email, start_datetime, end_datetime, duration_minutes) do
+    # Create calendar event
+    event_params = %{
+      "summary" => "Appointment with #{contact_name}",
+      "start_time" => DateTime.to_iso8601(start_datetime),
+      "end_time" => DateTime.to_iso8601(end_datetime),
+      "attendees" => [contact_email]
+    }
+
+    case Calendar.create_event(user, event_params) do
+      {:ok, event} ->
+        # Send confirmation email
+        email_params = %{
+          "to" => contact_email,
+          "subject" => "Appointment Confirmed - #{event_params["summary"]}",
+          "body" => """
+          Hi #{contact_name},
+
+          Your appointment has been scheduled for #{format_datetime_for_chat(DateTime.to_iso8601(start_datetime))}.
+
+          Duration: #{duration_minutes} minutes
+
+          I'll send you a calendar invitation shortly.
+
+          Best regards,
+          #{user.name}
+          """
+        }
+
+        case Gmail.send_email(user, email_params) do
+          {:ok, _} ->
+            # Success! Show confirmation in chat
+            confirmation_message = """
+            ✅ Appointment scheduled successfully!
+
+            **Details:**
+            - **Contact:** #{contact_name} (#{contact_email})
+            - **Time:** #{format_datetime_for_chat(DateTime.to_iso8601(start_datetime))}
+            - **Duration:** #{duration_minutes} minutes
+
+            I've sent a confirmation email to #{contact_email} and added the appointment to your calendar.
+            """
+
+            create_agent_response(user, conversation_id, confirmation_message, "action")
+
+          {:error, email_error} ->
+            # Calendar event created but email failed
+            warning_message = """
+            ⚠️ Appointment scheduled but email failed to send
+
+            **Details:**
+            - **Contact:** #{contact_name} (#{contact_email})
+            - **Time:** #{format_datetime_for_chat(DateTime.to_iso8601(start_datetime))}
+            - **Duration:** #{duration_minutes} minutes
+
+            The appointment was added to your calendar, but I couldn't send the confirmation email: #{email_error}
+            """
+
+            create_agent_response(user, conversation_id, warning_message, "action")
+        end
+
+      {:error, calendar_error} ->
+        # Failed to create calendar event
         create_agent_response(
           user,
           conversation_id,
-          "I found #{contact_name} (#{contact_email}), but there was an error checking your calendar availability. Please try again or provide a specific date and time.",
+          "I found #{contact_name} (#{contact_email}) but couldn't schedule the appointment: #{calendar_error}. Please try again or check your calendar settings.",
           "error"
         )
     end
+  end
+
+  # Suggest alternative times when requested time is busy
+  defp suggest_alternative_times(user, conversation_id, contact_name, contact_email, available_slots, duration_minutes) do
+    # Format available times for display
+    formatted_times = available_slots
+    |> Enum.take(5)  # Show up to 5 alternatives
+    |> Enum.map(fn slot ->
+      start_time = slot["start"]
+      case DateTime.from_iso8601(start_time) do
+        {:ok, dt, _} ->
+          formatted = Calendar.strftime(dt, "%A, %B %d at %I:%M %p")
+          "• #{formatted}"
+        _ ->
+          nil
+      end
+    end)
+    |> Enum.filter(&(&1 != nil))
+    |> Enum.join("\n")
+
+    suggestion_message = """
+    ❌ The requested time is busy, but here are some available alternatives:
+
+    #{formatted_times}
+
+    **Please choose one of these times or provide a different date/time.**
+
+    **Example responses:**
+    - "Yes, Monday at 2 PM works"
+    - "How about Tuesday at 10 AM?"
+    - "Can we do Friday at 3 PM?"
+    """
+
+    create_agent_response(user, conversation_id, suggestion_message, "conversation")
   end
 
   # Decide next workflow step using LLM and state
@@ -1097,47 +1289,120 @@ defmodule AdvisorAi.AI.UniversalAgent do
 
   # Process normal requests (non-instruction requests)
   defp process_normal_request(user, conversation_id, user_message) do
-    conversation = get_conversation_with_context(conversation_id, user.id)
-    user_context = get_comprehensive_user_context(user)
+    # Check if this is an appointment scheduling response
+    case detect_appointment_scheduling_response(user_message) do
+      {:ok, contact_name, contact_email} ->
+        # This is a response to an appointment scheduling request
+        handle_appointment_scheduling(user, conversation_id, user_message, contact_name, contact_email)
 
-    # Build context for AI
-    context = build_ai_context(user, conversation, user_context)
+      :not_appointment_response ->
+        # Regular request processing
+        conversation = get_conversation_with_context(conversation_id, user.id)
+        user_context = get_comprehensive_user_context(user)
 
-    # Get available tools (Gmail/Calendar API capabilities)
-    tools = get_available_tools(user)
+        # Build context for AI
+        context = build_ai_context(user, conversation, user_context)
 
-    # If no tools are available, provide a helpful response
-    if Enum.empty?(tools) do
-      create_agent_response(
-        user,
-        conversation_id,
-        "I'd be happy to help you with that! However, I need you to connect your accounts first so I can access your real data. Please go to Settings > Integrations to connect your Gmail, Google Calendar, or HubSpot accounts. Once connected, I'll be able to search your emails, manage your calendar, and access your contacts.",
-        "conversation"
-      )
-    else
-      # Create AI prompt for universal action understanding
-      prompt = build_universal_prompt(user_message, context, tools)
+        # Get available tools (Gmail/Calendar API capabilities)
+        tools = get_available_tools(user)
 
-      IO.puts("DEBUG: Universal Agent - Processing: #{user_message}")
-      IO.puts("DEBUG: Available tools: #{length(tools)}")
-
-      # Get AI response with tool calls
-      case get_ai_response_with_tools(prompt, tools) do
-        {:ok, ai_response} ->
-          IO.puts("DEBUG: AI Response: #{inspect(ai_response)}")
-          execute_ai_tool_calls(user, conversation_id, ai_response, user_message, context)
-
-        {:error, reason} ->
-          IO.puts("AI Error: #{reason}")
-
+        # If no tools are available, provide a helpful response
+        if Enum.empty?(tools) do
           create_agent_response(
             user,
             conversation_id,
-            "I'm having trouble understanding your request. Please try rephrasing it.",
-            "error"
+            "I'd be happy to help you with that! However, I need you to connect your accounts first so I can access your real data. Please go to Settings > Integrations to connect your Gmail, Google Calendar, or HubSpot accounts. Once connected, I'll be able to search your emails, manage your calendar, and access your contacts.",
+            "conversation"
           )
-      end
+        else
+          # Create AI prompt for universal action understanding
+          prompt = build_universal_prompt(user_message, context, tools)
+
+          IO.puts("DEBUG: Universal Agent - Processing: #{user_message}")
+          IO.puts("DEBUG: Available tools: #{length(tools)}")
+
+          # Get AI response with tool calls
+          case get_ai_response_with_tools(prompt, tools) do
+            {:ok, ai_response} ->
+              IO.puts("DEBUG: AI Response: #{inspect(ai_response)}")
+              execute_ai_tool_calls(user, conversation_id, ai_response, user_message, context)
+
+            {:error, reason} ->
+              IO.puts("AI Error: #{reason}")
+
+              create_agent_response(
+                user,
+                conversation_id,
+                "I'm having trouble understanding your request. Please try rephrasing it.",
+                "error"
+              )
+          end
+        end
     end
+  end
+
+  # Detect if this is a response to an appointment scheduling request
+  defp detect_appointment_scheduling_response(user_message) do
+    # Check if the message contains time-related patterns
+    time_patterns = [
+      ~r/\d{1,2}(?::\d{2})?\s*(am|pm)/i,
+      ~r/tomorrow\s+at/i,
+      ~r/today\s+at/i,
+      ~r/(monday|tuesday|wednesday|thursday|friday|saturday|sunday)\s+at/i,
+      ~r/\d+\s*(hour|minute)/i
+    ]
+
+    is_time_response = Enum.any?(time_patterns, fn pattern ->
+      Regex.match?(pattern, String.downcase(user_message))
+    end)
+
+    if is_time_response do
+      # Try to extract contact info from recent conversation context
+      # For now, we'll use a simple approach - this could be enhanced with conversation memory
+      case extract_contact_from_context(user_message) do
+        {:ok, contact_name, contact_email} ->
+          {:ok, contact_name, contact_email}
+
+        :not_found ->
+          # If we can't determine the contact, treat as regular request
+          :not_appointment_response
+      end
+    else
+      :not_appointment_response
+    end
+  end
+
+  # Extract contact information from context (simplified version)
+  defp extract_contact_from_context(user_message) do
+    # This is a simplified version - in a real implementation, you'd want to:
+    # 1. Look at recent conversation history
+    # 2. Check if the last message was asking for appointment time
+    # 3. Extract contact info from that context
+
+    # For now, we'll look for email patterns in the message
+    case Regex.run(~r/\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/, user_message) do
+      [email] ->
+        # Try to extract name from the email or use a default
+        name = extract_name_from_email(email)
+        {:ok, name, email}
+
+      nil ->
+        :not_found
+    end
+  end
+
+  # Extract name from email address
+  defp extract_name_from_email(email) do
+    # Extract the part before @ and convert to a readable name
+    email
+    |> String.split("@")
+    |> List.first()
+    |> String.replace(".", " ")
+    |> String.replace("_", " ")
+    |> String.replace("-", " ")
+    |> String.split(" ")
+    |> Enum.map(&String.capitalize/1)
+    |> Enum.join(" ")
   end
 
   # Check for common greetings and return appropriate response
