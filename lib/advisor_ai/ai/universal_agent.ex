@@ -652,12 +652,12 @@ defmodule AdvisorAi.AI.UniversalAgent do
     end
   end
 
-  # Handle appointment scheduling with specific time and duration
+  # Handle appointment scheduling with auto-selected time if not specified
   defp handle_appointment_scheduling(user, conversation_id, user_message, contact_name, contact_email) do
-    # Parse time and duration from user message
+    # Parse time and duration from user message (auto-selects time if not specified)
     case parse_appointment_request(user_message) do
       {:ok, %{date: date, time: time, duration_minutes: duration}} ->
-        # Check if the requested time is available
+        # Schedule the appointment
         case check_and_schedule_appointment(user, conversation_id, contact_name, contact_email, date, time, duration) do
           {:ok, result} ->
             # Clear the pending appointment context after successful scheduling
@@ -665,19 +665,6 @@ defmodule AdvisorAi.AI.UniversalAgent do
             {:ok, result}
           {:error, reason} -> {:error, reason}
         end
-
-      {:error, reason} ->
-        # Couldn't parse the request, ask for clarification
-        clarification_message = """
-        I couldn't understand the appointment details. Please provide:
-
-        **Date and time** (e.g., "tomorrow at 2 PM", "Friday at 10 AM")
-        **Duration** (e.g., "30 minutes", "1 hour")
-
-        **Example:** "Tomorrow at 3 PM for 1 hour"
-        """
-
-        create_agent_response(user, conversation_id, clarification_message, "conversation")
     end
   end
 
@@ -705,13 +692,16 @@ defmodule AdvisorAi.AI.UniversalAgent do
         true -> 60  # Default to 1 hour
       end
 
-    # Extract date and time
+    # Extract date and time (or auto-select if not specified)
     case extract_date_time_from_message(message) do
       {:ok, date, time} ->
         {:ok, %{date: date, time: time, duration_minutes: duration_minutes}}
 
-      {:error, reason} ->
-        {:error, reason}
+      {:error, _reason} ->
+        # No time specified, auto-select tomorrow at 10 AM
+        auto_date = Date.add(Date.utc_today(), 1)
+        auto_time = Time.new!(10, 0, 0)  # 10 AM
+        {:ok, %{date: auto_date, time: auto_time, duration_minutes: duration_minutes}}
     end
   end
 
@@ -865,14 +855,25 @@ defmodule AdvisorAi.AI.UniversalAgent do
     Date.add(today, days_ahead)
   end
 
-  # Schedule appointment automatically without availability checking
+  # Schedule appointment automatically with auto-selected time
   defp check_and_schedule_appointment(user, conversation_id, contact_name, contact_email, date, time, duration_minutes) do
-    # Create datetime for the requested time
-    requested_datetime = DateTime.new!(date, time, DateTime.utc_now().time_zone)
-    end_datetime = DateTime.add(requested_datetime, duration_minutes * 60, :second)
+    # If no specific time provided, auto-select next available time
+    {selected_date, selected_time} = case time do
+      nil ->
+        # Auto-select tomorrow at 10 AM if no date/time specified
+        auto_date = if date == Date.utc_today(), do: Date.add(date, 1), else: date
+        auto_time = Time.new!(10, 0, 0)  # 10 AM
+        {auto_date, auto_time}
+      _ ->
+        {date, time}
+    end
+
+    # Create datetime for the selected time
+    selected_datetime = DateTime.new!(selected_date, selected_time, DateTime.utc_now().time_zone)
+    end_datetime = DateTime.add(selected_datetime, duration_minutes * 60, :second)
 
     # Automatically schedule the appointment
-    schedule_appointment_at_time(user, conversation_id, contact_name, contact_email, requested_datetime, end_datetime, duration_minutes)
+    schedule_appointment_at_time(user, conversation_id, contact_name, contact_email, selected_datetime, end_datetime, duration_minutes)
   end
 
   # Schedule appointment at specific time
