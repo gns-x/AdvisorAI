@@ -92,4 +92,13 @@ if config_env() == :prod do
     repo: AdvisorAi.Repo,
     plugins: [Oban.Plugins.Pruner],
     queues: [default: 10, mailers: 10, ai_processing: 5]
+
+  # Email monitor worker configuration for production
+  config :advisor_ai, :email_monitor,
+    enabled: true,
+    check_interval: 30_000,  # 30 seconds
+    max_emails_per_check: 20
+
+  # Ensure email monitor worker starts in production
+  config :advisor_ai, :start_email_monitor, true
 end

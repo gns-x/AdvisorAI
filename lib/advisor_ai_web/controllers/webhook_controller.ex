@@ -119,12 +119,19 @@ defmodule AdvisorAiWeb.WebhookController do
             # Trigger automation system
             case Agent.handle_trigger(user, "email_received", email_data) do
               {:ok, result} ->
+                # Convert result to string if it's a tuple
+                result_message = case result do
+                  {status, message} when is_atom(status) and is_binary(message) -> message
+                  message when is_binary(message) -> message
+                  _ -> "Automation completed successfully"
+                end
+
                 conn
                 |> put_status(:ok)
                 |> json(%{
                   status: "success",
                   message: "Email automation triggered successfully",
-                  result: result,
+                  result: result_message,
                   user: user_email,
                   sender: sender_email,
                   subject: subject
@@ -136,6 +143,104 @@ defmodule AdvisorAiWeb.WebhookController do
                 |> json(%{
                   status: "error",
                   message: "Email automation failed",
+                  error: reason,
+                  user: user_email,
+                  sender: sender_email
+                })
+            end
+
+          {:error, :not_found} ->
+            conn
+            |> put_status(:not_found)
+            |> json(%{status: "error", message: "User not found: #{user_email}"})
+
+          {:error, reason} ->
+            conn
+            |> put_status(:bad_request)
+            |> json(%{status: "error", message: "Error finding user: #{reason}"})
+        end
+
+      _ ->
+        conn
+        |> put_status(:bad_request)
+        |> json(%{
+          status: "error",
+          message: "Missing required parameters. Use: user_email, sender_email, subject, body"
+        })
+    end
+  end
+
+  # Manual meeting inquiry test endpoint
+  def test_meeting_inquiry(conn, params) do
+    case params do
+      %{
+        "user_email" => user_email,
+        "sender_email" => sender_email,
+        "subject" => subject,
+        "body" => body
+      } ->
+        case Accounts.get_user_by_email(user_email) do
+          {:ok, user} ->
+            # Create email data structure
+            email_data = %{
+              from: sender_email,
+              subject: subject,
+              body: body,
+              received_at: DateTime.utc_now()
+            }
+
+            # Create a conversation for the proactive response
+            case AdvisorAi.Chat.create_conversation(%{
+                   user_id: user.id,
+                   title: "Meeting Inquiry Test - #{subject}"
+                 }) do
+              {:ok, conversation} ->
+                # Build a proactive prompt for meeting lookup
+                proactive_prompt = build_meeting_lookup_prompt(email_data)
+
+                # Use universal agent to handle the meeting lookup
+                case AdvisorAi.AI.UniversalAgent.process_proactive_request(
+                       user,
+                       conversation.id,
+                       proactive_prompt
+                     ) do
+                  {:ok, response} ->
+                    # Convert response to string if it's a tuple
+                    response_message = case response do
+                      {status, message} when is_atom(status) and is_binary(message) -> message
+                      message when is_binary(message) -> message
+                      _ -> "Meeting inquiry automation completed"
+                    end
+
+                    conn
+                    |> put_status(:ok)
+                    |> json(%{
+                      status: "success",
+                      message: "Meeting inquiry automation completed",
+                      response: response_message,
+                      user: user_email,
+                      sender: sender_email,
+                      subject: subject
+                    })
+
+                  {:error, reason} ->
+                    conn
+                    |> put_status(:bad_request)
+                    |> json(%{
+                      status: "error",
+                      message: "Meeting inquiry automation failed",
+                      error: reason,
+                      user: user_email,
+                      sender: sender_email
+                    })
+                end
+
+              {:error, reason} ->
+                conn
+                |> put_status(:bad_request)
+                |> json(%{
+                  status: "error",
+                  message: "Failed to create conversation",
                   error: reason,
                   user: user_email,
                   sender: sender_email
@@ -502,6 +607,7 @@ defmodule AdvisorAiWeb.WebhookController do
     - Use universal_action with action="find_meetings" and attendee_email="[sender_email]"
     - If meetings are found, respond with the meeting details
     - If no meetings are found, let them know and offer to help schedule one
+    - **IMPORTANT**: Send the response directly to the sender using universal_action with action="send_email"
 
     **SPECIFIC INSTRUCTIONS FOR NEW CONTACTS:**
     - If the sender is not in HubSpot and this is NOT an appointment scheduling request, add them using universal_action with action="create_contact"
@@ -584,6 +690,30 @@ defmodule AdvisorAiWeb.WebhookController do
     - Handle any special requirements
 
     Be proactive and helpful. If this is a new contact, welcome them. If this is an update, follow up appropriately.
+    """
+  end
+
+  defp build_meeting_lookup_prompt(email_data) do
+    """
+    A client has emailed asking about an upcoming meeting. Please help them by looking up their meeting details.
+
+    **Email Details:**
+    From: #{email_data.from}
+    Subject: #{email_data.subject}
+    Body: #{email_data.body}
+
+    **Required Actions:**
+    1. Extract the sender's email address from the "From" field
+    2. Use the universal_action tool with action="find_meetings" and attendee_email="[sender_email]" to look up their meeting details in the calendar
+    3. If meetings are found, respond with the meeting details
+    4. If no meetings are found, let them know and offer to help schedule one
+    5. Send the response directly to the sender using universal_action with action="send_email"
+
+    **Example Response:**
+    If meetings are found: "Hi [Name], I found your upcoming meeting: [Meeting Details]. Let me know if you need anything else!"
+    If no meetings found: "Hi [Name], I don't see any upcoming meetings scheduled. Would you like me to help you schedule one?"
+
+    **CRITICAL**: Always use the universal_action tool to perform real actions. Do not generate fake responses.
     """
   end
 

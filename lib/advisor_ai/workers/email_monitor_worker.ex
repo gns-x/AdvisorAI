@@ -9,6 +9,8 @@ defmodule AdvisorAi.Workers.EmailMonitorWorker do
   alias AdvisorAi.Accounts
   alias AdvisorAi.Integrations.Gmail
   alias AdvisorAi.AI.Agent
+  alias AdvisorAi.AI.UniversalAgent
+  alias AdvisorAi.Chat
 
   # Check every 30 seconds
   @check_interval 30_000
@@ -117,13 +119,91 @@ defmodule AdvisorAi.Workers.EmailMonitorWorker do
   defp process_new_email(user, email) do
     email_data = extract_email_data(email)
 
-    case Agent.handle_trigger(user, "email_received", email_data) do
-      {:ok, _result} ->
-        :ok
+    # Check if this is a meeting inquiry email
+    if is_meeting_inquiry_email?(email_data) do
+      Logger.info("📧 Email Monitor: Detected meeting inquiry from #{email_data.from}")
+      handle_meeting_inquiry_email(user, email_data)
+    else
+      # Use the standard agent trigger for other emails
+      case Agent.handle_trigger(user, "email_received", email_data) do
+        {:ok, _result} ->
+          Logger.info("✅ Email Monitor: Standard automation triggered for #{user.email}")
+          :ok
+
+        {:error, reason} ->
+          Logger.error("❌ Email Monitor: Email automation failed for #{user.email}: #{reason}")
+      end
+    end
+  end
+
+  defp is_meeting_inquiry_email?(email_data) do
+    subject = String.downcase(email_data.subject || "")
+    body = String.downcase(email_data.body || "")
+
+    meeting_keywords = [
+      "meeting", "appointment", "call", "when", "schedule", "upcoming",
+      "next", "our meeting", "the meeting", "what time", "when is",
+      "do we have", "are we meeting", "meeting time", "appointment time"
+    ]
+
+    Enum.any?(meeting_keywords, fn keyword ->
+      String.contains?(subject, keyword) or String.contains?(body, keyword)
+    end)
+  end
+
+  defp handle_meeting_inquiry_email(user, email_data) do
+    # Create a conversation for the proactive response
+    case Chat.create_conversation(%{
+           user_id: user.id,
+           title: "Meeting Inquiry - #{email_data.subject}"
+         }) do
+      {:ok, conversation} ->
+        # Build a proactive prompt for meeting lookup
+        proactive_prompt = build_meeting_lookup_prompt(email_data)
+
+        # Use universal agent to handle the meeting lookup
+        case UniversalAgent.process_proactive_request(
+               user,
+               conversation.id,
+               proactive_prompt
+             ) do
+          {:ok, _response} ->
+            Logger.info("✅ Email Monitor: Meeting lookup completed for #{email_data.from}")
+            {:ok, "Meeting lookup completed"}
+
+          {:error, reason} ->
+            Logger.error("❌ Email Monitor: Meeting lookup failed: #{reason}")
+            {:error, "Meeting lookup failed: #{reason}"}
+        end
 
       {:error, reason} ->
-        Logger.error("Email Monitor Worker: Email automation failed for #{user.email}: #{reason}")
+        Logger.error("❌ Email Monitor: Failed to create conversation: #{reason}")
+        {:error, "Failed to create conversation: #{reason}"}
     end
+  end
+
+  defp build_meeting_lookup_prompt(email_data) do
+    """
+    A client has emailed asking about an upcoming meeting. Please help them by looking up their meeting details.
+
+    **Email Details:**
+    From: #{email_data.from}
+    Subject: #{email_data.subject}
+    Body: #{email_data.body}
+
+    **Required Actions:**
+    1. Extract the sender's email address from the "From" field
+    2. Use the universal_action tool with action="find_meetings" and attendee_email="[sender_email]" to look up their meeting details in the calendar
+    3. If meetings are found, respond with the meeting details
+    4. If no meetings are found, let them know and offer to help schedule one
+    5. Send the response directly to the sender using universal_action with action="send_email"
+
+    **Example Response:**
+    If meetings are found: "Hi [Name], I found your upcoming meeting: [Meeting Details]. Let me know if you need anything else!"
+    If no meetings found: "Hi [Name], I don't see any upcoming meetings scheduled. Would you like me to help you schedule one?"
+
+    **CRITICAL**: Always use the universal_action tool to perform real actions. Do not generate fake responses.
+    """
   end
 
   defp extract_email_data(email) do
