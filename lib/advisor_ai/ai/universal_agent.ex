@@ -528,9 +528,6 @@ defmodule AdvisorAi.AI.UniversalAgent do
               {:error, reason} -> {:error, reason}
             end
 
-            # Don't proceed with normal workflow - we've already handled this as an instruction
-            {:ok, nil}
-
           {:error, reason} ->
             {:error, "Failed to store instruction: #{reason}"}
         end
