@@ -605,50 +605,24 @@ defmodule AdvisorAi.AI.UniversalAgent do
     end
   end
 
-    # Schedule appointment with a specific email address
+    # Schedule appointment with a specific email address - automatically schedule
   defp schedule_appointment_with_email(user, conversation_id, contact_name, contact_email) do
-    # Store contact information in conversation context for later use
-    context = Chat.get_conversation_context(conversation_id)
-    updated_context = Map.put(context, "pending_appointment", %{
-      "contact_name" => contact_name,
-      "contact_email" => contact_email
-    })
-    Chat.update_conversation_context(conversation_id, updated_context)
+    # Automatically schedule appointment for tomorrow at 10 AM (default)
+    auto_date = Date.add(Date.utc_today(), 1)
+    auto_time = Time.new!(10, 0, 0)  # 10 AM
+    duration_minutes = 60  # 1 hour default
 
-    # Check if calendar is connected and accessible
-    if has_calendar_access?(user) do
-      # Calendar is accessible, ask user for preferred time and duration
-      request_message = """
-      ✅ Great! I found #{contact_name} (#{contact_email}) and your calendar is connected.
+    # Create datetime for the auto-selected time
+    selected_datetime = DateTime.new!(auto_date, auto_time, DateTime.utc_now().time_zone)
+    end_datetime = DateTime.add(selected_datetime, duration_minutes * 60, :second)
 
-      **Please provide:**
-      - **Preferred date and time** (e.g., "tomorrow at 2 PM" or "Friday at 10 AM")
-      - **Duration** (e.g., "30 minutes" or "1 hour")
-
-      **Examples:**
-      - "Tomorrow at 3 PM for 1 hour"
-      - "Friday at 10 AM for 30 minutes"
-      - "Next Monday at 2 PM for 45 minutes"
-
-      I'll check your calendar availability and schedule the appointment if the time is free, or suggest alternative times if it's busy.
-      """
-
-      create_agent_response(user, conversation_id, request_message, "conversation")
-    else
-      # Calendar not accessible, ask user to provide time manually
-      fallback_message = """
-      ✅ I found #{contact_name} (#{contact_email}), but I can't access your calendar right now.
-
-      **Please provide:**
-      - **Date and time** for the appointment
-      - **Duration** of the meeting
-
-      **Example:** "Tomorrow at 2 PM for 1 hour"
-
-      Once you provide the details, I can help you schedule it manually.
-      """
-
-      create_agent_response(user, conversation_id, fallback_message, "conversation")
+    # Automatically schedule the appointment
+    case schedule_appointment_at_time(user, conversation_id, contact_name, contact_email, selected_datetime, end_datetime, duration_minutes) do
+      {:ok, result} ->
+        # Clear any pending appointment context after successful scheduling
+        clear_pending_appointment_context(conversation_id)
+        {:ok, result}
+      {:error, reason} -> {:error, reason}
     end
   end
 
