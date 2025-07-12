@@ -150,8 +150,18 @@ defmodule AdvisorAi.AI.UniversalAgent do
     # Build recent conversation memory
     conversation_memory = build_conversation_memory(conversation_context)
 
+    # Build proper user context with computed fields
+    user_context = %{
+      name: user.name || "User",
+      email: user.email,
+      google_connected: has_valid_google_tokens?(user),
+      gmail_available: has_gmail_access?(user),
+      calendar_available: has_calendar_access?(user),
+      hubspot_connected: has_hubspot_connection?(user)
+    }
+
     %{
-      user: user,
+      user: user_context,
       rag_context: rag_context,
       instruction_memory: instruction_memory,
       conversation_memory: conversation_memory,
