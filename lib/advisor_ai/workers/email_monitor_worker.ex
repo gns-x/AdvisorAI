@@ -183,25 +183,29 @@ defmodule AdvisorAi.Workers.EmailMonitorWorker do
 
   defp build_meeting_lookup_prompt(email_data) do
     """
-    A client has emailed asking about an upcoming meeting. Please help them by looking up their meeting details.
+    A client has emailed asking about an upcoming meeting. You MUST help them by looking up their meeting details and sending them a response.
 
     **Email Details:**
     From: #{email_data.from}
     Subject: #{email_data.subject}
     Body: #{email_data.body}
 
-    **Required Actions:**
-    1. Extract the sender's email address from the "From" field
-    2. Use the universal_action tool with action="find_meetings" and attendee_email="[sender_email]" to look up their meeting details in the calendar
-    3. If meetings are found, respond with the meeting details
-    4. If no meetings are found, let them know and offer to help schedule one
-    5. Send the response directly to the sender using universal_action with action="send_email"
+    **REQUIRED ACTIONS (you MUST do both):**
+    1. First, use universal_action with action="list_events" and query="#{email_data.from}" to search for calendar events with this person
+    2. Then, use universal_action with action="send_email" to send a response to #{email_data.from}
 
-    **Example Response:**
-    If meetings are found: "Hi [Name], I found your upcoming meeting: [Meeting Details]. Let me know if you need anything else!"
-    If no meetings found: "Hi [Name], I don't see any upcoming meetings scheduled. Would you like me to help you schedule one?"
+    **Email Response Guidelines:**
+    - If meetings are found: Send a friendly email with the meeting details
+    - If no meetings found: Send a friendly email saying no meetings are scheduled and offer to help schedule one
+    - Be professional but warm
+    - Include the meeting time, date, and any other relevant details
+    - Sign off appropriately
 
-    **CRITICAL**: Always use the universal_action tool to perform real actions. Do not generate fake responses.
+    **CRITICAL**: You MUST use the universal_action tool TWICE:
+    1. First call: action="list_events" to find meetings
+    2. Second call: action="send_email" to respond to the client
+
+    Do not generate fake responses - actually call the tools and send the email.
     """
   end
 
