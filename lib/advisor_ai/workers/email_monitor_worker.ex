@@ -153,8 +153,7 @@ defmodule AdvisorAi.Workers.EmailMonitorWorker do
 
   defp handle_meeting_inquiry_email(user, email_data) do
     # Create a conversation for the proactive response
-    case Chat.create_conversation(%{
-           user_id: user.id,
+    case Chat.create_conversation(user.id, %{
            title: "Meeting Inquiry - #{email_data.subject}"
          }) do
       {:ok, conversation} ->
