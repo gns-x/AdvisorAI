@@ -720,14 +720,32 @@ defmodule AdvisorAi.AI.UniversalAgent do
     message_lower = String.downcase(message)
 
     # Try "tomorrow at X" pattern
-    case Regex.run(~r/tomorrow\s+at\s+(\d{1,2})(?::(\d{2}))?\s*(am|pm)?/i, message_lower) do
-      [_, hour, minute, ampm] when minute != nil ->
+    case parse_tomorrow_pattern(message_lower) do
+      {:ok, date, time} -> {:ok, date, time}
+      :not_found ->
+        # Try "today at X" pattern
+        case parse_today_pattern(message_lower) do
+          {:ok, date, time} -> {:ok, date, time}
+          :not_found ->
+            # Try specific day pattern like "Friday at X"
+            case parse_day_pattern(message_lower) do
+              {:ok, date, time} -> {:ok, date, time}
+              :not_found -> {:error, "Could not parse date and time from message"}
+            end
+        end
+    end
+  end
+
+  # Parse "tomorrow at X" pattern
+  defp parse_tomorrow_pattern(message) do
+    case Regex.run(~r/tomorrow\s+at\s+(\d{1,2})(?::(\d{2}))?\s*(am|pm)?/i, message) do
+      [_, hour_str, minute_str, ampm] ->
         tomorrow = Date.add(Date.utc_today(), 1)
-        hour_int = String.to_integer(hour)
-        minute_int = String.to_integer(minute)
+        hour_int = String.to_integer(hour_str)
+        minute_int = if minute_str && minute_str != "", do: String.to_integer(minute_str), else: 0
 
         # Convert to 24-hour format
-        hour_24 = case String.downcase(ampm) do
+        hour_24 = case String.downcase(ampm || "") do
           "pm" when hour_int < 12 -> hour_int + 12
           "am" when hour_int == 12 -> 0
           _ -> hour_int
@@ -736,142 +754,90 @@ defmodule AdvisorAi.AI.UniversalAgent do
         time = Time.new!(hour_24, minute_int, 0)
         {:ok, tomorrow, time}
 
-      [_, hour, minute, ampm] when minute == nil ->
+      [_, hour_str, minute_str] ->
         tomorrow = Date.add(Date.utc_today(), 1)
-        hour_int = String.to_integer(hour)
+        hour_int = String.to_integer(hour_str)
+        minute_int = if minute_str && minute_str != "", do: String.to_integer(minute_str), else: 0
+        time = Time.new!(hour_int, minute_int, 0)
+        {:ok, tomorrow, time}
+
+      [_, hour_str] ->
+        tomorrow = Date.add(Date.utc_today(), 1)
+        hour_int = String.to_integer(hour_str)
+        time = Time.new!(hour_int, 0, 0)
+        {:ok, tomorrow, time}
+
+      nil -> :not_found
+    end
+  end
+
+  # Parse "today at X" pattern
+  defp parse_today_pattern(message) do
+    case Regex.run(~r/today\s+at\s+(\d{1,2})(?::(\d{2}))?\s*(am|pm)?/i, message) do
+      [_, hour_str, minute_str, ampm] ->
+        today = Date.utc_today()
+        hour_int = String.to_integer(hour_str)
+        minute_int = if minute_str && minute_str != "", do: String.to_integer(minute_str), else: 0
 
         # Convert to 24-hour format
-        hour_24 = case String.downcase(ampm) do
+        hour_24 = case String.downcase(ampm || "") do
           "pm" when hour_int < 12 -> hour_int + 12
           "am" when hour_int == 12 -> 0
           _ -> hour_int
         end
 
-        time = Time.new!(hour_24, 0, 0)
-        {:ok, tomorrow, time}
+        time = Time.new!(hour_24, minute_int, 0)
+        {:ok, today, time}
 
-      [_, hour, minute] when minute != nil ->
-        tomorrow = Date.add(Date.utc_today(), 1)
-        hour_int = String.to_integer(hour)
-        minute_int = String.to_integer(minute)
+      [_, hour_str, minute_str] ->
+        today = Date.utc_today()
+        hour_int = String.to_integer(hour_str)
+        minute_int = if minute_str && minute_str != "", do: String.to_integer(minute_str), else: 0
         time = Time.new!(hour_int, minute_int, 0)
-        {:ok, tomorrow, time}
+        {:ok, today, time}
 
-      [_, hour, minute] when minute == nil ->
-        tomorrow = Date.add(Date.utc_today(), 1)
-        hour_int = String.to_integer(hour)
+      [_, hour_str] ->
+        today = Date.utc_today()
+        hour_int = String.to_integer(hour_str)
         time = Time.new!(hour_int, 0, 0)
-        {:ok, tomorrow, time}
+        {:ok, today, time}
 
-      [_, hour] ->
-        tomorrow = Date.add(Date.utc_today(), 1)
-        hour_int = String.to_integer(hour)
-        time = Time.new!(hour_int, 0, 0)
-        {:ok, tomorrow, time}
+      nil -> :not_found
+    end
+  end
 
-      nil ->
-        # Try "today at X" pattern
-        case Regex.run(~r/today\s+at\s+(\d{1,2})(?::(\d{2}))?\s*(am|pm)?/i, message_lower) do
-          [_, hour, minute, ampm] when minute != nil ->
-            today = Date.utc_today()
-            hour_int = String.to_integer(hour)
-            minute_int = String.to_integer(minute)
+  # Parse specific day pattern like "Friday at X"
+  defp parse_day_pattern(message) do
+    case Regex.run(~r/(monday|tuesday|wednesday|thursday|friday|saturday|sunday)\s+at\s+(\d{1,2})(?::(\d{2}))?\s*(am|pm)?/i, message) do
+      [_, day_name, hour_str, minute_str, ampm] ->
+        target_date = get_next_day_of_week(day_name)
+        hour_int = String.to_integer(hour_str)
+        minute_int = if minute_str && minute_str != "", do: String.to_integer(minute_str), else: 0
 
-            hour_24 = case String.downcase(ampm) do
-              "pm" when hour_int < 12 -> hour_int + 12
-              "am" when hour_int == 12 -> 0
-              _ -> hour_int
-            end
-
-            time = Time.new!(hour_24, minute_int, 0)
-            {:ok, today, time}
-
-          [_, hour, minute, ampm] when minute == nil ->
-            today = Date.utc_today()
-            hour_int = String.to_integer(hour)
-
-            hour_24 = case String.downcase(ampm) do
-              "pm" when hour_int < 12 -> hour_int + 12
-              "am" when hour_int == 12 -> 0
-              _ -> hour_int
-            end
-
-            time = Time.new!(hour_24, 0, 0)
-            {:ok, today, time}
-
-          [_, hour, minute] when minute != nil ->
-            today = Date.utc_today()
-            hour_int = String.to_integer(hour)
-            minute_int = String.to_integer(minute)
-            time = Time.new!(hour_int, minute_int, 0)
-            {:ok, today, time}
-
-          [_, hour, minute] when minute == nil ->
-            today = Date.utc_today()
-            hour_int = String.to_integer(hour)
-            time = Time.new!(hour_int, 0, 0)
-            {:ok, today, time}
-
-          [_, hour] ->
-            today = Date.utc_today()
-            hour_int = String.to_integer(hour)
-            time = Time.new!(hour_int, 0, 0)
-            {:ok, today, time}
-
-          nil ->
-            # Try specific day pattern like "Friday at X"
-            case Regex.run(~r/(monday|tuesday|wednesday|thursday|friday|saturday|sunday)\s+at\s+(\d{1,2})(?::(\d{2}))?\s*(am|pm)?/i, message_lower) do
-              [_, day_name, hour, minute, ampm] when minute != nil ->
-                target_date = get_next_day_of_week(day_name)
-                hour_int = String.to_integer(hour)
-                minute_int = String.to_integer(minute)
-
-                hour_24 = case String.downcase(ampm) do
-                  "pm" when hour_int < 12 -> hour_int + 12
-                  "am" when hour_int == 12 -> 0
-                  _ -> hour_int
-                end
-
-                time = Time.new!(hour_24, minute_int, 0)
-                {:ok, target_date, time}
-
-              [_, day_name, hour, minute, ampm] when minute == nil ->
-                target_date = get_next_day_of_week(day_name)
-                hour_int = String.to_integer(hour)
-
-                hour_24 = case String.downcase(ampm) do
-                  "pm" when hour_int < 12 -> hour_int + 12
-                  "am" when hour_int == 12 -> 0
-                  _ -> hour_int
-                end
-
-                time = Time.new!(hour_24, 0, 0)
-                {:ok, target_date, time}
-
-              [_, day_name, hour, minute] when minute != nil ->
-                target_date = get_next_day_of_week(day_name)
-                hour_int = String.to_integer(hour)
-                minute_int = String.to_integer(minute)
-                time = Time.new!(hour_int, minute_int, 0)
-                {:ok, target_date, time}
-
-              [_, day_name, hour, minute] when minute == nil ->
-                target_date = get_next_day_of_week(day_name)
-                hour_int = String.to_integer(hour)
-                time = Time.new!(hour_int, 0, 0)
-                {:ok, target_date, time}
-
-              [_, day_name, hour] ->
-                target_date = get_next_day_of_week(day_name)
-                hour_int = String.to_integer(hour)
-                time = Time.new!(hour_int, 0, 0)
-                {:ok, target_date, time}
-
-              nil ->
-                # If no patterns match, return error
-                {:error, "Could not parse date and time from message"}
-            end
+        # Convert to 24-hour format
+        hour_24 = case String.downcase(ampm || "") do
+          "pm" when hour_int < 12 -> hour_int + 12
+          "am" when hour_int == 12 -> 0
+          _ -> hour_int
         end
+
+        time = Time.new!(hour_24, minute_int, 0)
+        {:ok, target_date, time}
+
+      [_, day_name, hour_str, minute_str] ->
+        target_date = get_next_day_of_week(day_name)
+        hour_int = String.to_integer(hour_str)
+        minute_int = if minute_str && minute_str != "", do: String.to_integer(minute_str), else: 0
+        time = Time.new!(hour_int, minute_int, 0)
+        {:ok, target_date, time}
+
+      [_, day_name, hour_str] ->
+        target_date = get_next_day_of_week(day_name)
+        hour_int = String.to_integer(hour_str)
+        time = Time.new!(hour_int, 0, 0)
+        {:ok, target_date, time}
+
+      nil -> :not_found
     end
   end
 
