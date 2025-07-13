@@ -1727,12 +1727,9 @@ IMPORTANT: When the user asks you to perform an action, you MUST use the univers
           {:ok, response} ->
             {:ok, response}
 
-          {:error, _} ->
-            # Final fallback to Ollama (basic response without function calling)
-            case OllamaClient.chat_completion(messages: messages, temperature: 0.1) do
-              {:ok, response} -> {:ok, response}
-              {:error, reason} -> {:error, reason}
-            end
+          {:error, reason} ->
+            # Final fallback: return error instead of calling Ollama
+            {:error, reason}
         end
     end
   end
