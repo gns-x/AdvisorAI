@@ -538,8 +538,12 @@ defmodule AdvisorAi.Integrations.Gmail do
   defp process_email(user, message_id) do
     case get_email_details(user, message_id) do
       {:ok, email_data} ->
-        # Store in vector embeddings
-        store_email_embedding(user, email_data)
+        # Try to store in vector embeddings (but don't fail if it doesn't work)
+        case store_email_embedding(user, email_data) do
+          {:ok, _} -> Logger.info("✅ Email embedding stored successfully")
+          {:error, reason} -> Logger.warning("⚠️ Email embedding failed, continuing without it: #{reason}")
+          _ -> Logger.warning("⚠️ Email embedding failed, continuing without it")
+        end
 
         # Trigger agent if needed
         AdvisorAi.AI.Agent.handle_trigger(user, "email_received", email_data)
@@ -644,8 +648,8 @@ defmodule AdvisorAi.Integrations.Gmail do
 
     case get_embedding(content) do
       {:ok, embedding} ->
-        if is_list(embedding) and (length(embedding) == 384 or length(embedding) == 768) do
-          %VectorEmbedding{
+        if is_list(embedding) and (length(embedding) == 1536 or length(embedding) == 384 or length(embedding) == 768) do
+          case %VectorEmbedding{
             user_id: user.id,
             source: "email",
             content: content,
@@ -659,39 +663,51 @@ defmodule AdvisorAi.Integrations.Gmail do
             }
           }
           |> VectorEmbedding.changeset(%{})
-          |> Repo.insert()
+          |> Repo.insert() do
+            {:ok, result} -> {:ok, result}
+            {:error, reason} -> {:error, reason}
+          end
         else
           require Logger
 
           Logger.error(
-            "Embedding dimension mismatch: got #{length(embedding)}, expected 384 or 768. Skipping save."
+            "Embedding dimension mismatch: got #{length(embedding)}, expected 1536, 384, or 768. Skipping save."
           )
 
-          :error
+          {:error, "Embedding dimension mismatch"}
         end
 
       {:error, reason} ->
         require Logger
         Logger.error("Failed to store email embedding: #{inspect(reason)}")
-        :error
+        {:error, reason}
 
       other ->
         require Logger
         Logger.error("Unexpected embedding result: #{inspect(other)}")
-        :error
+        {:error, "Unexpected embedding result"}
     end
   end
 
   defp get_embedding(text) do
-    # Use OpenRouter for RAG
+    # Try OpenRouter first
     case AdvisorAi.AI.OpenRouterClient.embeddings(input: text) do
       {:ok, %{"data" => [%{"embedding" => embedding}]}} ->
         {:ok, embedding}
 
       {:error, reason} ->
         require Logger
-        Logger.error("Failed to generate embedding with OpenRouter: #{inspect(reason)}")
-        {:error, "Failed to generate embedding: #{inspect(reason)}"}
+        Logger.warning("OpenRouter embedding failed, trying Together AI: #{inspect(reason)}")
+
+        # Fallback to Together AI
+        case AdvisorAi.AI.TogetherClient.embeddings(input: text) do
+          {:ok, %{"embedding" => embedding}} ->
+            {:ok, embedding}
+
+          {:error, together_reason} ->
+            Logger.error("Both OpenRouter and Together AI embedding failed: #{inspect(together_reason)}")
+            {:error, "Failed to generate embedding: #{inspect(reason)}"}
+        end
     end
   end
 
