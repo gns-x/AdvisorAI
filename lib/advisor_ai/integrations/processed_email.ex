@@ -5,7 +5,7 @@ defmodule AdvisorAi.Integrations.ProcessedEmail do
   schema "processed_emails" do
     field :user_id, :binary_id
     field :message_id, :string
-    timestamps()
+    timestamps(type: :utc_datetime_usec)
   end
 
   def changeset(email, attrs) do
