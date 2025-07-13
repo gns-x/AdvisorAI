@@ -242,11 +242,24 @@ defmodule AdvisorAi.AI.Agent do
         nil -> {"", String.trim(sender_email)}
       end
 
+    # Improved name parsing
     {first_name, last_name} =
-      case String.split(parsed_name || "", " ", parts: 2) do
-        [f, l] -> {f, l}
-        [f] when f != "" -> {f, ""}
-        _ -> {"", ""}
+      cond do
+        parsed_name != "" ->
+          # Try to split display name
+          case String.split(parsed_name, " ", parts: 2) do
+            [f, l] -> {f, l}
+            [f] -> {f, ""}
+            _ -> {parsed_name, ""}
+          end
+        true ->
+          # Fallback: parse from email (e.g., john.doe@gmail.com)
+          local_part = parsed_email |> String.split("@") |> List.first() |> String.replace(~r/[^a-zA-Z0-9._-]/, "")
+          case Regex.run(~r/^([a-zA-Z0-9]+)[._-]?([a-zA-Z0-9]*)/, local_part) do
+            [_, f, l] when l != "" -> {String.capitalize(f), String.capitalize(l)}
+            [_, f] -> {String.capitalize(f), ""}
+            _ -> {local_part, ""}
+          end
       end
 
     # Step 1: Check if contact exists in HubSpot
