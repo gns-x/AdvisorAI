@@ -6,7 +6,7 @@ defmodule AdvisorAi.Integrations.Gmail do
   alias AdvisorAi.AI.{VectorEmbedding, GroqClient}
   alias AdvisorAi.Repo
   alias AdvisorAi.Accounts
-  alias AdvisorAi.AI.LocalEmbeddingClient
+
   import Ecto.Query
   require Logger
 
