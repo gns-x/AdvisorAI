@@ -1227,4 +1227,36 @@ defmodule AdvisorAi.Integrations.Gmail do
   defp get_project_id() do
     Application.get_env(:advisor_ai, :google_project_id, "advisor-ai-project")
   end
+
+  # Helper to detect meeting inquiry
+  defp is_meeting_inquiry?(email_data) do
+    subject = String.downcase(email_data.subject || "")
+    body = String.downcase(email_data.body || "")
+    Enum.any?([subject, body], fn text ->
+      String.contains?(text, "meeting") or String.contains?(text, "calendar") or String.contains?(text, "appointment")
+    end)
+  end
+
+  # Helper to format a professional meeting response
+  defp format_meeting_response([], user) do
+    "Hi,\n\nYou currently have no upcoming meetings scheduled.\n\nIf you need to book a meeting, just let me know!\n\nBest regards,\n#{user.name || user.email}"
+  end
+  defp format_meeting_response(meetings, user) do
+    meeting_lines =
+      meetings
+      |> Enum.map(fn m ->
+        "• #{m.title} with #{m.attendees |> Enum.join(", ")} on #{format_datetime(m.start_time)} to #{format_datetime(m.end_time)}"
+      end)
+      |> Enum.join("\n")
+
+    "Hi,\n\nHere are your upcoming meetings:\n\n#{meeting_lines}\n\nIf you need to reschedule or have any questions, feel free to reply.\n\nBest regards,\n#{user.name || user.email}"
+  end
+
+  defp format_datetime(nil), do: "(unknown time)"
+  defp format_datetime(dt) do
+    dt
+    |> DateTime.to_string()
+    |> String.replace("T", " at ")
+    |> String.replace(~r/\+\d{2}:\d{2}$/, "")
+  end
 end
