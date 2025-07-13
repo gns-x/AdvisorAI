@@ -83,7 +83,7 @@ defmodule AdvisorAi.AI.OpenRouterClient do
   Generate embeddings using OpenRouter.
   """
   def embeddings(opts) do
-    model = Keyword.get(opts, :model, "openai/text-embedding-3-small")
+    model = Keyword.get(opts, :model, "mistralai/mistral-embed")
     input = Keyword.get(opts, :input, "")
 
     # Get API key from environment
