@@ -242,23 +242,25 @@ defmodule AdvisorAi.AI.Agent do
         nil -> {"", String.trim(sender_email)}
       end
 
-    # Improved name parsing
+    # Advanced name extraction
     {first_name, last_name} =
       cond do
         parsed_name != "" ->
           # Try to split display name
-          case String.split(parsed_name, " ", parts: 2) do
-            [f, l] -> {f, l}
-            [f] -> {f, ""}
-            _ -> {parsed_name, ""}
+          case String.split(parsed_name, ~r/\s+/, parts: 2) do
+            [f, l] -> {capitalize_name(f), capitalize_name(l)}
+            [f] -> {capitalize_name(f), ""}
+            _ -> {capitalize_name(parsed_name), ""}
           end
         true ->
-          # Fallback: parse from email (e.g., john.doe@gmail.com)
+          # Fallback: parse from email (e.g., john.doe@gmail.com, jane_doe@gmail.com, markojhonny300@gmail.com)
           local_part = parsed_email |> String.split("@") |> List.first() |> String.replace(~r/[^a-zA-Z0-9._-]/, "")
-          case Regex.run(~r/^([a-zA-Z0-9]+)[._-]?([a-zA-Z0-9]*)/, local_part) do
-            [_, f, l] when l != "" -> {String.capitalize(f), String.capitalize(l)}
-            [_, f] -> {String.capitalize(f), ""}
-            _ -> {local_part, ""}
+          # Try to split on common separators
+          parts = String.split(local_part, ~r/[._-]+/)
+          case parts do
+            [f, l | _] -> {clean_and_capitalize(f), clean_and_capitalize(l)}
+            [f] -> {clean_and_capitalize(f), ""}
+            _ -> {String.capitalize(local_part), ""}
           end
       end
 
@@ -1091,5 +1093,22 @@ defmodule AdvisorAi.AI.Agent do
       true ->
         trigger_type
     end
+  end
+
+  # Helper functions for name cleaning
+
+  defp clean_and_capitalize(str) do
+    str
+    |> String.replace(~r/\d+$/, "") # Remove trailing numbers
+    |> String.downcase()
+    |> String.capitalize()
+  end
+
+  defp capitalize_name(str) do
+    str
+    |> String.downcase()
+    |> String.split(~r/\s+/)
+    |> Enum.map(&String.capitalize/1)
+    |> Enum.join(" ")
   end
 end
