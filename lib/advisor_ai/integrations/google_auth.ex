@@ -13,19 +13,19 @@ defmodule AdvisorAi.Integrations.GoogleAuth do
   def get_access_token(user) do
     case Accounts.get_user_google_account(user.id) do
       nil ->
-        {:error, "No Google access token found. Please reconnect your Google account."}
+        {:error, "You need to connect your Google account in settings before I can access your Gmail or Calendar."}
 
       account ->
         case account.access_token do
           nil ->
-            {:error, "No Google access token found. Please reconnect your Google account."}
+            {:error, "You need to connect your Google account in settings before I can access your Gmail or Calendar."}
 
           token ->
             # Check if token is expired and refresh if needed
             if is_token_expired?(account) do
               case refresh_access_token(user) do
                 {:ok, new_token} -> {:ok, new_token}
-                {:error, reason} -> {:error, "Token refresh failed: #{reason}"}
+                {:error, reason} -> {:error, "You need to connect your Google account in settings before I can access your Gmail or Calendar."}
               end
             else
               {:ok, token}
@@ -40,12 +40,12 @@ defmodule AdvisorAi.Integrations.GoogleAuth do
   def refresh_access_token(user) do
     case Accounts.get_user_google_account(user.id) do
       nil ->
-        {:error, "No refresh token available. Please reconnect your Google account."}
+        {:error, "You need to connect your Google account in settings before I can access your Gmail or Calendar."}
 
       account ->
         case account.refresh_token do
           nil ->
-            {:error, "No refresh token available. Please reconnect your Google account."}
+            {:error, "You need to connect your Google account in settings before I can access your Gmail or Calendar."}
 
           refresh_token ->
             do_refresh_token(refresh_token)

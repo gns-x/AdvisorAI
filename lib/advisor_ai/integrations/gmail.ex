@@ -743,8 +743,7 @@ defmodule AdvisorAi.Integrations.Gmail do
   defp get_access_token(user) do
     case AdvisorAi.Accounts.get_user_google_account(user.id) do
       nil ->
-        {:error, "No Google account connected"}
-
+        {:error, "You need to connect your Google account in settings before I can access your Gmail."}
       account ->
         if is_token_expired?(account) do
           refresh_access_token(account)
