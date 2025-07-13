@@ -542,6 +542,7 @@ defmodule AdvisorAi.Integrations.Gmail do
         if String.downcase(email_data.from || "") == String.downcase(user.email || "") do
           Logger.info("Skipping email sent by self: #{email_data.from}")
           :ok
+        # NEW: Also skip sending a meeting response to the user's own email address
         else
           # Check if already processed
           already_processed =
@@ -566,9 +567,14 @@ defmodule AdvisorAi.Integrations.Gmail do
 
             # Improved meeting inquiry response
             if is_meeting_inquiry?(email_data) do
-              meetings = AdvisorAi.Integrations.Calendar.get_upcoming_meetings(user)
-              response = format_meeting_response(meetings, user)
-              send_email(user, email_data.from, "Your Upcoming Meetings", response)
+              # Only send a response if the sender is NOT the connected user's own email
+              if String.downcase(email_data.from || "") != String.downcase(user.email || "") do
+                meetings = AdvisorAi.Integrations.Calendar.get_upcoming_meetings(user)
+                response = format_meeting_response(meetings, user)
+                send_email(user, email_data.from, "Your Upcoming Meetings", response)
+              else
+                Logger.info("Not sending meeting response to own connected email: #{email_data.from}")
+              end
             end
 
             AdvisorAi.AI.Agent.handle_trigger(user, "email_received", email_data)
