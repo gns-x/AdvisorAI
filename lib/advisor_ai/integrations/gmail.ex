@@ -648,7 +648,7 @@ defmodule AdvisorAi.Integrations.Gmail do
 
     case get_embedding(content) do
       {:ok, embedding} ->
-        if is_list(embedding) and (length(embedding) == 768 or length(embedding) == 1536 or length(embedding) == 1024 or length(embedding) == 384) do
+        if is_list(embedding) and (length(embedding) == 1536 or length(embedding) == 768 or length(embedding) == 1024 or length(embedding) == 384) do
           case %VectorEmbedding{
             user_id: user.id,
             source: "email",
@@ -671,7 +671,7 @@ defmodule AdvisorAi.Integrations.Gmail do
           require Logger
 
           Logger.error(
-            "Embedding dimension mismatch: got #{length(embedding)}, expected 768, 1536, 1024, or 384. Skipping save."
+            "Embedding dimension mismatch: got #{length(embedding)}, expected 1536, 768, 1024, or 384. Skipping save."
           )
 
           {:error, "Embedding dimension mismatch"}
@@ -690,30 +690,15 @@ defmodule AdvisorAi.Integrations.Gmail do
   end
 
   defp get_embedding(text) do
-    # Try OpenRouter first
-    case AdvisorAi.AI.OpenRouterClient.embeddings(input: text) do
+    # Use Groq for embeddings (ultra-fast and reliable)
+    case AdvisorAi.AI.GroqClient.embeddings(input: text) do
       {:ok, %{"data" => [%{"embedding" => embedding}]}} ->
         {:ok, embedding}
 
       {:error, reason} ->
         require Logger
-        Logger.warning("OpenRouter embedding failed, trying Together AI: #{inspect(reason)}")
-
-        # Fallback to Together AI (only if API key is available)
-        together_api_key = System.get_env("TOGETHER_API_KEY")
-        if together_api_key && together_api_key != "" do
-          case AdvisorAi.AI.TogetherClient.embeddings(input: text) do
-            {:ok, %{"embedding" => embedding}} ->
-              {:ok, embedding}
-
-            {:error, together_reason} ->
-              Logger.error("Both OpenRouter and Together AI embedding failed: #{inspect(together_reason)}")
-              {:error, "Failed to generate embedding: #{inspect(reason)}"}
-          end
-        else
-          Logger.warning("Together AI API key not set, skipping fallback")
-          {:error, "Failed to generate embedding: #{inspect(reason)}"}
-        end
+        Logger.warning("Groq embedding failed: #{inspect(reason)}")
+        {:error, "Failed to generate embedding: #{inspect(reason)}"}
     end
   end
 

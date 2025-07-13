@@ -8,8 +8,8 @@ defmodule AdvisorAiWeb.HealthController do
     # Check OpenAI connection
     openai_status = check_openai()
 
-    # Check OpenRouter connection
-    openrouter_status = check_openrouter()
+    # Check Groq connection
+    groq_status = check_groq()
 
     status = %{
       status: "healthy",
@@ -17,7 +17,7 @@ defmodule AdvisorAiWeb.HealthController do
       services: %{
         database: db_status,
         openai: openai_status,
-        openrouter: openrouter_status
+        groq: groq_status
       }
     }
 
@@ -54,29 +54,35 @@ defmodule AdvisorAiWeb.HealthController do
     end
   end
 
-  defp check_openrouter do
+  defp check_groq do
     try do
-      case AdvisorAi.AI.OpenRouterClient.health_check() do
+      case AdvisorAi.AI.GroqClient.health_check() do
         {:ok, message} ->
           %{status: "healthy", message: message}
 
         {:error, reason} ->
-          %{status: "unhealthy", message: "OpenRouter connection failed: #{inspect(reason)}"}
+          %{status: "unhealthy", message: "Groq connection failed: #{inspect(reason)}"}
       end
     rescue
-      e -> %{status: "unhealthy", message: "OpenRouter check failed: #{inspect(e)}"}
+      e -> %{status: "unhealthy", message: "Groq check failed: #{inspect(e)}"}
     end
   end
 
   def embedding_models(conn, _params) do
-    case AdvisorAi.AI.OpenRouterClient.list_embedding_models() do
+    case AdvisorAi.AI.GroqClient.list_models() do
       {:ok, models} ->
+        # Filter for embedding models
+        embedding_models = Enum.filter(models, fn model ->
+          model["object"] == "model" and
+          String.contains?(model["id"] || "", "embed")
+        end)
+
         conn
         |> put_status(:ok)
         |> json(%{
           status: "success",
-          models: models,
-          count: length(models)
+          models: embedding_models,
+          count: length(embedding_models)
         })
 
       {:error, reason} ->

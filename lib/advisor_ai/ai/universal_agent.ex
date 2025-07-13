@@ -126,9 +126,9 @@ defmodule AdvisorAi.AI.UniversalAgent do
   end
 
   defp get_embedding(text) do
-    # Use Together AI for RAG
-    case TogetherClient.embeddings(input: text) do
-      {:ok, %{"embedding" => embedding}} ->
+    # Use Groq for RAG (ultra-fast and reliable)
+    case GroqClient.embeddings(input: text) do
+      {:ok, %{"data" => [%{"embedding" => embedding}]}} ->
         {:ok, embedding}
 
       {:error, reason} ->
@@ -1705,19 +1705,19 @@ IMPORTANT: When the user asks you to perform an action, you MUST use the univers
     IO.inspect(messages, label: "DEBUG: OpenRouter messages")
     IO.inspect(tools_format, label: "DEBUG: OpenRouter tools_format")
 
-    case OpenRouterClient.chat_completion(
+    case GroqClient.chat_completion(
            messages: messages,
            tools: tools_format,
            tool_choice: "auto",
            temperature: 0.1
          ) do
       {:ok, response} ->
-        IO.inspect(response, label: "DEBUG: OpenRouter raw response")
+        IO.inspect(response, label: "DEBUG: Groq raw response")
         {:ok, response}
 
       {:error, err} ->
-        IO.inspect(err, label: "DEBUG: OpenRouter error")
-        # Fallback to Together AI
+        IO.inspect(err, label: "DEBUG: Groq error")
+        # Fallback to Together AI if Groq fails
         case TogetherClient.chat_completion(
                messages: messages,
                tools: tools_format,

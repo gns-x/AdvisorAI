@@ -448,9 +448,9 @@ defmodule AdvisorAi.Integrations.HubSpot do
   end
 
   defp get_embedding(text) do
-    # Use Together AI for RAG
-    case AdvisorAi.AI.TogetherClient.embeddings(input: text) do
-      {:ok, %{"embedding" => embedding}} ->
+    # Use Groq for RAG (ultra-fast and reliable)
+    case AdvisorAi.AI.GroqClient.embeddings(input: text) do
+      {:ok, %{"data" => [%{"embedding" => embedding}]}} ->
         {:ok, embedding}
 
       {:error, reason} ->
