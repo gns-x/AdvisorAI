@@ -3,7 +3,7 @@ defmodule AdvisorAi.Integrations.HubSpot do
   HubSpot integration for managing contacts and notes
   """
 
-  alias AdvisorAi.AI.{VectorEmbedding, TogetherClient}
+  alias AdvisorAi.AI.{VectorEmbedding, GroqClient}
   alias AdvisorAi.Repo
 
   @hubspot_api_url "https://api.hubapi.com"

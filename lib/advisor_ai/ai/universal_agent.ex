@@ -6,7 +6,7 @@ defmodule AdvisorAi.AI.UniversalAgent do
 
   alias AdvisorAi.{Accounts, Chat, AI}
   alias AdvisorAi.Integrations.{Gmail, Calendar, HubSpot}
-  alias AI.{OpenRouterClient, TogetherClient, OllamaClient, AgentInstruction}
+  alias AI.{GroqClient, OllamaClient, AgentInstruction}
 
   @doc """
   Process any user request and autonomously perform the appropriate Gmail/Calendar actions.
@@ -1153,7 +1153,7 @@ defmodule AdvisorAi.AI.UniversalAgent do
           }
           """
 
-          case OpenRouterClient.chat_completion(
+          case GroqClient.chat_completion(
                  messages: [
                    %{
                      role: "system",
@@ -1717,8 +1717,8 @@ IMPORTANT: When the user asks you to perform an action, you MUST use the univers
 
       {:error, err} ->
         IO.inspect(err, label: "DEBUG: Groq error")
-        # Fallback to Together AI if Groq fails
-        case TogetherClient.chat_completion(
+        # Fallback to Groq again if first attempt fails
+        case GroqClient.chat_completion(
                messages: messages,
                tools: tools_format,
                tool_choice: "auto",
@@ -2066,7 +2066,7 @@ IMPORTANT: When the user asks you to perform an action, you MUST use the univers
           }
         end)
 
-      case OpenRouterClient.chat_completion(
+      case GroqClient.chat_completion(
              messages: messages,
              tools: tools_format,
              tool_choice: "auto",
@@ -4537,7 +4537,7 @@ IMPORTANT: When the user asks you to perform an action, you MUST use the univers
 
     if query_length < 3 do
       # Query is too short, try to expand it
-      case OpenRouterClient.chat_completion(
+      case GroqClient.chat_completion(
              messages: [
                %{role: "system", content: "You are an expert at enhancing email search queries."},
                %{
@@ -4695,7 +4695,7 @@ IMPORTANT: When the user asks you to perform an action, you MUST use the univers
     }
     """
 
-    case OpenRouterClient.chat_completion(
+    case GroqClient.chat_completion(
            messages: [
              %{role: "system", content: "You are an expert at fixing tool call errors."},
              %{role: "user", content: error_analysis_prompt}
@@ -4734,7 +4734,7 @@ IMPORTANT: When the user asks you to perform an action, you MUST use the univers
     }
     """
 
-    case OpenRouterClient.chat_completion(
+    case GroqClient.chat_completion(
            messages: [
              %{
                role: "system",
@@ -4821,7 +4821,7 @@ IMPORTANT: When the user asks you to perform an action, you MUST use the univers
     Provide 2-3 helpful suggestions for what the user could try instead.
     """
 
-    case OpenRouterClient.chat_completion(
+    case GroqClient.chat_completion(
            messages: [
              %{
                role: "system",

@@ -3,7 +3,7 @@ defmodule AdvisorAi.Integrations.Gmail do
   Gmail integration for reading and sending emails, syncing emails, and intelligent email features.
   """
 
-  alias AdvisorAi.AI.{VectorEmbedding, TogetherClient}
+  alias AdvisorAi.AI.{VectorEmbedding, GroqClient}
   alias AdvisorAi.Repo
   alias AdvisorAi.Accounts
   alias AdvisorAi.AI.LocalEmbeddingClient
@@ -936,7 +936,7 @@ defmodule AdvisorAi.Integrations.Gmail do
     4. Professional in tone
     """
 
-    case AdvisorAi.AI.OpenRouterClient.chat_completion([
+            case AdvisorAi.AI.GroqClient.chat_completion([
            %{role: "user", content: prompt}
          ]) do
       {:ok, %{"choices" => [%{"message" => %{"content" => content}} | _]}} ->

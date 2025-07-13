@@ -5,7 +5,7 @@ defmodule AdvisorAi.AI.IntelligentAgent do
 
   alias AdvisorAi.{Accounts, Chat, AI}
   alias AdvisorAi.Integrations.{Gmail, Calendar, HubSpot, GoogleAuth}
-  alias AI.{OpenRouterClient, TogetherClient, OllamaClient, VectorEmbedding, AgentInstruction}
+  alias AI.{GroqClient, OllamaClient, VectorEmbedding, AgentInstruction}
 
   @doc """
   Process a user request using AI to understand and execute tasks intelligently.
@@ -352,31 +352,31 @@ defmodule AdvisorAi.AI.IntelligentAgent do
 
   # Get AI response using available AI clients
   defp get_ai_response(prompt) do
-    # Try OpenRouter first (most powerful)
-    case try_openrouter(prompt) do
+    # Try Groq first (ultra-fast and reliable)
+    case try_groq(prompt) do
       {:ok, response} ->
         {:ok, response}
 
       {:error, _} ->
-        # Fallback to Together AI
-        case try_together_ai(prompt) do
+        # Fallback to Groq again
+        case try_groq(prompt) do
           {:ok, response} ->
             {:ok, response}
 
           {:error, _} ->
-            # Fallback to Ollama
+            # Final fallback to Ollama
             try_ollama(prompt)
         end
     end
   end
 
-  defp try_openrouter(prompt) do
+  defp try_groq(prompt) do
     messages = [
       %{"role" => "system", "content" => "You are a helpful AI assistant."},
       %{"role" => "user", "content" => prompt}
     ]
 
-    case OpenRouterClient.chat_completion(messages: messages, temperature: 0.3) do
+    case GroqClient.chat_completion(messages: messages, temperature: 0.3) do
       {:ok, %{"choices" => [%{"message" => %{"content" => content}} | _]}} ->
         {:ok, content}
 
@@ -391,7 +391,7 @@ defmodule AdvisorAi.AI.IntelligentAgent do
       %{"role" => "user", "content" => prompt}
     ]
 
-    case TogetherClient.chat_completion(messages: messages, temperature: 0.3) do
+    case GroqClient.chat_completion(messages: messages, temperature: 0.3) do
       {:ok, %{"choices" => [%{"message" => %{"content" => content}} | _]}} ->
         {:ok, content}
 

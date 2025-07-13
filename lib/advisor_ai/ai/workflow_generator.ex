@@ -10,7 +10,7 @@ defmodule AdvisorAi.AI.WorkflowGenerator do
   5. Learn from previous workflows
   """
 
-  alias AdvisorAi.AI.OpenRouterClient
+  alias AdvisorAi.AI.GroqClient
 
   @workflow_templates %{
     "client_onboarding" => [
@@ -267,7 +267,7 @@ defmodule AdvisorAi.AI.WorkflowGenerator do
       Respond with only the JSON workflow.
       """
 
-      case OpenRouterClient.chat_completion(
+      case GroqClient.chat_completion(
              messages: [
                %{role: "system", content: system_prompt},
                %{role: "user", content: user_request}
@@ -338,7 +338,7 @@ defmodule AdvisorAi.AI.WorkflowGenerator do
       Respond with only the JSON workflow.
       """
 
-      case OpenRouterClient.chat_completion(
+      case GroqClient.chat_completion(
              messages: [
                %{role: "system", content: system_prompt},
                %{role: "user", content: user_request}

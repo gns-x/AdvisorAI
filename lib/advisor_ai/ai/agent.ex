@@ -15,7 +15,7 @@ defmodule AdvisorAi.AI.Agent do
   alias AdvisorAi.AI.{
     VectorEmbedding,
     AgentInstruction,
-    OpenRouterClient,
+    GroqClient,
     IntelligentAgent,
     WorkflowGenerator,
     UniversalAgent
@@ -641,7 +641,7 @@ defmodule AdvisorAi.AI.Agent do
     If everything worked, confirm what was accomplished.
     """
 
-    case OpenRouterClient.chat_completion(
+    case GroqClient.chat_completion(
            messages: [
              %{role: "system", content: system_prompt},
              %{role: "user", content: user_message}
