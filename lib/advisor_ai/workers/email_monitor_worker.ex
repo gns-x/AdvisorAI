@@ -11,6 +11,8 @@ defmodule AdvisorAi.Workers.EmailMonitorWorker do
   alias AdvisorAi.AI.Agent
   alias AdvisorAi.AI.UniversalAgent
   alias AdvisorAi.Chat
+  alias AdvisorAi.Integrations.ProcessedEmail
+  alias AdvisorAi.Repo
 
   # Check every 30 seconds
   @check_interval 30_000
@@ -496,17 +498,16 @@ defmodule AdvisorAi.Workers.EmailMonitorWorker do
   # Simple in-memory tracking of processed emails to prevent duplicates
   # In production, you might want to use a database table or Redis
   defp already_processed_recently?(user_id, message_id) do
-    key = "#{user_id}:#{message_id}"
-    case Process.get({:processed_email, key}) do
+    case Repo.get_by(ProcessedEmail, user_id: user_id, message_id: message_id) do
       nil -> false
-      processed_at ->
-        # Check if processed within last 5 minutes
-        DateTime.diff(DateTime.utc_now(), processed_at, :second) < 300
+      _ -> true
     end
   end
 
   defp mark_email_as_processed(user_id, message_id) do
-    key = "#{user_id}:#{message_id}"
-    Process.put({:processed_email, key}, DateTime.utc_now())
+    %ProcessedEmail{}
+    |> ProcessedEmail.changeset(%{user_id: user_id, message_id: message_id})
+    |> Repo.insert(on_conflict: :nothing)
+    :ok
   end
 end
