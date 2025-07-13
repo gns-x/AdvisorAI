@@ -126,9 +126,9 @@ defmodule AdvisorAi.AI.UniversalAgent do
   end
 
   defp get_embedding(text) do
-    # Use OpenRouter for RAG
-    case OpenRouterClient.embeddings(input: text) do
-      {:ok, %{"data" => [%{"embedding" => embedding}]}} ->
+    # Use Together AI for RAG
+    case TogetherClient.embeddings(input: text) do
+      {:ok, %{"embedding" => embedding}} ->
         {:ok, embedding}
 
       {:error, reason} ->

@@ -5,13 +5,13 @@ defmodule AdvisorAi.Repo.Migrations.UpdateVectorEmbeddingsDimensions do
     # Drop the existing table and recreate it with proper vector dimensions
     execute "DROP TABLE IF EXISTS vector_embeddings CASCADE"
 
-    # Recreate the table with 1536-dimensional vectors (text-embedding-ada-002)
+    # Recreate the table with 768-dimensional vectors (togethercomputer/m2-bert-80M-8k-base)
     execute """
     CREATE TABLE vector_embeddings (
       id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
       user_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
       content text NOT NULL,
-      embedding vector(1536) NOT NULL,
+      embedding vector(768) NOT NULL,
       metadata jsonb DEFAULT '{}',
       source text,
       inserted_at timestamp(0) NOT NULL,
@@ -29,13 +29,13 @@ defmodule AdvisorAi.Repo.Migrations.UpdateVectorEmbeddingsDimensions do
     # Drop the table
     execute "DROP TABLE IF EXISTS vector_embeddings CASCADE"
 
-    # Recreate the original table with 1536 dimensions
+    # Recreate the original table with 768 dimensions
     execute """
     CREATE TABLE vector_embeddings (
       id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
       user_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
       content text NOT NULL,
-      embedding vector(1536) NOT NULL,
+      embedding vector(768) NOT NULL,
       metadata jsonb DEFAULT '{}',
       source text,
       inserted_at timestamp(0) NOT NULL,
