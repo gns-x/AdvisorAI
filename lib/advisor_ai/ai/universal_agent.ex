@@ -2287,6 +2287,7 @@ IMPORTANT: When the user asks you to perform an action, you MUST use the univers
   defp execute_universal_action(user, args, user_message \\ "") do
     # Extract action from args
     action = Map.get(args, "action", "")
+    action = if is_nil(action), do: "", else: action
     action_lower = String.downcase(action)
 
     cond do
@@ -2370,6 +2371,7 @@ IMPORTANT: When the user asks you to perform an action, you MUST use the univers
   # Legacy support for old function names
   defp execute_universal_action(user, action, args, user_message) do
     # Parse the action to determine what to do
+    action = if is_nil(action), do: "", else: action
     action_lower = String.downcase(action)
 
     cond do
