@@ -3,7 +3,7 @@ defmodule AdvisorAi.Integrations.ProcessedEmail do
   import Ecto.Changeset
 
   schema "processed_emails" do
-    field :user_id, :integer
+    field :user_id, :binary_id
     field :message_id, :string
     timestamps()
   end
