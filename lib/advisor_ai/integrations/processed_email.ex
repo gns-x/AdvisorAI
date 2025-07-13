@@ -2,13 +2,10 @@ defmodule AdvisorAi.Integrations.ProcessedEmail do
   use Ecto.Schema
   import Ecto.Changeset
 
-  @primary_key {:id, :binary_id, autogenerate: true}
-  @foreign_key_type :binary_id
-
   schema "processed_emails" do
-    field :user_id, :binary_id
+    field :user_id, :integer
     field :message_id, :string
-    timestamps(type: :utc_datetime)
+    timestamps()
   end
 
   def changeset(email, attrs) do

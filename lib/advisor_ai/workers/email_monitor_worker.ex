@@ -496,24 +496,17 @@ defmodule AdvisorAi.Workers.EmailMonitorWorker do
   # Simple in-memory tracking of processed emails to prevent duplicates
   # In production, you might want to use a database table or Redis
   defp already_processed_recently?(user_id, message_id) do
-    # Use persistent DB tracking to prevent duplicate processing
-    import Ecto.Query
-    alias AdvisorAi.Repo
-    alias AdvisorAi.Integrations.ProcessedEmail
-
-    case Repo.get_by(ProcessedEmail, user_id: user_id, message_id: message_id) do
+    key = "#{user_id}:#{message_id}"
+    case Process.get({:processed_email, key}) do
       nil -> false
-      _ -> true
+      processed_at ->
+        # Check if processed within last 5 minutes
+        DateTime.diff(DateTime.utc_now(), processed_at, :second) < 300
     end
   end
 
   defp mark_email_as_processed(user_id, message_id) do
-    alias AdvisorAi.Repo
-    alias AdvisorAi.Integrations.ProcessedEmail
-
-    %ProcessedEmail{}
-    |> ProcessedEmail.changeset(%{user_id: user_id, message_id: message_id})
-    |> Repo.insert(on_conflict: :nothing)
-    :ok
+    key = "#{user_id}:#{message_id}"
+    Process.put({:processed_email, key}, DateTime.utc_now())
   end
 end
