@@ -546,26 +546,32 @@ defmodule AdvisorAi.Integrations.Gmail do
     else
       case get_email_details(user, message_id) do
         {:ok, email_data} ->
-          # Store processed email
-          %AdvisorAi.Integrations.ProcessedEmail{}
-          |> AdvisorAi.Integrations.ProcessedEmail.changeset(%{user_id: user.id, message_id: message_id})
-          |> AdvisorAi.Repo.insert()
+          # Skip emails sent by the user/app itself
+          if String.downcase(email_data.from || "") == String.downcase(user.email || "") do
+            Logger.info("Skipping email sent by self: #{email_data.from}")
+            :ok
+          else
+            # Store processed email
+            %AdvisorAi.Integrations.ProcessedEmail{}
+            |> AdvisorAi.Integrations.ProcessedEmail.changeset(%{user_id: user.id, message_id: message_id})
+            |> AdvisorAi.Repo.insert()
 
-          # Try to store in vector embeddings (but don't fail if it doesn't work)
-          case store_email_embedding(user, email_data) do
-            {:ok, _} -> Logger.info("✅ Email embedding stored successfully")
-            {:error, reason} -> Logger.warning("⚠️ Email embedding failed, continuing without it: #{reason}")
-            _ -> Logger.warning("⚠️ Email embedding failed, continuing without it")
+            # Try to store in vector embeddings (but don't fail if it doesn't work)
+            case store_email_embedding(user, email_data) do
+              {:ok, _} -> Logger.info("✅ Email embedding stored successfully")
+              {:error, reason} -> Logger.warning("⚠️ Email embedding failed, continuing without it: #{reason}")
+              _ -> Logger.warning("⚠️ Email embedding failed, continuing without it")
+            end
+
+            # Improved meeting inquiry response
+            if is_meeting_inquiry?(email_data) do
+              meetings = AdvisorAi.Integrations.Calendar.get_upcoming_meetings(user)
+              response = format_meeting_response(meetings, user)
+              send_email(user, email_data.from, "Your Upcoming Meetings", response)
+            end
+
+            AdvisorAi.AI.Agent.handle_trigger(user, "email_received", email_data)
           end
-
-          # Improved meeting inquiry response
-          if is_meeting_inquiry?(email_data) do
-            meetings = AdvisorAi.Integrations.Calendar.get_upcoming_meetings(user)
-            response = format_meeting_response(meetings, user)
-            send_email(user, email_data.from, "Your Upcoming Meetings", response)
-          end
-
-          AdvisorAi.AI.Agent.handle_trigger(user, "email_received", email_data)
 
         {:error, _reason} ->
           :ok
