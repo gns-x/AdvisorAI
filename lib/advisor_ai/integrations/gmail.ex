@@ -536,20 +536,40 @@ defmodule AdvisorAi.Integrations.Gmail do
   end
 
   defp process_email(user, message_id) do
-    case get_email_details(user, message_id) do
-      {:ok, email_data} ->
-        # Try to store in vector embeddings (but don't fail if it doesn't work)
-        case store_email_embedding(user, email_data) do
-          {:ok, _} -> Logger.info("✅ Email embedding stored successfully")
-          {:error, reason} -> Logger.warning("⚠️ Email embedding failed, continuing without it: #{reason}")
-          _ -> Logger.warning("⚠️ Email embedding failed, continuing without it")
-        end
+    # Check if already processed
+    already_processed =
+      AdvisorAi.Repo.get_by(AdvisorAi.Integrations.ProcessedEmail, user_id: user.id, message_id: message_id)
 
-        # Trigger agent if needed
-        AdvisorAi.AI.Agent.handle_trigger(user, "email_received", email_data)
+    if already_processed do
+      Logger.info("Skipping already processed email #{message_id}")
+      :ok
+    else
+      case get_email_details(user, message_id) do
+        {:ok, email_data} ->
+          # Store processed email
+          %AdvisorAi.Integrations.ProcessedEmail{}
+          |> AdvisorAi.Integrations.ProcessedEmail.changeset(%{user_id: user.id, message_id: message_id})
+          |> AdvisorAi.Repo.insert()
 
-      {:error, _reason} ->
-        :ok
+          # Try to store in vector embeddings (but don't fail if it doesn't work)
+          case store_email_embedding(user, email_data) do
+            {:ok, _} -> Logger.info("✅ Email embedding stored successfully")
+            {:error, reason} -> Logger.warning("⚠️ Email embedding failed, continuing without it: #{reason}")
+            _ -> Logger.warning("⚠️ Email embedding failed, continuing without it")
+          end
+
+          # Improved meeting inquiry response
+          if is_meeting_inquiry?(email_data) do
+            meetings = AdvisorAi.Integrations.Calendar.get_upcoming_meetings(user)
+            response = format_meeting_response(meetings, user)
+            send_email(user, email_data.from, "Your Upcoming Meetings", response)
+          end
+
+          AdvisorAi.AI.Agent.handle_trigger(user, "email_received", email_data)
+
+        {:error, _reason} ->
+          :ok
+      end
     end
   end
 
