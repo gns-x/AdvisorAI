@@ -152,9 +152,21 @@ defmodule AdvisorAi.Workers.EmailMonitorWorker do
     body = String.downcase(email_data.body || "")
 
     meeting_keywords = [
-      "meeting", "appointment", "call", "when", "schedule", "upcoming",
-      "next", "our meeting", "the meeting", "what time", "when is",
-      "do we have", "are we meeting", "meeting time", "appointment time"
+      "meeting",
+      "appointment",
+      "call",
+      "when",
+      "schedule",
+      "upcoming",
+      "next",
+      "our meeting",
+      "the meeting",
+      "what time",
+      "when is",
+      "do we have",
+      "are we meeting",
+      "meeting time",
+      "appointment time"
     ]
 
     Enum.any?(meeting_keywords, fn keyword ->
@@ -187,20 +199,22 @@ defmodule AdvisorAi.Workers.EmailMonitorWorker do
 
   defp lookup_calendar_events_for_person(user, email_address) do
     # Search for calendar events that include this email address
-    case AdvisorAi.Integrations.Calendar.list_events(user, [
+    case AdvisorAi.Integrations.Calendar.list_events(user,
            q: email_address,
            time_min: DateTime.utc_now() |> DateTime.to_iso8601(),
            max_results: 10
-         ]) do
+         ) do
       {:ok, events} ->
         # Filter events that actually include this person as an attendee
-        relevant_events = Enum.filter(events, fn event ->
-          attendees = get_in(event, ["attendees"]) || []
-          Enum.any?(attendees, fn attendee ->
-            attendee_email = get_in(attendee, ["email"])
-            String.downcase(attendee_email || "") == String.downcase(email_address)
+        relevant_events =
+          Enum.filter(events, fn event ->
+            attendees = get_in(event, ["attendees"]) || []
+
+            Enum.any?(attendees, fn attendee ->
+              attendee_email = get_in(attendee, ["email"])
+              String.downcase(attendee_email || "") == String.downcase(email_address)
+            end)
           end)
-        end)
 
         {:ok, relevant_events}
 
@@ -212,15 +226,17 @@ defmodule AdvisorAi.Workers.EmailMonitorWorker do
   defp send_meeting_response_email(user, recipient_email, events) do
     if length(events) > 0 do
       # Format meeting details
-      meeting_details = Enum.map_join(events, "\n", fn event ->
-        summary = event["summary"] || "Meeting"
-        start_time = get_in(event, ["start", "dateTime"]) || get_in(event, ["start", "date"])
-        end_time = get_in(event, ["end", "dateTime"]) || get_in(event, ["end", "date"])
+      meeting_details =
+        Enum.map_join(events, "\n", fn event ->
+          summary = event["summary"] || "Meeting"
+          start_time = get_in(event, ["start", "dateTime"]) || get_in(event, ["start", "date"])
+          end_time = get_in(event, ["end", "dateTime"]) || get_in(event, ["end", "date"])
 
-        "• #{summary} on #{start_time}"
-      end)
+          "• #{summary} on #{start_time}"
+        end)
 
       subject = "Re: Your upcoming meetings"
+
       body = """
       Hi there,
 
@@ -246,6 +262,7 @@ defmodule AdvisorAi.Workers.EmailMonitorWorker do
     else
       # No meetings found
       subject = "Re: Your upcoming meetings"
+
       body = """
       Hi there,
 
@@ -269,6 +286,7 @@ defmodule AdvisorAi.Workers.EmailMonitorWorker do
 
   defp send_error_response_email(user, recipient_email, error) do
     subject = "Re: Your upcoming meetings"
+
     body = """
     Hi there,
 
@@ -508,6 +526,7 @@ defmodule AdvisorAi.Workers.EmailMonitorWorker do
     %ProcessedEmail{}
     |> ProcessedEmail.changeset(%{user_id: user_id, message_id: message_id})
     |> Repo.insert(on_conflict: :nothing)
+
     :ok
   end
 end

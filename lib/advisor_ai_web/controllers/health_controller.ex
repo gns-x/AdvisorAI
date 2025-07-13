@@ -72,10 +72,11 @@ defmodule AdvisorAiWeb.HealthController do
     case AdvisorAi.AI.GroqClient.list_models() do
       {:ok, models} ->
         # Filter for embedding models
-        embedding_models = Enum.filter(models, fn model ->
-          model["object"] == "model" and
-          String.contains?(model["id"] || "", "embed")
-        end)
+        embedding_models =
+          Enum.filter(models, fn model ->
+            model["object"] == "model" and
+              String.contains?(model["id"] || "", "embed")
+          end)
 
         conn
         |> put_status(:ok)

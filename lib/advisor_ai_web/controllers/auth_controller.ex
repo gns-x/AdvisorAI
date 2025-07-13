@@ -184,9 +184,8 @@ defmodule AdvisorAiWeb.AuthController do
         case Accounts.create_or_update_account(user, account_params) do
           {:ok, _account} ->
             conn
-            |> UserAuth.log_in_user(user)
             |> put_flash(:info, "Welcome #{user.name}!")
-            |> redirect(to: ~p"/chat")
+            |> UserAuth.log_in_user(user)
 
           {:error, changeset} ->
             require Logger

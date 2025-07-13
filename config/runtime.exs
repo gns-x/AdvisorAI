@@ -96,7 +96,8 @@ if config_env() == :prod do
   # Email monitor worker configuration for production
   config :advisor_ai, :email_monitor,
     enabled: true,
-    check_interval: 30_000,  # 30 seconds
+    # 30 seconds
+    check_interval: 30_000,
     max_emails_per_check: 20
 
   # Ensure email monitor worker starts in production

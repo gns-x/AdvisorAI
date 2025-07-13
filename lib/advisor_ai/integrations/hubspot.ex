@@ -148,7 +148,9 @@ defmodule AdvisorAi.Integrations.HubSpot do
 
       {:error, reason} ->
         Logger.error("[HubSpot.search_contacts] Access token error: #{reason}")
-        {:error, "You need to connect your HubSpot account in settings before I can access your contacts or perform this action."}
+
+        {:error,
+         "You need to connect your HubSpot account in settings before I can access your contacts or perform this action."}
     end
   end
 
@@ -198,7 +200,9 @@ defmodule AdvisorAi.Integrations.HubSpot do
 
       {:error, reason} ->
         Logger.error("[HubSpot.list_contacts] Access token error: #{reason}")
-        {:error, "You need to connect your HubSpot account in settings before I can access your contacts or perform this action."}
+
+        {:error,
+         "You need to connect your HubSpot account in settings before I can access your contacts or perform this action."}
     end
   end
 
@@ -259,7 +263,8 @@ defmodule AdvisorAi.Integrations.HubSpot do
         end
 
       {:error, reason} ->
-        {:error, "You need to connect your HubSpot account in settings before I can access your contacts or perform this action."}
+        {:error,
+         "You need to connect your HubSpot account in settings before I can access your contacts or perform this action."}
     end
   end
 
@@ -330,7 +335,8 @@ defmodule AdvisorAi.Integrations.HubSpot do
         end
 
       {:error, reason} ->
-        {:error, "You need to connect your HubSpot account in settings before I can access your contacts or perform this action."}
+        {:error,
+         "You need to connect your HubSpot account in settings before I can access your contacts or perform this action."}
     end
   end
 
@@ -379,7 +385,8 @@ defmodule AdvisorAi.Integrations.HubSpot do
         end
 
       {:error, reason} ->
-        {:error, "You need to connect your HubSpot account in settings before I can access your contacts or perform this action."}
+        {:error,
+         "You need to connect your HubSpot account in settings before I can access your contacts or perform this action."}
     end
   end
 
@@ -465,7 +472,8 @@ defmodule AdvisorAi.Integrations.HubSpot do
   defp get_oauth_token(user) do
     cond do
       is_nil(user.hubspot_access_token) ->
-        {:error, "You need to connect your HubSpot account in settings before I can access your contacts or perform this action."}
+        {:error,
+         "You need to connect your HubSpot account in settings before I can access your contacts or perform this action."}
 
       is_user_token_expired?(user) ->
         refresh_user_access_token(user)
@@ -658,7 +666,8 @@ defmodule AdvisorAi.Integrations.HubSpot do
         end
 
       {:error, reason} ->
-        {:error, "You need to connect your HubSpot account in settings before I can access your contacts or perform this action."}
+        {:error,
+         "You need to connect your HubSpot account in settings before I can access your contacts or perform this action."}
     end
   end
 
@@ -698,7 +707,8 @@ defmodule AdvisorAi.Integrations.HubSpot do
         end
 
       {:error, reason} ->
-        {:error, "You need to connect your HubSpot account in settings before I can access your contacts or perform this action."}
+        {:error,
+         "You need to connect your HubSpot account in settings before I can access your contacts or perform this action."}
     end
   end
 end

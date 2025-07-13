@@ -542,7 +542,7 @@ defmodule AdvisorAi.Integrations.Gmail do
         if String.downcase(email_data.from || "") == String.downcase(user.email || "") do
           Logger.info("Skipping email sent by self: #{email_data.from}")
           :ok
-        # NEW: Also skip sending a meeting response to the user's own email address
+          # NEW: Also skip sending a meeting response to the user's own email address
         else
           # Check if already processed
           already_processed =
@@ -556,13 +556,20 @@ defmodule AdvisorAi.Integrations.Gmail do
             Logger.info("Skipping already processed email #{message_id}")
             :ok
           else
-            Logger.info("Processing email: id=#{message_id}, from=#{email_data.from}, subject=#{email_data.subject}")
+            Logger.info(
+              "Processing email: id=#{message_id}, from=#{email_data.from}, subject=#{email_data.subject}"
+            )
 
             # Try to store in vector embeddings (but don't fail if it doesn't work)
             case store_email_embedding(user, email_data) do
-              {:ok, _} -> Logger.info("✅ Email embedding stored successfully")
-              {:error, reason} -> Logger.warning("⚠️ Email embedding failed, continuing without it: #{reason}")
-              _ -> Logger.warning("⚠️ Email embedding failed, continuing without it")
+              {:ok, _} ->
+                Logger.info("✅ Email embedding stored successfully")
+
+              {:error, reason} ->
+                Logger.warning("⚠️ Email embedding failed, continuing without it: #{reason}")
+
+              _ ->
+                Logger.warning("⚠️ Email embedding failed, continuing without it")
             end
 
             # Improved meeting inquiry response
@@ -573,7 +580,9 @@ defmodule AdvisorAi.Integrations.Gmail do
                 response = format_meeting_response(meetings, user)
                 send_email(user, email_data.from, "Your Upcoming Meetings", response)
               else
-                Logger.info("Not sending meeting response to own connected email: #{email_data.from}")
+                Logger.info(
+                  "Not sending meeting response to own connected email: #{email_data.from}"
+                )
               end
             end
 
@@ -581,7 +590,10 @@ defmodule AdvisorAi.Integrations.Gmail do
 
             # Mark as processed LAST
             %AdvisorAi.Integrations.ProcessedEmail{}
-            |> AdvisorAi.Integrations.ProcessedEmail.changeset(%{user_id: user.id, message_id: message_id})
+            |> AdvisorAi.Integrations.ProcessedEmail.changeset(%{
+              user_id: user.id,
+              message_id: message_id
+            })
             |> AdvisorAi.Repo.insert()
           end
         end
@@ -686,22 +698,24 @@ defmodule AdvisorAi.Integrations.Gmail do
 
     case get_embedding(content) do
       {:ok, embedding} ->
-        if is_list(embedding) and (length(embedding) == 1536 or length(embedding) == 768 or length(embedding) == 1024 or length(embedding) == 384) do
+        if is_list(embedding) and
+             (length(embedding) == 1536 or length(embedding) == 768 or length(embedding) == 1024 or
+                length(embedding) == 384) do
           case %VectorEmbedding{
-            user_id: user.id,
-            source: "email",
-            content: content,
-            embedding: embedding,
-            metadata: %{
-              from: email_data.from,
-              to: email_data.to,
-              subject: email_data.subject,
-              date: Map.get(email_data, :date, DateTime.utc_now()),
-              type: email_data.type
-            }
-          }
-          |> VectorEmbedding.changeset(%{})
-          |> Repo.insert() do
+                 user_id: user.id,
+                 source: "email",
+                 content: content,
+                 embedding: embedding,
+                 metadata: %{
+                   from: email_data.from,
+                   to: email_data.to,
+                   subject: email_data.subject,
+                   date: Map.get(email_data, :date, DateTime.utc_now()),
+                   type: email_data.type
+                 }
+               }
+               |> VectorEmbedding.changeset(%{})
+               |> Repo.insert() do
             {:ok, result} -> {:ok, result}
             {:error, reason} -> {:error, reason}
           end
@@ -743,7 +757,9 @@ defmodule AdvisorAi.Integrations.Gmail do
   defp get_access_token(user) do
     case AdvisorAi.Accounts.get_user_google_account(user.id) do
       nil ->
-        {:error, "You need to connect your Google account in settings before I can access your Gmail."}
+        {:error,
+         "You need to connect your Google account in settings before I can access your Gmail."}
+
       account ->
         if is_token_expired?(account) do
           refresh_access_token(account)
@@ -973,7 +989,7 @@ defmodule AdvisorAi.Integrations.Gmail do
     4. Professional in tone
     """
 
-            case AdvisorAi.AI.GroqClient.chat_completion([
+    case AdvisorAi.AI.GroqClient.chat_completion([
            %{role: "user", content: prompt}
          ]) do
       {:ok, %{"choices" => [%{"message" => %{"content" => content}} | _]}} ->
@@ -1249,8 +1265,10 @@ defmodule AdvisorAi.Integrations.Gmail do
   defp is_meeting_inquiry?(email_data) do
     subject = String.downcase(email_data.subject || "")
     body = String.downcase(email_data.body || "")
+
     Enum.any?([subject, body], fn text ->
-      String.contains?(text, "meeting") or String.contains?(text, "calendar") or String.contains?(text, "appointment")
+      String.contains?(text, "meeting") or String.contains?(text, "calendar") or
+        String.contains?(text, "appointment")
     end)
   end
 
@@ -1258,6 +1276,7 @@ defmodule AdvisorAi.Integrations.Gmail do
   defp format_meeting_response([], user) do
     "Hi,\n\nYou currently have no upcoming meetings scheduled.\n\nIf you need to book a meeting, just let me know!\n\nBest regards,\n#{user.name || user.email}"
   end
+
   defp format_meeting_response(meetings, user) do
     meeting_lines =
       meetings
@@ -1270,6 +1289,7 @@ defmodule AdvisorAi.Integrations.Gmail do
   end
 
   defp format_datetime(nil), do: "(unknown time)"
+
   defp format_datetime(dt) do
     dt
     |> DateTime.to_string()

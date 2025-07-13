@@ -120,11 +120,12 @@ defmodule AdvisorAiWeb.WebhookController do
             case Agent.handle_trigger(user, "email_received", email_data) do
               {:ok, result} ->
                 # Convert result to string if it's a tuple
-                result_message = case result do
-                  {status, message} when is_atom(status) and is_binary(message) -> message
-                  message when is_binary(message) -> message
-                  _ -> "Automation completed successfully"
-                end
+                result_message =
+                  case result do
+                    {status, message} when is_atom(status) and is_binary(message) -> message
+                    message when is_binary(message) -> message
+                    _ -> "Automation completed successfully"
+                  end
 
                 conn
                 |> put_status(:ok)
@@ -206,11 +207,12 @@ defmodule AdvisorAiWeb.WebhookController do
                      ) do
                   {:ok, response} ->
                     # Convert response to string if it's a tuple
-                    response_message = case response do
-                      {status, message} when is_atom(status) and is_binary(message) -> message
-                      message when is_binary(message) -> message
-                      _ -> "Meeting inquiry automation completed"
-                    end
+                    response_message =
+                      case response do
+                        {status, message} when is_atom(status) and is_binary(message) -> message
+                        message when is_binary(message) -> message
+                        _ -> "Meeting inquiry automation completed"
+                      end
 
                     conn
                     |> put_status(:ok)
@@ -833,17 +835,19 @@ defmodule AdvisorAiWeb.WebhookController do
   defp process_hubspot_webhook(conn) do
     # Get the webhook data from the request body
     case conn.body_params do
-      %{"subscriptionType" => subscription_type, "portalId" => portal_id, "objectId" => object_id} = webhook_data ->
+      %{"subscriptionType" => subscription_type, "portalId" => portal_id, "objectId" => object_id} =
+          webhook_data ->
         # Find users associated with this HubSpot portal
         case find_users_by_hubspot_portal(portal_id) do
           {:ok, users} when length(users) > 0 ->
             # Process the webhook for each user
-            results = Enum.map(users, fn user ->
-              case handle_hubspot_webhook_for_user(user, webhook_data) do
-                {:ok, result} -> {:ok, result}
-                {:error, reason} -> {:error, reason}
-              end
-            end)
+            results =
+              Enum.map(users, fn user ->
+                case handle_hubspot_webhook_for_user(user, webhook_data) do
+                  {:ok, result} -> {:ok, result}
+                  {:error, reason} -> {:error, reason}
+                end
+              end)
 
             {:ok, "Processed for #{length(users)} users"}
 
@@ -878,7 +882,11 @@ defmodule AdvisorAiWeb.WebhookController do
     case Agent.handle_trigger(user, "hubspot_contact_created", contact_data) do
       {:ok, results} when is_list(results) and length(results) > 0 ->
         require Logger
-        Logger.info("✅ HubSpot contact automation triggered for user #{user.id}: #{length(results)} rules executed")
+
+        Logger.info(
+          "✅ HubSpot contact automation triggered for user #{user.id}: #{length(results)} rules executed"
+        )
+
         {:ok, "Automation triggered"}
 
       {:ok, _} ->
@@ -900,7 +908,9 @@ defmodule AdvisorAiWeb.WebhookController do
     %{
       "type" => "contact",
       "action" => "create",
-      "name" => get_in(webhook_data, ["properties", "firstname"]) || get_in(webhook_data, ["properties", "lastname"]) || "Unknown",
+      "name" =>
+        get_in(webhook_data, ["properties", "firstname"]) ||
+          get_in(webhook_data, ["properties", "lastname"]) || "Unknown",
       "email" => get_in(webhook_data, ["properties", "email"]) || "unknown@example.com",
       "company" => get_in(webhook_data, ["properties", "company"]) || "Unknown",
       "webhook_data" => webhook_data

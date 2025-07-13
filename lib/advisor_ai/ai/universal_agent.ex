@@ -562,7 +562,9 @@ defmodule AdvisorAi.AI.UniversalAgent do
         # Contact found in HubSpot
         properties = contact["properties"] || %{}
         contact_email = properties["email"]
-        contact_name = "#{properties["firstname"] || ""} #{properties["lastname"] || ""}" |> String.trim()
+
+        contact_name =
+          "#{properties["firstname"] || ""} #{properties["lastname"] || ""}" |> String.trim()
 
         if contact_email do
           # Contact has email, proceed with scheduling
@@ -615,14 +617,17 @@ defmodule AdvisorAi.AI.UniversalAgent do
     end
   end
 
-    # Schedule appointment with a specific email address - require time and duration
+  # Schedule appointment with a specific email address - require time and duration
   defp schedule_appointment_with_email(user, conversation_id, contact_name, contact_email) do
     # Store contact information in conversation context for later use
     context = Chat.get_conversation_context(conversation_id)
-    updated_context = Map.put(context, "pending_appointment", %{
-      "contact_name" => contact_name,
-      "contact_email" => contact_email
-    })
+
+    updated_context =
+      Map.put(context, "pending_appointment", %{
+        "contact_name" => contact_name,
+        "contact_email" => contact_email
+      })
+
     Chat.update_conversation_context(conversation_id, updated_context)
 
     # Ask user for specific time and duration
@@ -644,17 +649,33 @@ defmodule AdvisorAi.AI.UniversalAgent do
   end
 
   # Handle appointment scheduling with required time and duration
-  defp handle_appointment_scheduling(user, conversation_id, user_message, contact_name, contact_email) do
+  defp handle_appointment_scheduling(
+         user,
+         conversation_id,
+         user_message,
+         contact_name,
+         contact_email
+       ) do
     # Parse time and duration from user message (requires explicit time specification)
     case parse_appointment_request(user_message) do
       {:ok, %{date: date, time: time, duration_minutes: duration}} ->
         # Schedule the appointment
-        case check_and_schedule_appointment(user, conversation_id, contact_name, contact_email, date, time, duration) do
+        case check_and_schedule_appointment(
+               user,
+               conversation_id,
+               contact_name,
+               contact_email,
+               date,
+               time,
+               duration
+             ) do
           {:ok, result} ->
             # Clear the pending appointment context after successful scheduling
             clear_pending_appointment_context(conversation_id)
             {:ok, result}
-          {:error, reason} -> {:error, reason}
+
+          {:error, reason} ->
+            {:error, reason}
         end
 
       {:error, reason} ->
@@ -697,7 +718,9 @@ defmodule AdvisorAi.AI.UniversalAgent do
             _ -> 30
           end
 
-        true -> 60  # Default to 1 hour
+        # Default to 1 hour
+        true ->
+          60
       end
 
     # Extract date and time (require explicit time specification)
@@ -717,11 +740,15 @@ defmodule AdvisorAi.AI.UniversalAgent do
 
     # Try "tomorrow at X" pattern
     case parse_tomorrow_pattern(message_lower) do
-      {:ok, date, time} -> {:ok, date, time}
+      {:ok, date, time} ->
+        {:ok, date, time}
+
       :not_found ->
         # Try "today at X" pattern
         case parse_today_pattern(message_lower) do
-          {:ok, date, time} -> {:ok, date, time}
+          {:ok, date, time} ->
+            {:ok, date, time}
+
           :not_found ->
             # Try specific day pattern like "Friday at X"
             case parse_day_pattern(message_lower) do
@@ -741,11 +768,12 @@ defmodule AdvisorAi.AI.UniversalAgent do
         minute_int = if minute_str && minute_str != "", do: String.to_integer(minute_str), else: 0
 
         # Convert to 24-hour format
-        hour_24 = case String.downcase(ampm || "") do
-          "pm" when hour_int < 12 -> hour_int + 12
-          "am" when hour_int == 12 -> 0
-          _ -> hour_int
-        end
+        hour_24 =
+          case String.downcase(ampm || "") do
+            "pm" when hour_int < 12 -> hour_int + 12
+            "am" when hour_int == 12 -> 0
+            _ -> hour_int
+          end
 
         time = Time.new!(hour_24, minute_int, 0)
         {:ok, tomorrow, time}
@@ -763,7 +791,8 @@ defmodule AdvisorAi.AI.UniversalAgent do
         time = Time.new!(hour_int, 0, 0)
         {:ok, tomorrow, time}
 
-      nil -> :not_found
+      nil ->
+        :not_found
     end
   end
 
@@ -776,11 +805,12 @@ defmodule AdvisorAi.AI.UniversalAgent do
         minute_int = if minute_str && minute_str != "", do: String.to_integer(minute_str), else: 0
 
         # Convert to 24-hour format
-        hour_24 = case String.downcase(ampm || "") do
-          "pm" when hour_int < 12 -> hour_int + 12
-          "am" when hour_int == 12 -> 0
-          _ -> hour_int
-        end
+        hour_24 =
+          case String.downcase(ampm || "") do
+            "pm" when hour_int < 12 -> hour_int + 12
+            "am" when hour_int == 12 -> 0
+            _ -> hour_int
+          end
 
         time = Time.new!(hour_24, minute_int, 0)
         {:ok, today, time}
@@ -798,24 +828,29 @@ defmodule AdvisorAi.AI.UniversalAgent do
         time = Time.new!(hour_int, 0, 0)
         {:ok, today, time}
 
-      nil -> :not_found
+      nil ->
+        :not_found
     end
   end
 
   # Parse specific day pattern like "Friday at X"
   defp parse_day_pattern(message) do
-    case Regex.run(~r/(monday|tuesday|wednesday|thursday|friday|saturday|sunday)\s+at\s+(\d{1,2})(?::(\d{2}))?\s*(am|pm)?/i, message) do
+    case Regex.run(
+           ~r/(monday|tuesday|wednesday|thursday|friday|saturday|sunday)\s+at\s+(\d{1,2})(?::(\d{2}))?\s*(am|pm)?/i,
+           message
+         ) do
       [_, day_name, hour_str, minute_str, ampm] ->
         target_date = get_next_day_of_week(day_name)
         hour_int = String.to_integer(hour_str)
         minute_int = if minute_str && minute_str != "", do: String.to_integer(minute_str), else: 0
 
         # Convert to 24-hour format
-        hour_24 = case String.downcase(ampm || "") do
-          "pm" when hour_int < 12 -> hour_int + 12
-          "am" when hour_int == 12 -> 0
-          _ -> hour_int
-        end
+        hour_24 =
+          case String.downcase(ampm || "") do
+            "pm" when hour_int < 12 -> hour_int + 12
+            "am" when hour_int == 12 -> 0
+            _ -> hour_int
+          end
 
         time = Time.new!(hour_24, minute_int, 0)
         {:ok, target_date, time}
@@ -833,7 +868,8 @@ defmodule AdvisorAi.AI.UniversalAgent do
         time = Time.new!(hour_int, 0, 0)
         {:ok, target_date, time}
 
-      nil -> :not_found
+      nil ->
+        :not_found
     end
   end
 
@@ -842,48 +878,77 @@ defmodule AdvisorAi.AI.UniversalAgent do
     today = Date.utc_today()
     today_weekday = Date.day_of_week(today)
 
-    target_weekday = case String.downcase(day_name) do
-      "monday" -> 1
-      "tuesday" -> 2
-      "wednesday" -> 3
-      "thursday" -> 4
-      "friday" -> 5
-      "saturday" -> 6
-      "sunday" -> 7
-    end
+    target_weekday =
+      case String.downcase(day_name) do
+        "monday" -> 1
+        "tuesday" -> 2
+        "wednesday" -> 3
+        "thursday" -> 4
+        "friday" -> 5
+        "saturday" -> 6
+        "sunday" -> 7
+      end
 
-    days_ahead = if target_weekday > today_weekday do
-      target_weekday - today_weekday
-    else
-      7 - today_weekday + target_weekday
-    end
+    days_ahead =
+      if target_weekday > today_weekday do
+        target_weekday - today_weekday
+      else
+        7 - today_weekday + target_weekday
+      end
 
     Date.add(today, days_ahead)
   end
 
   # Schedule appointment automatically with auto-selected time
-  defp check_and_schedule_appointment(user, conversation_id, contact_name, contact_email, date, time, duration_minutes) do
+  defp check_and_schedule_appointment(
+         user,
+         conversation_id,
+         contact_name,
+         contact_email,
+         date,
+         time,
+         duration_minutes
+       ) do
     # If no specific time provided, auto-select next available time
-    {selected_date, selected_time} = case time do
-      nil ->
-        # Auto-select tomorrow at 10 AM if no date/time specified
-        auto_date = if date == Date.utc_today(), do: Date.add(date, 1), else: date
-        auto_time = Time.new!(10, 0, 0)  # 10 AM
-        {auto_date, auto_time}
-      _ ->
-        {date, time}
-    end
+    {selected_date, selected_time} =
+      case time do
+        nil ->
+          # Auto-select tomorrow at 10 AM if no date/time specified
+          auto_date = if date == Date.utc_today(), do: Date.add(date, 1), else: date
+          # 10 AM
+          auto_time = Time.new!(10, 0, 0)
+          {auto_date, auto_time}
+
+        _ ->
+          {date, time}
+      end
 
     # Create datetime for the selected time
     selected_datetime = DateTime.new!(selected_date, selected_time, DateTime.utc_now().time_zone)
     end_datetime = DateTime.add(selected_datetime, duration_minutes * 60, :second)
 
     # Automatically schedule the appointment
-    schedule_appointment_at_time(user, conversation_id, contact_name, contact_email, selected_datetime, end_datetime, duration_minutes)
+    schedule_appointment_at_time(
+      user,
+      conversation_id,
+      contact_name,
+      contact_email,
+      selected_datetime,
+      end_datetime,
+      duration_minutes
+    )
   end
 
   # Schedule appointment at specific time
-  defp schedule_appointment_at_time(user, conversation_id, contact_name, contact_email, start_datetime, end_datetime, duration_minutes) do
+  defp schedule_appointment_at_time(
+         user,
+         conversation_id,
+         contact_name,
+         contact_email,
+         start_datetime,
+         end_datetime,
+         duration_minutes
+       ) do
     # Create calendar event
     event_params = %{
       "summary" => "Appointment with #{contact_name}",
@@ -912,7 +977,12 @@ defmodule AdvisorAi.AI.UniversalAgent do
           """
         }
 
-        case Gmail.send_email(user, email_params["to"], email_params["subject"], email_params["body"]) do
+        case Gmail.send_email(
+               user,
+               email_params["to"],
+               email_params["subject"],
+               email_params["body"]
+             ) do
           {:ok, _} ->
             # Success! Show confirmation in chat
             confirmation_message = """
@@ -954,8 +1024,6 @@ defmodule AdvisorAi.AI.UniversalAgent do
         )
     end
   end
-
-
 
   # Decide next workflow step using LLM and state
   defp get_next_workflow_step(workflow_state) do
@@ -1265,7 +1333,13 @@ defmodule AdvisorAi.AI.UniversalAgent do
     case detect_appointment_scheduling_response(user, conversation_id, user_message) do
       {:ok, contact_name, contact_email} ->
         # This is a response to an appointment scheduling request
-        handle_appointment_scheduling(user, conversation_id, user_message, contact_name, contact_email)
+        handle_appointment_scheduling(
+          user,
+          conversation_id,
+          user_message,
+          contact_name,
+          contact_email
+        )
 
       :not_appointment_response ->
         # Regular request processing
@@ -1324,9 +1398,10 @@ defmodule AdvisorAi.AI.UniversalAgent do
       ~r/\d+\s*(hour|minute)/i
     ]
 
-    is_time_response = Enum.any?(time_patterns, fn pattern ->
-      Regex.match?(pattern, String.downcase(user_message))
-    end)
+    is_time_response =
+      Enum.any?(time_patterns, fn pattern ->
+        Regex.match?(pattern, String.downcase(user_message))
+      end)
 
     if is_time_response do
       # Check if there's pending appointment info in conversation context
@@ -1343,7 +1418,7 @@ defmodule AdvisorAi.AI.UniversalAgent do
     end
   end
 
-      # Get pending appointment information from conversation context
+  # Get pending appointment information from conversation context
   defp get_pending_appointment_from_context(conversation_id) do
     # Get the conversation context and check for pending appointment info
     context = Chat.get_conversation_context(conversation_id)
@@ -1824,12 +1899,14 @@ IMPORTANT: When the user asks you to perform an action, you MUST use the univers
                 _ ->
                   IO.puts("DEBUG: No tool call could be extracted from pattern. Returning error.")
 
-                  result = create_agent_response(
-                    user,
-                    conversation_id,
-                    "Sorry, I could not execute your request. Please try again.",
-                    "error"
-                  )
+                  result =
+                    create_agent_response(
+                      user,
+                      conversation_id,
+                      "Sorry, I could not execute your request. Please try again.",
+                      "error"
+                    )
+
                   result
               end
             else
@@ -1874,13 +1951,15 @@ IMPORTANT: When the user asks you to perform an action, you MUST use the univers
 
                   {:error, _} ->
                     # If no JSON found, just return the LLM's conversational response
-                    result = create_agent_response(
-                      user,
-                      conversation_id,
-                      response_text ||
-                        "I'm not sure how to help with that yet, but I'm learning!",
-                      "conversation"
-                    )
+                    result =
+                      create_agent_response(
+                        user,
+                        conversation_id,
+                        response_text ||
+                          "I'm not sure how to help with that yet, but I'm learning!",
+                        "conversation"
+                      )
+
                     result
                 end
               end
@@ -1951,21 +2030,24 @@ IMPORTANT: When the user asks you to perform an action, you MUST use the univers
                   force_tool_usage(user, conversation_id, user_message, context)
               end
             else
-                              case extract_and_execute_json_from_text(user, response_text, context) do
-                  {:ok, result} ->
-                    result = create_agent_response(user, conversation_id, result, "action")
-                    result
+              case extract_and_execute_json_from_text(user, response_text, context) do
+                {:ok, result} ->
+                  result = create_agent_response(user, conversation_id, result, "action")
+                  result
 
-                  {:error, _} ->
-                    # If no JSON found, just return the LLM's conversational response
-                    result = create_agent_response(
+                {:error, _} ->
+                  # If no JSON found, just return the LLM's conversational response
+                  result =
+                    create_agent_response(
                       user,
                       conversation_id,
-                      response_text || "I'm not sure how to help with that yet, but I'm learning!",
+                      response_text ||
+                        "I'm not sure how to help with that yet, but I'm learning!",
                       "conversation"
                     )
-                    result
-                end
+
+                  result
+              end
             end
         end
     end
@@ -2011,12 +2093,14 @@ IMPORTANT: When the user asks you to perform an action, you MUST use the univers
     tools = get_available_tools(user)
 
     if Enum.empty?(tools) do
-      result = create_agent_response(
-        user,
-        conversation_id,
-        "I need you to connect your accounts first so I can perform real actions. Please go to Settings > Integrations to connect your Gmail, Google Calendar, or HubSpot accounts.",
-        "error"
-      )
+      result =
+        create_agent_response(
+          user,
+          conversation_id,
+          "I need you to connect your accounts first so I can perform real actions. Please go to Settings > Integrations to connect your Gmail, Google Calendar, or HubSpot accounts.",
+          "error"
+        )
+
       result
     else
       # Create a more explicit prompt that forces tool usage
@@ -2094,22 +2178,26 @@ IMPORTANT: When the user asks you to perform an action, you MUST use the univers
               result
 
             _ ->
-              result = create_agent_response(
-                user,
-                conversation_id,
-                "I'm having trouble performing the requested action. Please check that your accounts are properly connected and try again.",
-                "error"
-              )
+              result =
+                create_agent_response(
+                  user,
+                  conversation_id,
+                  "I'm having trouble performing the requested action. Please check that your accounts are properly connected and try again.",
+                  "error"
+                )
+
               result
           end
 
         {:error, _} ->
-          result = create_agent_response(
-            user,
-            conversation_id,
-            "I'm having trouble performing the requested action. Please check that your accounts are properly connected and try again.",
-            "error"
-          )
+          result =
+            create_agent_response(
+              user,
+              conversation_id,
+              "I'm having trouble performing the requested action. Please check that your accounts are properly connected and try again.",
+              "error"
+            )
+
           result
       end
     end
@@ -2877,6 +2965,7 @@ IMPORTANT: When the user asks you to perform an action, you MUST use the univers
               if is_appointment_request do
                 # For appointment requests, stop and ask user to manually schedule
                 contact_name = extract_name_from_query(query)
+
                 {:ok,
                  "I couldn't find '#{contact_name}' in your HubSpot contacts. Since this appears to be an appointment scheduling request, I recommend you manually schedule the appointment with them. You can add them to HubSpot first if needed, then schedule the meeting through your calendar."}
               else
@@ -2923,21 +3012,21 @@ IMPORTANT: When the user asks you to perform an action, you MUST use the univers
 
                         {:ok,
                          "I didn't find '#{query}' in your HubSpot contacts, but I found #{length(emails)} emails from this person. I can see email addresses: #{email_list}. Would you like me to create a HubSpot contact for them? Just let me know which email address to use."}
-                    else
+                      else
+                        {:ok,
+                         "I didn't find '#{query}' in your HubSpot contacts, but I found #{length(emails)} emails from this person. However, I couldn't extract a clear email address. If you have their email address, I can create a new contact for them."}
+                      end
+
+                    {:ok, _} ->
                       {:ok,
-                       "I didn't find '#{query}' in your HubSpot contacts, but I found #{length(emails)} emails from this person. However, I couldn't extract a clear email address. If you have their email address, I can create a new contact for them."}
-                    end
+                       "No contacts were found for '#{query}' in HubSpot, and I didn't find any emails from this person either. If you have an email address for them, I can create a new contact. Otherwise, you might want to check if the name is spelled correctly or try searching with a different variation."}
 
-                  {:ok, _} ->
-                    {:ok,
-                     "No contacts were found for '#{query}' in HubSpot, and I didn't find any emails from this person either. If you have an email address for them, I can create a new contact. Otherwise, you might want to check if the name is spelled correctly or try searching with a different variation."}
-
-                  {:error, _} ->
-                    {:ok,
-                     "No contacts were found for '#{query}'. If you have an email address for this person, I can create a new contact for them. Just provide the email address."}
+                    {:error, _} ->
+                      {:ok,
+                       "No contacts were found for '#{query}'. If you have an email address for this person, I can create a new contact for them. Just provide the email address."}
+                  end
                 end
               end
-            end
 
             {:error, reason} ->
               {:error, "Failed to search HubSpot contacts: #{reason}"}
@@ -4248,14 +4337,18 @@ IMPORTANT: When the user asks you to perform an action, you MUST use the univers
   defp parse_name(name) do
     # First, try to split on spaces (normal name format)
     case String.split(name, " ", parts: 2) do
-      [first, last] -> {first, last}
+      [first, last] ->
+        {first, last}
+
       [first] when first != "" ->
         # If only one part, try to split on common email separators
         case parse_email_style_name(first) do
           {first_name, last_name} when first_name != "" -> {first_name, last_name}
           _ -> {first, ""}
         end
-      _ -> {"", ""}
+
+      _ ->
+        {"", ""}
     end
   end
 
@@ -4268,7 +4361,9 @@ IMPORTANT: When the user asks you to perform an action, you MUST use the univers
       case String.split(name, separator, parts: 2) do
         [first, last] when first != "" and last != "" ->
           {String.capitalize(first), String.capitalize(last)}
-        _ -> nil
+
+        _ ->
+          nil
       end
     end)
   end

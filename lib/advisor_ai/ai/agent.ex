@@ -252,11 +252,18 @@ defmodule AdvisorAi.AI.Agent do
             [f] -> {capitalize_name(f), ""}
             _ -> {capitalize_name(parsed_name), ""}
           end
+
         true ->
           # Fallback: parse from email (e.g., john.doe@gmail.com, jane_doe@gmail.com, markojhonny300@gmail.com)
-          local_part = parsed_email |> String.split("@") |> List.first() |> String.replace(~r/[^a-zA-Z0-9._-]/, "")
+          local_part =
+            parsed_email
+            |> String.split("@")
+            |> List.first()
+            |> String.replace(~r/[^a-zA-Z0-9._-]/, "")
+
           # Try to split on common separators
           parts = String.split(local_part, ~r/[._-]+/)
+
           case parts do
             [f, l | _] -> {clean_and_capitalize(f), clean_and_capitalize(l)}
             [f] -> {clean_and_capitalize(f), ""}
@@ -1099,7 +1106,8 @@ defmodule AdvisorAi.AI.Agent do
 
   defp clean_and_capitalize(str) do
     str
-    |> String.replace(~r/\d+$/, "") # Remove trailing numbers
+    # Remove trailing numbers
+    |> String.replace(~r/\d+$/, "")
     |> String.downcase()
     |> String.capitalize()
   end
