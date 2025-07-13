@@ -648,7 +648,7 @@ defmodule AdvisorAi.Integrations.Gmail do
 
     case get_embedding(content) do
       {:ok, embedding} ->
-        if is_list(embedding) and (length(embedding) == 1024 or length(embedding) == 1536 or length(embedding) == 384 or length(embedding) == 768) do
+        if is_list(embedding) and (length(embedding) == 1536 or length(embedding) == 1024 or length(embedding) == 384 or length(embedding) == 768) do
           case %VectorEmbedding{
             user_id: user.id,
             source: "email",
@@ -671,7 +671,7 @@ defmodule AdvisorAi.Integrations.Gmail do
           require Logger
 
           Logger.error(
-            "Embedding dimension mismatch: got #{length(embedding)}, expected 1024, 1536, 384, or 768. Skipping save."
+            "Embedding dimension mismatch: got #{length(embedding)}, expected 1536, 1024, 384, or 768. Skipping save."
           )
 
           {:error, "Embedding dimension mismatch"}

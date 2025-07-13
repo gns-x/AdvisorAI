@@ -83,7 +83,7 @@ defmodule AdvisorAi.AI.OpenRouterClient do
   Generate embeddings using OpenRouter.
   """
   def embeddings(opts) do
-    model = Keyword.get(opts, :model, "mistralai/mistral-embed")
+    model = Keyword.get(opts, :model, "text-embedding-ada-002")
     input = Keyword.get(opts, :input, "")
 
     # Get API key from environment
@@ -141,14 +141,75 @@ defmodule AdvisorAi.AI.OpenRouterClient do
                {"Content-Type", "application/json"}
              ]
            ) do
-        {:ok, %{status_code: 200}} ->
-          {:ok, "OpenRouter is available"}
+        {:ok, %{status_code: 200, body: body}} ->
+          case Jason.decode(body) do
+            {:ok, %{"data" => models}} ->
+              # Filter for embedding models
+              embedding_models = Enum.filter(models, fn model ->
+                model["object"] == "model" and
+                String.contains?(model["id"] || "", "embed")
+              end)
+              {:ok, "OpenRouter is available with #{length(embedding_models)} embedding models"}
+
+            _ ->
+              {:ok, "OpenRouter is available"}
+          end
 
         {:ok, %{status_code: code}} ->
           {:error, "OpenRouter returned status #{code}"}
 
         {:error, reason} ->
           {:error, "OpenRouter health check failed: #{inspect(reason)}"}
+      end
+    end
+  end
+
+  @doc """
+  List available embedding models on OpenRouter.
+  """
+  def list_embedding_models do
+    api_key = System.get_env("OPENROUTER_API_KEY")
+
+    if is_nil(api_key) or api_key == "" do
+      {:error, "OPENROUTER_API_KEY not set"}
+    else
+      case HTTPoison.get(
+             "#{@openrouter_api_url}/models",
+             [
+               {"Authorization", "Bearer #{api_key}"},
+               {"Content-Type", "application/json"}
+             ]
+           ) do
+        {:ok, %{status_code: 200, body: body}} ->
+          case Jason.decode(body) do
+            {:ok, %{"data" => models}} ->
+              # Filter for embedding models
+              embedding_models = Enum.filter(models, fn model ->
+                model["object"] == "model" and
+                String.contains?(model["id"] || "", "embed")
+              end)
+              |> Enum.map(fn model ->
+                %{
+                  id: model["id"],
+                  name: model["name"] || model["id"],
+                  pricing: model["pricing"],
+                  context_length: model["context_length"]
+                }
+              end)
+              {:ok, embedding_models}
+
+            {:error, reason} ->
+              {:error, "Failed to parse models response: #{reason}"}
+
+            _ ->
+              {:error, "Unexpected models response format"}
+          end
+
+        {:ok, %{status_code: code, body: body}} ->
+          {:error, "OpenRouter models API error: #{code} - #{body}"}
+
+        {:error, reason} ->
+          {:error, "OpenRouter models request failed: #{inspect(reason)}"}
       end
     end
   end

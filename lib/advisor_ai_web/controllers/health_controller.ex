@@ -57,14 +57,36 @@ defmodule AdvisorAiWeb.HealthController do
   defp check_openrouter do
     try do
       case AdvisorAi.AI.OpenRouterClient.health_check() do
-        {:ok, _} ->
-          %{status: "healthy", message: "OpenRouter connection successful"}
+        {:ok, message} ->
+          %{status: "healthy", message: message}
 
         {:error, reason} ->
           %{status: "unhealthy", message: "OpenRouter connection failed: #{inspect(reason)}"}
       end
     rescue
       e -> %{status: "unhealthy", message: "OpenRouter check failed: #{inspect(e)}"}
+    end
+  end
+
+  def embedding_models(conn, _params) do
+    case AdvisorAi.AI.OpenRouterClient.list_embedding_models() do
+      {:ok, models} ->
+        conn
+        |> put_status(:ok)
+        |> json(%{
+          status: "success",
+          models: models,
+          count: length(models)
+        })
+
+      {:error, reason} ->
+        conn
+        |> put_status(:bad_request)
+        |> json(%{
+          status: "error",
+          message: "Failed to get embedding models",
+          error: reason
+        })
     end
   end
 end

@@ -65,6 +65,7 @@ defmodule AdvisorAiWeb.Router do
     pipe_through :api
 
     get "/health", HealthController, :check
+    get "/embedding-models", HealthController, :embedding_models
   end
 
   # Enable LiveDashboard in development
