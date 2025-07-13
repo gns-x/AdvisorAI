@@ -536,25 +536,26 @@ defmodule AdvisorAi.Integrations.Gmail do
   end
 
   defp process_email(user, message_id) do
-    # Check if already processed
-    already_processed =
-      AdvisorAi.Repo.get_by(AdvisorAi.Integrations.ProcessedEmail, user_id: user.id, message_id: message_id)
+    case get_email_details(user, message_id) do
+      {:ok, email_data} ->
+        # Skip emails sent by the user/app itself
+        if String.downcase(email_data.from || "") == String.downcase(user.email || "") do
+          Logger.info("Skipping email sent by self: #{email_data.from}")
+          :ok
+        else
+          # Check if already processed
+          already_processed =
+            AdvisorAi.Repo.get_by(
+              AdvisorAi.Integrations.ProcessedEmail,
+              user_id: user.id,
+              message_id: message_id
+            )
 
-    if already_processed do
-      Logger.info("Skipping already processed email #{message_id}")
-      :ok
-    else
-      case get_email_details(user, message_id) do
-        {:ok, email_data} ->
-          # Skip emails sent by the user/app itself
-          if String.downcase(email_data.from || "") == String.downcase(user.email || "") do
-            Logger.info("Skipping email sent by self: #{email_data.from}")
+          if already_processed do
+            Logger.info("Skipping already processed email #{message_id}")
             :ok
           else
-            # Store processed email
-            %AdvisorAi.Integrations.ProcessedEmail{}
-            |> AdvisorAi.Integrations.ProcessedEmail.changeset(%{user_id: user.id, message_id: message_id})
-            |> AdvisorAi.Repo.insert()
+            Logger.info("Processing email: id=#{message_id}, from=#{email_data.from}, subject=#{email_data.subject}")
 
             # Try to store in vector embeddings (but don't fail if it doesn't work)
             case store_email_embedding(user, email_data) do
@@ -571,11 +572,16 @@ defmodule AdvisorAi.Integrations.Gmail do
             end
 
             AdvisorAi.AI.Agent.handle_trigger(user, "email_received", email_data)
-          end
 
-        {:error, _reason} ->
-          :ok
-      end
+            # Mark as processed LAST
+            %AdvisorAi.Integrations.ProcessedEmail{}
+            |> AdvisorAi.Integrations.ProcessedEmail.changeset(%{user_id: user.id, message_id: message_id})
+            |> AdvisorAi.Repo.insert()
+          end
+        end
+
+      {:error, _reason} ->
+        :ok
     end
   end
 
