@@ -92,7 +92,7 @@ defmodule AdvisorAiWeb.AuthController do
             updated_user = Accounts.get_user!(user.id)
 
             # Set up Gmail push notifications for this user
-            webhook_url = System.get_env("WEBHOOK_URL") || "https://your-netlify-app.netlify.app/webhook/gmail"
+            webhook_url = "https://advisorai-production.up.railway.app/webhook/gmail"
 
             case AdvisorAi.Integrations.Gmail.setup_push_notifications(updated_user, webhook_url) do
               {:ok, _} ->

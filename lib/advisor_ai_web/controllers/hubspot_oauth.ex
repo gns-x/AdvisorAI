@@ -10,7 +10,7 @@ defmodule AdvisorAiWeb.HubspotOauthController do
   defp redirect_uri,
     do:
       System.get_env("HUBSPOT_REDIRECT_URI") ||
-        System.get_env("HUBSPOT_REDIRECT_URI") || "https://your-netlify-app.netlify.app/hubspot/oauth/callback"
+        "https://advisorai-production.up.railway.app/hubspot/oauth/callback"
 
   def debug(conn, _params) do
     config = %{
@@ -75,7 +75,7 @@ defmodule AdvisorAiWeb.HubspotOauthController do
             "1. Go to https://developers.hubspot.com/",
             "2. Create or configure your app",
             "3. Enable OAuth 2.0",
-            "4. Add redirect URI: #{System.get_env("HUBSPOT_REDIRECT_URI") || "https://your-netlify-app.netlify.app/hubspot/oauth/callback"}",
+            "4. Add redirect URI: https://advisorai-production.up.railway.app/hubspot/oauth/callback",
             "5. Set required scopes",
             "6. Use the 'Connect with OAuth' button above"
           ],

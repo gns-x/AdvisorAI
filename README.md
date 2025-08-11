@@ -1,6 +1,6 @@
 # <img src="https://raw.githubusercontent.com/gns-x/AdvisorAI/refs/heads/main/assets/static/logo.svg" alt="AdvisorAI Logo" width="48" style="vertical-align:middle;"> AdvisorAI
 
-[![Live Demo](https://img.shields.io/badge/Live%20Demo-Online-brightgreen?style=for-the-badge)](https://advisor-ai.onrender.com)
+[![Live Demo](https://img.shields.io/badge/Live%20Demo-Online-brightgreen?style=for-the-badge)](https://advisorai-production.up.railway.app)
 [![Repo](https://img.shields.io/badge/GitHub-Repo-blue?style=for-the-badge)](https://github.com/gns-x/AdvisorAI)
 
 ---
@@ -281,12 +281,10 @@ SECRET_KEY_BASE=your_secret_key_base
 
 ## 🚀 Quick Start
 
-### Local Development
-
 ```bash
 # Clone the repository
-git clone https://github.com/gns-x/AdvisorAI.git
-cd AdvisorAI
+git clone https://github.com/your-username/advisor-ai.git
+cd advisor-ai
 
 # Install dependencies
 mix deps.get
@@ -304,26 +302,6 @@ mix phx.server
 ```
 
 Visit [http://localhost:4000](http://localhost:4000) to access the application.
-
-### 🚀 Deployment
-
-This application is configured for deployment on multiple platforms. See [DEPLOYMENT.md](./DEPLOYMENT.md) for detailed instructions.
-
-**Quick Deploy Options:**
-
-1. **Render (Recommended)** - One-click deployment with PostgreSQL
-   [![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy/schema-new?schema=https://raw.githubusercontent.com/gns-x/AdvisorAI/main/render.yaml)
-
-2. **Fly.io** - Global edge deployment
-   ```bash
-   fly launch
-   ```
-
-3. **Heroku** - Mature platform with add-ons
-   ```bash
-   heroku create your-app-name
-   git push heroku main
-   ```
 
 ---
 
