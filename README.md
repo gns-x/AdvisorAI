@@ -305,58 +305,25 @@ mix phx.server
 
 Visit [http://localhost:4000](http://localhost:4000) to access the application.
 
-### 🚀 Deployment on Render
+### 🚀 Deployment
 
-This application is configured for deployment on Render with automatic PostgreSQL database setup.
+This application is configured for deployment on multiple platforms. See [DEPLOYMENT.md](./DEPLOYMENT.md) for detailed instructions.
 
-#### Quick Deploy (Recommended)
+**Quick Deploy Options:**
 
-[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy/schema-new?schema=https://raw.githubusercontent.com/gns-x/AdvisorAI/main/render.yaml)
+1. **Render (Recommended)** - One-click deployment with PostgreSQL
+   [![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy/schema-new?schema=https://raw.githubusercontent.com/gns-x/AdvisorAI/main/render.yaml)
 
-#### Manual Deploy Steps
-
-1. **Connect to Render**
-   - Go to [dashboard.render.com/new](https://dashboard.render.com/new)
-   - Connect your GitHub repository
-   - Render will automatically detect the Phoenix app
-
-2. **Configure Environment Variables**
-   In the Render dashboard, set these environment variables:
+2. **Fly.io** - Global edge deployment
    ```bash
-   MIX_ENV=prod
-   PHX_HOST=your-app-name.onrender.com
-   SECRET_KEY_BASE=your-secret-key-base
-   GOOGLE_CLIENT_ID=your-google-client-id
-   GOOGLE_CLIENT_SECRET=your-google-client-secret
-   HUBSPOT_CLIENT_ID=your-hubspot-client-id
-   HUBSPOT_CLIENT_SECRET=your-hubspot-client-secret
-   HUBSPOT_REDIRECT_URI=https://your-app-name.onrender.com/hubspot/oauth/callback
-   OPENAI_API_KEY=your-openai-api-key
-   OPENROUTER_API_KEY=your-openrouter-api-key
-   WEBHOOK_URL=https://your-app-name.onrender.com/webhook/gmail
+   fly launch
    ```
 
-3. **Deploy**
-   - Render will automatically build and deploy your app
-   - Your app will be available at `https://your-app-name.onrender.com`
-
-#### Generate Secret Key Base
-
-```bash
-mix phx.gen.secret
-```
-
-#### Update OAuth Applications
-
-After deployment, update your OAuth applications with the new domain:
-
-**Google OAuth:**
-- Go to [Google Cloud Console](https://console.cloud.google.com/)
-- Update authorized redirect URIs: `https://your-app-name.onrender.com/auth/google/callback`
-
-**HubSpot OAuth:**
-- Go to [HubSpot Developer Portal](https://developers.hubspot.com/)
-- Update redirect URIs: `https://your-app-name.onrender.com/hubspot/oauth/callback`
+3. **Heroku** - Mature platform with add-ons
+   ```bash
+   heroku create your-app-name
+   git push heroku main
+   ```
 
 ---
 
