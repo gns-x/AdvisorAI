@@ -16,7 +16,7 @@ defmodule Ueberauth.Strategy.HubSpot.OAuth do
         redirect_uri:
           System.get_env(
             "HUBSPOT_REDIRECT_URI",
-            "https://advisorai-production.up.railway.app/hubspot/oauth/callback"
+            System.get_env("HUBSPOT_REDIRECT_URI") || "https://your-netlify-app.netlify.app/hubspot/oauth/callback"
           )
       ]
       |> Keyword.merge(config)

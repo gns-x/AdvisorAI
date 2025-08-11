@@ -1,0 +1,18 @@
+{
+  "name": "advisor-ai",
+  "version": "1.0.0",
+  "description": "AdvisorAI Phoenix Application",
+  "scripts": {
+    "build": "mix deps.get && mix assets.deploy && mix release",
+    "start": "mix phx.server"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "node": "^18.0.0"
+  },
+  "devDependencies": {
+    "npm": "^9.0.0"
+  }
+}
