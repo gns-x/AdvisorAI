@@ -1,0 +1,34 @@
+{
+  "name": "advisorai-frontend",
+  "version": "1.0.0",
+  "description": "Static frontend for AdvisorAI - Intelligent AI Assistant for Financial Advisors",
+  "main": "index.html",
+  "scripts": {
+    "dev": "npx serve . -p 3000",
+    "build": "echo 'Static site - no build required'",
+    "preview": "npx serve . -p 3000",
+    "lint": "echo 'No linting configured for static site'",
+    "test": "echo 'No tests configured for static site'"
+  },
+  "keywords": [
+    "advisorai",
+    "financial-advisors",
+    "ai-assistant",
+    "gmail-integration",
+    "hubspot-crm",
+    "calendar-integration"
+  ],
+  "author": "AdvisorAI Team",
+  "license": "MIT",
+  "devDependencies": {
+    "serve": "^14.2.1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/gns-x/AdvisorAI.git"
+  },
+  "homepage": "https://gns-x.github.io/AdvisorAI/",
+  "engines": {
+    "node": ">=16.0.0"
+  }
+}

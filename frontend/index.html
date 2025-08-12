@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AdvisorAI - Intelligent AI Assistant for Financial Advisors</title>
+    <meta name="description" content="AdvisorAI is a next-generation AI assistant platform for financial advisors that seamlessly integrates Gmail, Google Calendar, and HubSpot CRM into a single, intelligent chat interface.">
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/svg+xml" href="./assets/logo.svg">
+    
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Lora:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        'inter': ['Inter', 'system-ui', 'sans-serif'],
+                        'lora': ['Lora', 'serif']
+                    },
+                    colors: {
+                        primary: {
+                            50: '#EFF6FF',
+                            100: '#DBEAFE',
+                            500: '#3B82F6',
+                            600: '#2563EB'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="./assets/styles.css">
+</head>
+<body class="font-inter bg-gray-50 text-gray-900 antialiased min-h-screen">
+    <!-- Navigation -->
+    <nav class="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center h-16">
+                <div class="flex items-center">
+                    <img src="./assets/logo.svg" alt="AdvisorAI Logo" class="h-8 w-8 mr-3">
+                    <span class="text-xl font-bold gradient-text">AdvisorAI</span>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <a href="#features" class="text-gray-600 hover:text-primary-600 transition-colors">Features</a>
+                    <a href="#demo" class="text-gray-600 hover:text-primary-600 transition-colors">Demo</a>
+                    <a href="https://advisorai-production.up.railway.app" target="_blank" rel="noopener" class="bg-primary-600 text-white px-4 py-2 rounded-lg hover:bg-primary-700 transition-colors">
+                        Live Demo
+                    </a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <section class="relative overflow-hidden bg-gradient-to-br from-blue-50 via-white to-indigo-50 py-20">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="text-center">
+                <h1 class="text-4xl md:text-6xl font-bold text-gray-900 mb-6">
+                    The Intelligent AI Assistant for
+                    <span class="gradient-text">Financial Advisors</span>
+                </h1>
+                <p class="text-xl text-gray-600 mb-8 max-w-3xl mx-auto">
+                    Seamlessly integrate Gmail, Google Calendar, and HubSpot CRM into a single, intelligent chat interface. 
+                    Automate workflows, manage client relationships, and boost productivity with real-time AI assistance.
+                </p>
+                <div class="flex flex-col sm:flex-row gap-4 justify-center">
+                    <a href="https://advisorai-production.up.railway.app" target="_blank" rel="noopener" class="bg-primary-600 text-white px-8 py-4 rounded-lg text-lg font-semibold hover:bg-primary-700 transition-all transform hover:scale-105">
+                        Try Live Demo
+                    </a>
+                    <a href="https://github.com/gns-x/AdvisorAI" target="_blank" rel="noopener" class="border border-gray-300 text-gray-700 px-8 py-4 rounded-lg text-lg font-semibold hover:bg-gray-50 transition-all">
+                        View on GitHub
+                    </a>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Floating elements -->
+        <div class="absolute top-20 left-10 w-20 h-20 bg-blue-200 rounded-full opacity-20 animate-pulse"></div>
+        <div class="absolute bottom-20 right-10 w-32 h-32 bg-indigo-200 rounded-full opacity-20 animate-pulse delay-1000"></div>
+    </section>
+
+    <!-- Features Section -->
+    <section id="features" class="py-20 bg-white">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="text-center mb-16">
+                <h2 class="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
+                    Powerful Features for Financial Professionals
+                </h2>
+                <p class="text-xl text-gray-600 max-w-2xl mx-auto">
+                    Everything you need to streamline your practice and provide exceptional client service
+                </p>
+            </div>
+            
+            <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+                <!-- AI Agent -->
+                <div class="bg-gray-50 rounded-xl p-6 hover:shadow-lg transition-all">
+                    <div class="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center mb-4">
+                        <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"></path>
+                        </svg>
+                    </div>
+                    <h3 class="text-xl font-semibold text-gray-900 mb-2">Intelligent AI Agent</h3>
+                    <p class="text-gray-600">Process any natural language request and autonomously perform actions across Gmail, Calendar, and HubSpot with advanced AI reasoning.</p>
+                </div>
+
+                <!-- Email Management -->
+                <div class="bg-gray-50 rounded-xl p-6 hover:shadow-lg transition-all">
+                    <div class="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center mb-4">
+                        <svg class="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
+                        </svg>
+                    </div>
+                    <h3 class="text-xl font-semibold text-gray-900 mb-2">Smart Email Management</h3>
+                    <p class="text-gray-600">Search emails using natural language, compose professional responses, and automate email workflows with intelligent categorization.</p>
+                </div>
+
+                <!-- Calendar Integration -->
+                <div class="bg-gray-50 rounded-xl p-6 hover:shadow-lg transition-all">
+                    <div class="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center mb-4">
+                        <svg class="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                        </svg>
+                    </div>
+                    <h3 class="text-xl font-semibold text-gray-900 mb-2">Calendar Intelligence</h3>
+                    <p class="text-gray-600">Automatically find available times, handle scheduling conflicts, and manage appointments with intelligent calendar integration.</p>
+                </div>
+
+                <!-- HubSpot CRM -->
+                <div class="bg-gray-50 rounded-xl p-6 hover:shadow-lg transition-all">
+                    <div class="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center mb-4">
+                        <svg class="w-6 h-6 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path>
+                        </svg>
+                    </div>
+                    <h3 class="text-xl font-semibold text-gray-900 mb-2">HubSpot CRM Integration</h3>
+                    <p class="text-gray-600">Create and manage contacts, track client interactions, and maintain relationship history with seamless CRM integration.</p>
+                </div>
+
+                <!-- Workflow Automation -->
+                <div class="bg-gray-50 rounded-xl p-6 hover:shadow-lg transition-all">
+                    <div class="w-12 h-12 bg-red-100 rounded-lg flex items-center justify-center mb-4">
+                        <svg class="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                        </svg>
+                    </div>
+                    <h3 class="text-xl font-semibold text-gray-900 mb-2">Proactive Automation</h3>
+                    <p class="text-gray-600">Create persistent automation rules that execute automatically based on triggers and user patterns.</p>
+                </div>
+
+                <!-- Real-time Chat -->
+                <div class="bg-gray-50 rounded-xl p-6 hover:shadow-lg transition-all">
+                    <div class="w-12 h-12 bg-indigo-100 rounded-lg flex items-center justify-center mb-4">
+                        <svg class="w-6 h-6 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path>
+                        </svg>
+                    </div>
+                    <h3 class="text-xl font-semibold text-gray-900 mb-2">Real-time Chat Interface</h3>
+                    <p class="text-gray-600">Beautiful, responsive chat interface with real-time updates, message reactions, and intelligent suggestions.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Demo Section -->
+    <section id="demo" class="py-20 bg-gray-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="text-center mb-16">
+                <h2 class="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
+                    See AdvisorAI in Action
+                </h2>
+                <p class="text-xl text-gray-600 max-w-2xl mx-auto">
+                    Experience the power of AI-driven workflow automation for financial advisors
+                </p>
+            </div>
+            
+            <div class="bg-white rounded-2xl shadow-xl overflow-hidden">
+                <div class="p-6 border-b border-gray-200">
+                    <div class="flex items-center space-x-2">
+                        <div class="w-3 h-3 bg-red-500 rounded-full"></div>
+                        <div class="w-3 h-3 bg-yellow-500 rounded-full"></div>
+                        <div class="w-3 h-3 bg-green-500 rounded-full"></div>
+                        <span class="ml-4 text-sm text-gray-500">AdvisorAI Chat Interface</span>
+                    </div>
+                </div>
+                
+                <div class="p-6">
+                    <div class="space-y-4">
+                        <div class="flex justify-end">
+                            <div class="bg-blue-100 text-blue-900 px-4 py-2 rounded-lg max-w-xs">
+                                Schedule an appointment with John Smith for next Tuesday at 2pm
+                            </div>
+                        </div>
+                        
+                        <div class="flex justify-start">
+                            <div class="bg-gray-100 text-gray-900 px-4 py-2 rounded-lg max-w-xs">
+                                I'll help you schedule that appointment. Let me check John's contact information and available times...
+                            </div>
+                        </div>
+                        
+                        <div class="flex justify-start">
+                            <div class="bg-gray-100 text-gray-900 px-4 py-2 rounded-lg max-w-xs">
+                                ✓ Found John Smith in HubSpot<br>
+                                ✓ Checked your calendar for Tuesday 2pm<br>
+                                ✓ Sent appointment request to john@example.com<br>
+                                ✓ Added note to John's contact record
+                            </div>
+                        </div>
+                        
+                        <div class="flex justify-end">
+                            <div class="bg-blue-100 text-blue-900 px-4 py-2 rounded-lg max-w-xs">
+                                Perfect! Thanks
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="text-center mt-8">
+                <a href="https://advisorai-production.up.railway.app" target="_blank" rel="noopener" class="bg-primary-600 text-white px-8 py-4 rounded-lg text-lg font-semibold hover:bg-primary-700 transition-all transform hover:scale-105">
+                    Try the Full Demo
+                </a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Technology Stack -->
+    <section class="py-20 bg-white">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="text-center mb-16">
+                <h2 class="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
+                    Built with Modern Technology
+                </h2>
+                <p class="text-xl text-gray-600 max-w-2xl mx-auto">
+                    Leveraging cutting-edge tools and frameworks for optimal performance and reliability
+                </p>
+            </div>
+            
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-8">
+                <div class="text-center">
+                    <div class="w-16 h-16 bg-gray-100 rounded-lg flex items-center justify-center mx-auto mb-4">
+                        <span class="text-2xl font-bold text-gray-700">E</span>
+                    </div>
+                    <h3 class="font-semibold text-gray-900">Elixir/Phoenix</h3>
+                    <p class="text-sm text-gray-600">High-performance backend</p>
+                </div>
+                
+                <div class="text-center">
+                    <div class="w-16 h-16 bg-blue-100 rounded-lg flex items-center justify-center mx-auto mb-4">
+                        <svg class="w-8 h-8 text-blue-600" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"></path>
+                        </svg>
+                    </div>
+                    <h3 class="font-semibold text-gray-900">LiveView</h3>
+                    <p class="text-sm text-gray-600">Real-time UI updates</p>
+                </div>
+                
+                <div class="text-center">
+                    <div class="w-16 h-16 bg-green-100 rounded-lg flex items-center justify-center mx-auto mb-4">
+                        <svg class="w-8 h-8 text-green-600" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4"></path>
+                        </svg>
+                    </div>
+                    <h3 class="font-semibold text-gray-900">PostgreSQL</h3>
+                    <p class="text-sm text-gray-600">Reliable database</p>
+                </div>
+                
+                <div class="text-center">
+                    <div class="w-16 h-16 bg-purple-100 rounded-lg flex items-center justify-center mx-auto mb-4">
+                        <svg class="w-8 h-8 text-purple-600" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"></path>
+                        </svg>
+                    </div>
+                    <h3 class="font-semibold text-gray-900">AI Integration</h3>
+                    <p class="text-sm text-gray-600">Advanced AI models</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="bg-gray-900 text-white py-12">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="grid md:grid-cols-3 gap-8">
+                <div>
+                    <div class="flex items-center mb-4">
+                        <img src="./assets/logo.svg" alt="AdvisorAI Logo" class="h-8 w-8 mr-3">
+                        <span class="text-xl font-bold">AdvisorAI</span>
+                    </div>
+                    <p class="text-gray-400 mb-4">
+                        The intelligent AI assistant platform for financial advisors, designed to streamline workflows and enhance client relationships.
+                    </p>
+                    <div class="flex space-x-4">
+                        <a href="https://github.com/gns-x/AdvisorAI" target="_blank" rel="noopener" class="text-gray-400 hover:text-white transition-colors">
+                            <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
+                            </svg>
+                        </a>
+                    </div>
+                </div>
+                
+                <div>
+                    <h3 class="text-lg font-semibold mb-4">Features</h3>
+                    <ul class="space-y-2 text-gray-400">
+                        <li><a href="#features" class="hover:text-white transition-colors">AI Agent</a></li>
+                        <li><a href="#features" class="hover:text-white transition-colors">Email Management</a></li>
+                        <li><a href="#features" class="hover:text-white transition-colors">Calendar Integration</a></li>
+                        <li><a href="#features" class="hover:text-white transition-colors">HubSpot CRM</a></li>
+                    </ul>
+                </div>
+                
+                <div>
+                    <h3 class="text-lg font-semibold mb-4">Resources</h3>
+                    <ul class="space-y-2 text-gray-400">
+                        <li><a href="https://advisorai-production.up.railway.app" target="_blank" rel="noopener" class="hover:text-white transition-colors">Live Demo</a></li>
+                        <li><a href="https://github.com/gns-x/AdvisorAI" target="_blank" rel="noopener" class="hover:text-white transition-colors">GitHub Repository</a></li>
+                        <li><a href="https://github.com/gns-x/AdvisorAI/blob/main/README.md" target="_blank" rel="noopener" class="hover:text-white transition-colors">Documentation</a></li>
+                    </ul>
+                </div>
+            </div>
+            
+            <div class="border-t border-gray-800 mt-8 pt-8 text-center text-gray-400">
+                <p>&copy; 2024 AdvisorAI. Built with ❤️ for financial advisors.</p>
+            </div>
+        </div>
+    </footer>
+
+    <!-- JavaScript -->
+    <script src="./assets/app.js"></script>
+</body>
+</html>
