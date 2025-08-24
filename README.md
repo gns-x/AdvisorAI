@@ -1,6 +1,6 @@
-# <img src="https://raw.githubusercontent.com/gns-x/AdvisorAI/refs/heads/main/assets/static/logo.svg" alt="AdvisorAI Logo" width="48" style="vertical-align:middle;"> AdvisorAI
+# AdvisorAI
 
-[![Live Demo](https://img.shields.io/badge/Live%20Demo-Online-brightgreen?style=for-the-badge)](https://advisorai-production.up.railway.app)
+[![Live Demo](https://img.shields.io/badge/Live%20Demo-Online-brightgreen?style=for-the-badge)](https://advisorai-production-25b2.up.railway.app/)
 [![Repo](https://img.shields.io/badge/GitHub-Repo-blue?style=for-the-badge)](https://github.com/gns-x/AdvisorAI)
 
 ---
