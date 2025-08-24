@@ -11,218 +11,75 @@
     <script defer phx-track-static type="text/javascript" src={~p"/assets/app.js"}>
     </script>
   </head>
-  <body class="h-full bg-gradient-to-br from-slate-50 to-blue-50">
-    <div class="min-h-screen">
-      <!-- Hero Section -->
-      <div class="relative overflow-hidden bg-gradient-to-br from-white/90 to-slate-50/90 backdrop-blur-sm">
-        <div class="absolute inset-0 bg-gradient-to-r from-blue-500/5 to-purple-500/5"></div>
-        <div class="relative max-w-7xl mx-auto px-8 py-32">
-          <div class="text-center">
-            <div class="flex items-center justify-center mb-10">
-              <div class="w-20 h-20 bg-gradient-to-r from-blue-500 to-blue-600 rounded-3xl flex items-center justify-center shadow-2xl">
-                <img
-                  src="https://raw.githubusercontent.com/gns-x/AdvisorAI/refs/heads/main/assets/static/logo.svg"
-                  alt="Advisor Logo"
-                  class="w-16 h-16"
-                />
+  <body class="h-full">
+    <div class="login-page">
+      <div class="max-w-md w-full">
+        <!-- Login Card -->
+        <div class="login-card bg-white rounded-2xl shadow-2xl p-10 border border-gray-100 backdrop-blur-sm">
+          <!-- Branding -->
+          <div class="text-center mb-10">
+            <div class="flex items-center justify-center">
+              <div class="flex items-center gap-3">
+                <!-- Cool animated icon instead of logo -->
+                <div class="cool-icon-container w-12 h-12 rounded-2xl flex items-center justify-center shadow-lg relative overflow-hidden">
+                  <!-- Animated background -->
+                  <div class="absolute inset-0 bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500 animate-pulse"></div>
+                  <!-- Geometric shapes -->
+                  <div class="relative z-10 flex items-center justify-center">
+                    <div class="w-6 h-6 bg-white rounded-sm transform rotate-45 shadow-inner"></div>
+                    <div class="absolute w-3 h-3 bg-white rounded-full -top-1 -right-1 shadow-inner"></div>
+                    <div class="absolute w-2 h-2 bg-white rounded-full -bottom-1 -left-1 shadow-inner"></div>
+                  </div>
+                  <!-- Shimmer effect -->
+                  <div class="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent transform -skew-x-12 animate-shimmer"></div>
+                </div>
+                <!-- AdvisorAI text -->
+                <span class="login-title text-4xl font-black tracking-tight">AdvisorAI</span>
               </div>
             </div>
-
-            <h1 class="text-6xl font-bold text-slate-900 mb-8">
-              Your AI-Powered
-              <span class="bg-gradient-to-r from-blue-600 via-purple-600 to-indigo-600 bg-clip-text text-transparent">
-                Financial Assistant
-              </span>
+          </div>
+          
+          <!-- Welcome Message -->
+          <div class="text-center mb-10">
+            <h1 class="text-3xl font-bold text-gray-900 mb-3">
+              Welcome back!
             </h1>
-            <p class="text-2xl text-slate-600 mb-12 max-w-4xl mx-auto leading-relaxed">
-              Streamline your financial advisory practice with intelligent automation.
-              Connect Gmail, Google Calendar, and HubSpot for seamless client management.
+            <p class="text-base text-gray-600 leading-relaxed">
+              Sign in with the same email you used to set up your AdvisorAI account originally.
             </p>
-
-            <div class="flex flex-col sm:flex-row gap-6 justify-center">
-              <%= if @current_user do %>
-                <.link
-                  navigate={~p"/chat"}
-                  class="px-10 py-5 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-2xl hover:from-blue-600 hover:to-blue-700 transition-all font-semibold text-xl shadow-lg hover:shadow-xl hover:scale-105"
-                >
-                  Start Chatting
-                </.link>
-              <% else %>
-                <.link
-                  href={~p"/auth/google"}
-                  class="px-10 py-5 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-2xl hover:from-blue-600 hover:to-blue-700 transition-all font-semibold text-xl shadow-lg hover:shadow-xl hover:scale-105"
-                >
-                  Connect with Google
-                </.link>
-              <% end %>
-              <a
-                href="#features"
-                class="px-10 py-5 bg-white/80 backdrop-blur-sm text-slate-700 border border-slate-200/50 rounded-2xl hover:bg-white hover:shadow-lg transition-all font-semibold text-xl hover:scale-105"
-              >
-                Learn More
+          </div>
+          
+          <!-- Login Buttons -->
+          <div class="space-y-4 mb-8">
+            <!-- Google Sign In Button -->
+            <a
+              href="/auth/google"
+              class="btn-google w-full flex items-center justify-center px-6 py-4 rounded-xl text-base font-semibold text-gray-700 transition-all duration-200 transform hover:scale-[1.02] active:scale-[0.98] shadow-lg hover:shadow-xl"
+            >
+              <img
+                src="https://www.svgrepo.com/show/475656/google-color.svg"
+                alt="Google"
+                class="h-7 w-7 mr-4"
+              />
+              <span class="text-lg">Sign in with Google</span>
+            </a>
+          </div>
+          
+          <!-- Footer -->
+          <div class="login-footer text-center space-y-4">
+            <div class="h-px bg-gradient-to-r from-transparent via-gray-300 to-transparent"></div>
+            <p class="text-sm text-gray-500">
+              <a href="#" class="text-[#00A651] hover:text-[#008F47] font-medium transition-colors">
+                Terms of Service
               </a>
-            </div>
-          </div>
-        </div>
-      </div>
-      
-<!-- Features Section -->
-      <div id="features" class="py-32 bg-gradient-to-br from-slate-50/50 to-blue-50/50">
-        <div class="max-w-7xl mx-auto px-8">
-          <div class="text-center mb-20">
-            <h2 class="text-5xl font-bold gradient-text mb-6">Powerful Features</h2>
-            <p class="text-xl text-slate-600 max-w-3xl mx-auto leading-relaxed">
-              Everything you need to manage your financial advisory practice efficiently
+              <span class="mx-2">•</span>
+              <a href="#" class="text-[#00A651] hover:text-[#008F47] font-medium transition-colors">
+                Privacy Policy
+              </a>
             </p>
-          </div>
-
-          <div class="grid grid-cols-1 md:grid-cols-3 gap-10">
-            <!-- Feature 1 -->
-            <div class="bg-white/90 backdrop-blur-sm rounded-3xl border border-slate-200/50 p-10 text-center shadow-lg hover:shadow-xl transition-all hover:scale-[1.02] group">
-              <div class="w-20 h-20 bg-gradient-to-r from-blue-500 to-blue-600 rounded-3xl flex items-center justify-center mx-auto mb-8 shadow-lg group-hover:scale-110 transition-transform">
-                <svg
-                  class="w-10 h-10 text-white"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="2"
-                    d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-                  >
-                  </path>
-                </svg>
-              </div>
-              <h3 class="text-2xl font-semibold text-slate-900 mb-4">Smart Client Search</h3>
-              <p class="text-slate-600 text-lg leading-relaxed">
-                Ask questions about your clients and get instant answers using data from emails and CRM.
-              </p>
-            </div>
-            
-<!-- Feature 2 -->
-            <div class="bg-white/90 backdrop-blur-sm rounded-3xl border border-slate-200/50 p-10 text-center shadow-lg hover:shadow-xl transition-all hover:scale-[1.02] group">
-              <div class="w-20 h-20 bg-gradient-to-r from-green-500 to-green-600 rounded-3xl flex items-center justify-center mx-auto mb-8 shadow-lg group-hover:scale-110 transition-transform">
-                <svg
-                  class="w-10 h-10 text-white"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="2"
-                    d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
-                  >
-                  </path>
-                </svg>
-              </div>
-              <h3 class="text-2xl font-semibold text-slate-900 mb-4">Automated Scheduling</h3>
-              <p class="text-slate-600 text-lg leading-relaxed">
-                Schedule meetings, send calendar invites, and manage appointments automatically.
-              </p>
-            </div>
-            
-<!-- Feature 3 -->
-            <div class="bg-white/90 backdrop-blur-sm rounded-3xl border border-slate-200/50 p-10 text-center shadow-lg hover:shadow-xl transition-all hover:scale-[1.02] group">
-              <div class="w-20 h-20 bg-gradient-to-r from-purple-500 to-purple-600 rounded-3xl flex items-center justify-center mx-auto mb-8 shadow-lg group-hover:scale-110 transition-transform">
-                <svg
-                  class="w-10 h-10 text-white"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="2"
-                    d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"
-                  >
-                  </path>
-                </svg>
-              </div>
-              <h3 class="text-2xl font-semibold text-slate-900 mb-4">AI-Powered Insights</h3>
-              <p class="text-slate-600 text-lg leading-relaxed">
-                Get intelligent recommendations and insights to improve your client relationships.
-              </p>
-            </div>
-          </div>
-        </div>
-      </div>
-      
-<!-- How It Works Section -->
-      <div class="py-32 bg-white/90 backdrop-blur-sm">
-        <div class="max-w-7xl mx-auto px-8">
-          <div class="text-center mb-20">
-            <h2 class="text-5xl font-bold gradient-text mb-6">How It Works</h2>
-            <p class="text-xl text-slate-600 max-w-3xl mx-auto leading-relaxed">
-              Simple steps to transform your financial advisory practice
+            <p class="text-xs text-gray-400 font-medium">
+              Protected by reCAPTCHA
             </p>
-          </div>
-
-          <div class="grid grid-cols-1 md:grid-cols-3 gap-10">
-            <!-- Step 1 -->
-            <div class="text-center group">
-              <div class="w-20 h-20 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-3xl flex items-center justify-center mx-auto mb-8 text-3xl font-bold shadow-lg group-hover:scale-110 transition-transform">
-                1
-              </div>
-              <h3 class="text-2xl font-semibold text-slate-900 mb-4">Connect Your Accounts</h3>
-              <p class="text-slate-600 text-lg leading-relaxed">
-                Securely connect your Gmail, Google Calendar, and HubSpot accounts with OAuth.
-              </p>
-            </div>
-            
-<!-- Step 2 -->
-            <div class="text-center group">
-              <div class="w-20 h-20 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-3xl flex items-center justify-center mx-auto mb-8 text-3xl font-bold shadow-lg group-hover:scale-110 transition-transform">
-                2
-              </div>
-              <h3 class="text-2xl font-semibold text-slate-900 mb-4">Start Chatting</h3>
-              <p class="text-slate-600 text-lg leading-relaxed">
-                Ask questions about your clients, schedule meetings, or get insights from your data.
-              </p>
-            </div>
-            
-<!-- Step 3 -->
-            <div class="text-center group">
-              <div class="w-20 h-20 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-3xl flex items-center justify-center mx-auto mb-8 text-3xl font-bold shadow-lg group-hover:scale-110 transition-transform">
-                3
-              </div>
-              <h3 class="text-2xl font-semibold text-slate-900 mb-4">Automate & Grow</h3>
-              <p class="text-slate-600 text-lg leading-relaxed">
-                Let AI handle routine tasks while you focus on building client relationships.
-              </p>
-            </div>
-          </div>
-        </div>
-      </div>
-      
-<!-- CTA Section -->
-      <div class="py-32 bg-gradient-to-br from-slate-50/50 to-blue-50/50">
-        <div class="max-w-4xl mx-auto px-8 text-center">
-          <div class="bg-white/90 backdrop-blur-sm rounded-3xl border border-slate-200/50 p-16 shadow-lg">
-            <h2 class="text-5xl font-bold gradient-text mb-6">Ready to Get Started?</h2>
-            <p class="text-xl text-slate-600 mb-10 leading-relaxed">
-              Join financial advisors who are already using AI to streamline their practice.
-            </p>
-
-            <%= if @current_user do %>
-              <.link
-                navigate={~p"/chat"}
-                class="px-12 py-6 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-2xl hover:from-blue-600 hover:to-blue-700 transition-all font-semibold text-xl shadow-lg hover:shadow-xl hover:scale-105"
-              >
-                Go to Chat
-              </.link>
-            <% else %>
-              <.link
-                href={~p"/auth/google"}
-                class="px-12 py-6 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-2xl hover:from-blue-600 hover:to-blue-700 transition-all font-semibold text-xl shadow-lg hover:shadow-xl hover:scale-105"
-              >
-                Connect with Google
-              </.link>
-            <% end %>
           </div>
         </div>
       </div>
